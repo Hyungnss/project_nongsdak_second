@@ -14,6 +14,9 @@ CSV 한 개를 각자 로컬 Oracle 에 올리고 웹서비스를 띄우는 순�
 | **Python 3.11** | `python --version` |
 | **Git** | `git --version` · 저장소를 받는다: `git clone <저장소주소>` |
 
+위 네 가지가 아직 안 깔린 컴퓨터라면 [NEW_PC_SETUP.md](NEW_PC_SETUP.md) 를 먼저 본다 —
+파이썬·Git·Node·Claude Code 설치부터 저장소 내려받기까지 순서대로 적어 뒀다.
+
 원본 CSV(`raws/kamis_price_data_20250901_20260818.csv`)는 저장소에 함께 들어 있다.
 `.env` 와 `.venv/`, `logs/` 는 들어 있지 않다 — 각자 만든다(1·2단계).
 
