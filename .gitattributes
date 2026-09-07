@@ -1,0 +1,8 @@
+# 줄바꿈을 저장소 안에서는 LF 로 통일한다. 팀원마다 OS 가 달라도 diff 가 안 튄다.
+* text=auto eol=lf
+
+# 배치 파일은 CRLF 여야 한다. cmd 가 LF 만 있는 .bat 을 만나면 마지막 줄을 흘린다.
+*.bat text eol=crlf
+
+# 원본 데이터는 손대지 않는다. 변환도 diff 도 필요 없다.
+*.csv -text

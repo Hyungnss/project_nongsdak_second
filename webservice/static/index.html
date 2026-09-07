@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>농스닥 — 오늘의 장바구니 시세</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f4f5f7; --card:#fcfcfb; --card2:#eef0f2;
+  --ink:#15181c; --ink2:#4d5359; --muted:#848a91;
+  --line:#e2e5e8; --grid:#e8eaec; --hair:rgba(21,24,28,.09);
+  --accent:#2a78d6; --teal:#0f766e; --amber:#b8730a;
+  --up:#d02b32; --down:#006eda;
+  /* 포춘쿠키 — 밝은 화면에서는 일반 쿠키와 미색 쪽지 */
+  --cookie-bake:none;
+  --slip-a:#fffdf6; --slip-b:#fdf6e4; --slip-shadow:rgba(0,0,0,.18);
+  --slip-ink:#2b2721; --slip-ink2:#5d5648; --slip-muted:#8d8475;
+  --slip-up:#c02a30; --slip-down:#0b5fc4;
+  --slip-border:rgba(0,0,0,.12); --slip-dash:rgba(0,0,0,.18);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0b0c0d; --card:#1a1a19; --card2:#232426;
+    --ink:#fff; --ink2:#c3c2b7; --muted:#8d9299;
+    --line:#2e3033; --grid:#2c2c2a; --hair:rgba(255,255,255,.10);
+    --accent:#3987e5; --teal:#3aa79c; --amber:#d99a2b;
+    --up:#f4514f; --down:#268afe;
+    --cookie-bake:brightness(.46) saturate(.68) hue-rotate(-6deg) contrast(1.12);
+    /* 쪽지도 다크초코로. 미색 종이는 어두운 화면에서 혼자 튄다. */
+    --slip-a:#241c15; --slip-b:#191310; --slip-shadow:rgba(0,0,0,.6);
+    --slip-ink:#f3ebdf; --slip-ink2:#c3b5a2; --slip-muted:#9c8e7d;
+    --slip-up:#f4514f; --slip-down:#3b95ff;
+    --slip-border:rgba(255,255,255,.13); --slip-dash:rgba(255,255,255,.17);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0b0c0d; --card:#1a1a19; --card2:#232426;
+  --ink:#fff; --ink2:#c3c2b7; --muted:#8d9299;
+  --line:#2e3033; --grid:#2c2c2a; --hair:rgba(255,255,255,.10);
+  --accent:#3987e5; --teal:#3aa79c; --amber:#d99a2b;
+  --up:#f4514f; --down:#268afe;
+  /* 채도를 올리면 초코가 아니라 주황이 된다. 낮추고 어둡게 해야 초콜릿이 된다. */
+  --cookie-bake:brightness(.46) saturate(.68) hue-rotate(-6deg) contrast(1.12);
+  --slip-a:#241c15; --slip-b:#191310; --slip-shadow:rgba(0,0,0,.6);
+  --slip-ink:#f3ebdf; --slip-ink2:#c3b5a2; --slip-muted:#9c8e7d;
+  --slip-up:#f4514f; --slip-down:#3b95ff;
+  --slip-border:rgba(255,255,255,.13); --slip-dash:rgba(255,255,255,.17);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
+  font-family:system-ui,-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+.mono,.tick,.big,table,.pct{font-family:ui-monospace,"Cascadia Mono",Consolas,"D2Coding",monospace}
+:root{--maxw:1240px}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:32px 20px 80px;
+  display:flex;flex-direction:column;gap:22px}
+
+/* 시세와 하한가·상한가를 나란히 놓는다. 좁아지면 위아래로 쌓인다.
+   stretch 라서 한쪽이 길어져도 두 카드의 아래 선이 어긋나지 않는다. */
+.cols{display:grid;gap:22px;grid-template-columns:minmax(0,1fr) 340px;align-items:stretch}
+@media (max-width:1000px){.cols{grid-template-columns:1fr}}
+
+/* ── 상단 바 ── 시세 띠를 화면 전체 너비로 깔기 위한 껍데기.
+   색은 본문과 같이 테마를 따른다. */
+.topbar-inner{max-width:var(--maxw);margin:0 auto;padding:26px 20px 24px;
+  display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+
+/* 테마 전환 버튼 */
+.themebtn{font:inherit;font-size:13.5px;padding:8px 14px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--line);background:var(--card);color:var(--ink2);
+  display:inline-flex;align-items:center;gap:7px;white-space:nowrap;flex:none}
+.themebtn:hover{color:var(--ink);border-color:var(--muted)}
+.themebtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.themebtn .ico{font-size:15px;line-height:1}
+
+/* 이름이 '농스닥'(농산물 + 코스닥)이라 시세판 느낌을 살짝 준다.
+   상승 빨강 / 하락 파랑은 차트에서 이미 쓰는 규칙이라 그대로 가져왔다. */
+header h1{margin:0;font-size:38px;letter-spacing:-1.5px;line-height:1.15;
+  display:flex;align-items:center;gap:9px}
+header h1 .tick{font-size:20px;letter-spacing:0;font-weight:700;
+  display:inline-flex;align-items:center;gap:2px}
+header h1 .tick .u{color:var(--up)}
+header h1 .tick .d{color:var(--down)}
+header .tagline{margin:6px 0 0;font-size:16px;color:var(--ink);font-weight:600;
+  letter-spacing:-.3px}
+header p{margin:0;color:var(--ink2);font-size:14.5px}
+header .lede{margin-top:4px}
+
+/* 오늘 몇 개가 오르고 내렸는지 — 증권 시세판의 '등락 종목 수'에 해당한다 */
+.breadth{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px;
+  font-size:13.5px;font-family:ui-monospace,Consolas,monospace}
+.breadth b{font-weight:700}
+.breadth .u{color:var(--up)} .breadth .d{color:var(--down)} .breadth .f{color:var(--muted)}
+.breadth .sep{color:var(--line)}
+
+/* 시세 띠 — 오늘 조사된 품목이 흘러간다. 손을 올리면 멈춘다.
+   화면 전체 너비로 깔려고 .wrap 바깥, 문서 맨 위에 둔다.
+   (100vw 로 늘리면 세로 스크롤바 너비만큼 넘쳐 가로 스크롤이 생긴다.) */
+.ticker{overflow:hidden;border-bottom:1px solid var(--line);
+  background:var(--card);padding:10px 0}
+.ticker .track{display:inline-flex;white-space:nowrap;animation:tick linear infinite}
+.ticker:hover .track,.ticker:focus-within .track{animation-play-state:paused}
+.ticker .it{display:inline-flex;align-items:baseline;gap:7px;padding:0 16px;
+  font-size:13px;font-family:ui-monospace,Consolas,monospace;
+  border-right:1px solid var(--hair)}
+.ticker .it:only-child{border-right:none;color:var(--muted)}
+.ticker .it b{font-weight:650;font-family:inherit}
+.ticker .it .p{color:var(--ink2)}
+.ticker .it .up{color:var(--up)} .ticker .it .down{color:var(--down)}
+.ticker .it .flat{color:var(--muted)}
+@keyframes tick{from{transform:translateX(0)} to{transform:translateX(-50%)}}
+/* 움직임을 줄이는 설정이면 흐르지 않게 하고 직접 밀어 볼 수 있게 한다 */
+@media (prefers-reduced-motion:reduce){
+  .ticker{overflow-x:auto}
+  .ticker .track{animation:none}
+}
+.asof{font-size:12.5px;color:var(--muted);margin-top:8px;
+  font-family:ui-monospace,Consolas,monospace}
+
+/* 자동 수집 신선도. "언제 조사된 값을 언제 받아왔는지"를 밝힌다.
+   자동 갱신은 눈에 안 보이므로 근거를 적어 두지 않으면 사용자가 믿을 수 없다. */
+.fresh{display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  font-size:12.5px;margin-top:6px;font-family:ui-monospace,Consolas,monospace}
+.fresh .dot{width:7px;height:7px;border-radius:50%;background:var(--up);flex:none}
+.fresh .txt{color:var(--muted)}
+/* 마지막 수집이 24시간을 넘겼으면 경고. 수집기가 죽으면 화면은 어제 값을
+   오늘 값처럼 계속 보여주므로, 사용자도 우리도 알 수 있어야 한다.
+   경고색은 --amber 를 쓴다. --down(파랑)은 이 화면에서 '하락'이라
+   경고로 읽히지 않는다. 철 지난 품목의 .stalebar 와 같은 색이다. */
+.fresh.stale .dot{background:var(--amber)}
+.fresh.stale .txt{color:var(--amber);font-weight:600}
+.fresh .badge{border:1px solid currentColor;border-radius:999px;
+  padding:1px 8px;font-size:11.5px;color:var(--amber)}
+
+.card{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:22px 24px}
+h2{margin:0 0 4px;font-size:19px;letter-spacing:-.2px}
+.lead{margin:0 0 16px;color:var(--ink2);font-size:14px}
+/* 설명글을 뺀 카드는 제목이 내용에 붙어버린다. 그만큼을 띄운다. */
+.card > h2 + :not(.lead){margin-top:16px}
+
+.picker{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:18px}
+.fld{display:flex;flex-direction:column;gap:5px}
+.fld span{font-size:12.5px;color:var(--muted)}
+select,input[type=search]{font:inherit;font-size:14.5px;padding:9px 12px;border:1px solid var(--line);
+  border-radius:8px;background:var(--card);color:var(--ink);min-width:180px;max-width:100%}
+select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* ── 검색 ── 입력하면 품목·품종 이름에 그 말이 든 것만 아래에 뜬다 */
+.search{position:relative;flex:1 1 260px;min-width:220px}
+.search input{width:100%}
+.results{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 6px);
+  background:var(--card);border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 10px 28px rgba(0,0,0,.14);max-height:320px;overflow-y:auto;padding:5px}
+.results[hidden]{display:none}
+.rrow{display:flex;align-items:baseline;gap:9px;padding:8px 10px;border-radius:7px;
+  cursor:pointer;font-size:14px}
+.rrow:hover,.rrow.on{background:var(--card2)}
+.rrow .nm{flex:1;min-width:0}
+.rrow .nm small{display:block;color:var(--muted);font-size:11.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rrow .st{font-size:11.5px;color:var(--amber);white-space:nowrap}
+.rrow mark{background:transparent;color:var(--accent);font-weight:700}
+.rnote{padding:8px 10px;font-size:13px;color:var(--muted)}
+.rtip{padding:0 10px 9px;font-size:12.5px;color:var(--muted)}
+.rtip b{color:var(--accent);font-weight:700}
+
+/* 철이 지나 조사가 끊긴 품목은 마지막 가격이 '오늘 가격'처럼 보인다.
+   검색 목록에는 'N일째 조사 없음'을 적어 두었으니 상세에도 같은 사실을 알린다. */
+.stalebar{display:flex;gap:8px;align-items:flex-start;margin-bottom:14px;
+  padding:10px 13px;border-radius:9px;font-size:13.5px;line-height:1.5;
+  color:var(--amber);background:var(--card2);border:1px solid var(--hair)}
+.stalebar b{font-weight:700}
+
+/* 1~3일 묵은 값에 붙이는 작은 배지. 경고바보다 약하게 — 주말이 낀 이틀 전 값은
+   장 볼 때 충분히 쓸 만해서 큰 경고를 띄울 일이 아니다. 다만 '오늘 가격'으로
+   읽히지는 않아야 한다. */
+.agobadge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;
+  font-size:11.5px;font-weight:600;color:var(--amber);
+  background:var(--card2);border:1px solid var(--hair)}
+
+.today{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 16px;
+  padding-bottom:16px;border-bottom:1px solid var(--line)}
+.today .name{font-size:16px;font-weight:650}
+.today .sub{font-size:13px;color:var(--muted)}
+.today .big{font-size:42px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.today .unit{font-size:14px;color:var(--ink2)}
+
+.cmp{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));margin-top:16px}
+.c{border:1px solid var(--hair);border-radius:10px;padding:12px 13px;background:var(--card2)}
+.c .l{font-size:12.5px;color:var(--muted)}
+.c .v{font-size:20px;font-weight:660;letter-spacing:-.4px;
+  font-family:ui-monospace,Consolas,monospace;margin-top:2px}
+.c .p{font-size:12.5px;color:var(--ink2);margin-top:2px;
+  font-family:ui-monospace,Consolas,monospace}
+.c .note{font-size:11.5px;color:var(--amber);margin-top:3px}
+.c.up .v{color:var(--up)} .c.down .v{color:var(--down)}
+.c.na .v{color:var(--muted);font-size:15px}
+
+.chart{overflow-x:auto;margin-top:18px}
+svg{display:block;width:100%;min-width:560px}
+.grid-l{stroke:var(--grid);stroke-width:1}
+.tick{font-size:10px;fill:var(--muted)}
+/* 주식 차트처럼 방향에 따라 색이 바뀐다 — 오르면 빨강, 내리면 파랑 */
+.series{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.area{stroke:none;fill-opacity:.10}
+.dot{stroke:var(--card);stroke-width:2}
+.series.up{stroke:var(--up)}    .area.up{fill:var(--up)}    .dot.up{fill:var(--up)}
+.series.down{stroke:var(--down)} .area.down{fill:var(--down)} .dot.down{fill:var(--down)}
+.series.flat{stroke:var(--muted)} .area.flat{fill:var(--muted)} .dot.flat{fill:var(--muted)}
+/* 평년선은 비교용 배경이라 점선에 가늘게 — 실제 가격선을 가리지 않게 한다 */
+.series.norm{stroke:var(--teal);stroke-width:1.6;stroke-dasharray:5 4;opacity:.9}
+.lbl{font-size:11px;fill:var(--ink2)}
+.lbl.norm{fill:var(--teal)}
+
+.legend{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink2)}
+.legend i{width:15px;border-top:2.5px solid currentColor;display:block}
+.legend.norm{color:var(--teal)}
+.legend.norm i{border-top-width:2px;border-top-style:dashed}
+
+.chart-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:18px}
+.chart-head .t{font-size:13.5px;color:var(--ink2)}
+.badge{font-size:14px;font-weight:660;padding:3px 10px;border-radius:20px;
+  font-family:ui-monospace,Consolas,monospace}
+.badge.up{color:var(--up);background:var(--card2)}
+.badge.down{color:var(--down);background:var(--card2)}
+.badge.flat{color:var(--muted);background:var(--card2)}
+@supports (background:color-mix(in srgb,red 10%,transparent)){
+  .badge.up{background:color-mix(in srgb,var(--up) 12%,transparent)}
+  .badge.down{background:color-mix(in srgb,var(--down) 12%,transparent)}
+}
+
+.tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.tab{font:inherit;font-size:13.5px;padding:7px 14px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--line);background:var(--card2);color:var(--ink2)}
+.tab.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* 자리가 넓으면 하한가·상한가를 가로로, 좁으면 위아래로 놓는다.
+   minmax 의 최소값을 300px 로 고정하면 그보다 좁은 옆칸(약 290px)에서 트랙이
+   칸을 넘어 삐져나온다. min(...,100%) 로 칸보다 커지지 않게 막는다. */
+.movers{display:grid;gap:16px;
+  grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))}
+.mlist{border:1px solid var(--hair);border-radius:10px;background:var(--card2);padding:14px 16px}
+.mlist h3{margin:0 0 10px;font-size:14.5px;display:flex;align-items:center;gap:7px}
+/* '하한가'가 무슨 뜻인지 옆에 작게 풀어 둔다 */
+.mlist h3 span{font-weight:400;font-size:12px;color:var(--muted)}
+.mlist h3 i{width:9px;height:9px;border-radius:50%;display:block}
+.mrow{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
+.mrow:last-child{border-bottom:none}
+/* 품목명이 길어도 옆 칸(가격·등락)을 밀어내지 않도록 잘라 준다 */
+.mrow .nm{flex:1;font-size:14px;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow .nm small{display:block;color:var(--muted);font-size:11.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow .pr{font-size:13px;color:var(--ink2);font-family:ui-monospace,Consolas,monospace;
+  white-space:nowrap;text-align:right}
+.mrow .pr small{display:block;font-size:11px;color:var(--muted)}
+.mrow .chg{white-space:nowrap;min-width:66px;text-align:right}
+.mrow .pct{font-size:15px;font-weight:660;white-space:nowrap}
+.mrow .diff{font-size:11.5px;font-family:ui-monospace,Consolas,monospace;margin-top:1px}
+.pct.up,.diff.up{color:var(--up)} .pct.down,.diff.down{color:var(--down)}
+.mrow.click{cursor:pointer;border-radius:6px;margin:0 -8px;padding-left:8px;padding-right:8px}
+.mrow.click:hover{background:var(--card)}
+
+/* ── 포춘쿠키 ── 쿠키를 눌러 깨면 안에서 종이가 나온다 */
+.cookiebox{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0 4px}
+.cookie{position:relative;width:104px;height:104px;padding:0;border:0;background:none;
+  cursor:pointer;font-size:76px;line-height:104px;text-align:center}
+.cookie .half{position:absolute;inset:0;display:block;transform-origin:50% 60%;
+  filter:var(--cookie-bake)}
+.cookie .half.l{clip-path:inset(0 50% 0 0)}
+.cookie .half.r{clip-path:inset(0 0 0 50%)}
+.cookie:focus-visible{outline:2px solid var(--accent);outline-offset:6px;border-radius:12px}
+/* 눌러 달라고 살짝 흔들린다. 손을 올리면 빨라진다. */
+@keyframes wob{0%,100%{transform:rotate(-5deg)} 50%{transform:rotate(5deg)}}
+.cookie:not(.crack){animation:wob 2.6s ease-in-out infinite}
+.cookie:not(.crack):hover{animation-duration:.9s}
+/* 깨질 때 두 쪽이 갈라져 떨어진다 */
+@keyframes crackL{
+  30%{transform:translate(-6px,-3px) rotate(-7deg)}
+  100%{transform:translate(-46px,26px) rotate(-32deg);opacity:0}}
+@keyframes crackR{
+  30%{transform:translate(6px,-3px) rotate(7deg)}
+  100%{transform:translate(46px,26px) rotate(32deg);opacity:0}}
+.cookie.crack{animation:none}
+.cookie.crack .half.l{animation:crackL .48s cubic-bezier(.3,.1,.5,1) forwards}
+.cookie.crack .half.r{animation:crackR .48s cubic-bezier(.3,.1,.5,1) forwards}
+.cookiehint{margin:0;font-size:13.5px;color:var(--muted)}
+.baked{display:inline-block;filter:var(--cookie-bake)}
+
+/* 쿠키 속 쪽지 — 종이라서 두 테마 모두 같은 미색이다 */
+.fbox{display:flex;flex-wrap:wrap;align-items:center;gap:16px}
+.slip{flex:1 1 320px;min-width:0;cursor:pointer;position:relative;
+  --ink:var(--slip-ink); --ink2:var(--slip-ink2); --muted:var(--slip-muted);
+  --up:var(--slip-up); --down:var(--slip-down);
+  color:var(--ink);background:linear-gradient(180deg,var(--slip-a),var(--slip-b));
+  border:1px solid var(--slip-border);border-radius:3px;padding:16px 20px;
+  box-shadow:0 8px 20px var(--slip-shadow);transform:rotate(-.5deg)}
+.slip:hover{transform:rotate(-.5deg) translateY(-2px)}
+@keyframes slipOut{
+  from{opacity:0;transform:rotate(-.5deg) translateY(-14px) scaleY(.55)}
+  to{opacity:1;transform:rotate(-.5deg) translateY(0) scaleY(1)}}
+.slip{animation:slipOut .34s ease-out both}
+.slip .top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.slip .nm{font-size:17px;font-weight:700}
+.slip .kd{font-size:12.5px;color:var(--muted)}
+.slip .pr{margin-left:auto;font-size:24px;font-weight:700;letter-spacing:-.4px;
+  font-family:ui-monospace,Consolas,monospace}
+.slip .pct{font-size:16px;font-weight:660;font-family:ui-monospace,Consolas,monospace}
+.slip .pct.up{color:var(--up)} .slip .pct.down{color:var(--down)}
+.slip .pct.flat{color:var(--muted)}
+.slip .flow{font-size:12.5px;color:var(--ink2);margin-top:6px;
+  font-family:ui-monospace,Consolas,monospace}
+.slip .msg{font-size:15px;margin-top:10px;padding-top:10px;
+  border-top:1px dashed var(--slip-dash);font-weight:600}
+
+.fbtn{font:inherit;font-size:14.5px;padding:11px 20px;border-radius:24px;cursor:pointer;
+  border:1px solid var(--ink);background:var(--ink);color:var(--card);white-space:nowrap}
+.fbtn:hover{opacity:.88}
+.fbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* 움직임을 줄이는 설정이면 흔들지도 깨지지도 않고 바로 보여준다 */
+@media (prefers-reduced-motion:reduce){
+  .cookie:not(.crack),.cookie.crack .half{animation:none}
+  .cookie.crack .half{opacity:0}
+  .slip{animation:none}
+}
+
+.err{color:var(--up);font-size:14px}
+.loading{color:var(--muted);font-size:14px}
+footer{border-top:1px solid var(--line);padding-top:16px;font-size:12.5px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<script>
+// 저장해 둔 테마를 그리기 전에 먼저 씌운다.
+// 아래 본문 스크립트에서 하면 밝은 화면이 한 번 번쩍이고 어두워진다.
+try{
+  var t = localStorage.getItem('nongsdaq-theme');
+  if(t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+}catch(e){}
+</script>
+</head>
+<body>
+
+<div class="topbar">
+  <!-- 목록을 두 벌 이어 붙여 흘리는 장식이라, 읽어주기에는 같은 내용이 두 번 나온다.
+       같은 자료가 아래 '급등락'과 '품목별 시세'에 있으므로 여기서는 숨긴다.
+       자리를 미리 잡아 두려고 처음부터 띄운다 — 나중에 나타나면 화면이 밀린다. -->
+  <div class="ticker" id="ticker" aria-hidden="true">
+    <div class="track" style="animation:none"><span class="it">시세를 불러오는 중…</span></div>
+  </div>
+
+  <div class="topbar-inner">
+    <header>
+      <h1>농스닥<span class="tick" aria-hidden="true"><span class="u">▲</span><span class="d">▼</span></span></h1>
+      <p class="tagline">오늘의 장바구니 시세</p>
+      <p class="lede">당신의 지갑을 지켜드립니다.</p>
+      <div class="asof" id="asof">불러오는 중…</div>
+      <div class="fresh" id="fresh" hidden></div>
+      <div class="breadth" id="breadth"></div>
+    </header>
+
+    <button class="themebtn" type="button" id="themebtn" aria-pressed="false">
+      <span class="ico" aria-hidden="true">🌙</span><span class="lbl">다크 모드</span>
+    </button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="cols">
+
+  <section class="card">
+    <h2>품목별 시세</h2>
+    <div class="picker">
+      <div class="fld search">
+        <span>검색</span>
+        <input type="search" id="q" placeholder="무엇을 찾으시나요?" autocomplete="off"
+               role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list">
+        <div class="results" id="results" role="listbox" aria-label="검색 결과" hidden></div>
+      </div>
+      <label class="fld"><span>품목</span><select id="selItem"><option>불러오는 중…</option></select></label>
+      <label class="fld"><span>품종</span><select id="selKind" disabled><option>—</option></select></label>
+    </div>
+    <div id="detail"><div class="loading">불러오는 중…</div></div>
+  </section>
+
+  <section class="card side">
+    <h2>하한가 · 상한가</h2>
+    <p class="lead">품목마다 대표 등급 하나만 집계합니다 (상품·大 기준).</p>
+    <div class="tabs" id="tabs">
+      <button class="tab on" data-offset="1" type="button">어제</button>
+      <button class="tab" data-offset="7" type="button">일주일</button>
+      <button class="tab" data-offset="30" type="button">한 달</button>
+    </div>
+    <div id="movers"><div class="loading">불러오는 중…</div></div>
+  </section>
+
+  </div>
+
+  <section class="card">
+    <h2><span class="baked">🥠</span> 오늘의 포춘쿠키</h2>
+    <div id="fortune"><div class="loading">불러오는 중…</div></div>
+  </section>
+
+  <footer>
+    자료: KAMIS 농산물유통정보 소매 조사 · Oracle <code>TBL_DAILY_PRICE</code><br>
+    비교 시점은 저장된 값이 아니라 실제 조사 이력에서 가장 가까운 날을 찾아 계산합니다.
+  </footer>
+</div>
+
+<script>
+const won = n => n == null ? '—' : Math.round(n).toLocaleString('ko-KR') + '원';
+const signed = n => (n > 0 ? '+' : '') + n.toFixed(1) + '%';
+// 변동 금액. 음수는 toLocaleString 이 부호를 붙여주므로 양수만 '+' 를 단다.
+const wonDiff = n => (n > 0 ? '+' : '') + Math.round(n).toLocaleString('ko-KR') + '원';
+const dirClass = n => n > 0 ? 'up' : (n < 0 ? 'down' : '');
+const esc = s => String(s).replace(/[&<>"]/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// 띄어쓰기는 무시하고 찾는다 — '알배기 배추' 로 쳐도 '알배기배추' 가 걸리도록
+const norm = s => s.toLowerCase().replace(/\s+/g, '');
+
+// ── 초성 ──────────────────────────────────────────────────────────────
+// 한글 음절은 U+AC00 부터 초성마다 588 자씩 묶여 있다. 그 번호가 곧 초성 순번이다.
+// 음절 하나가 자음 하나로 바뀌므로 글자 수와 위치가 그대로라, 아래 hl() 이
+// 초성으로 찾은 자리를 원문에 그대로 옮겨 칠할 수 있다.
+const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+const choOf = s => [...s].map(c => {
+  const i = c.charCodeAt(0) - 0xAC00;
+  return (i >= 0 && i < 11172) ? CHO[Math.floor(i / 588)] : c;
+}).join('');
+// 친 게 전부 자음일 때만 초성 검색으로 본다. 'ㅂㅊ' 는 초성, '배추' 는 보통 검색.
+const isCho = s => s.length > 0 && [...s].every(c => CHO.includes(c));
+
+async function j(url){
+  const r = await fetch(url);
+  if(!r.ok){
+    const e = await r.json().catch(() => ({detail: r.statusText}));
+    throw new Error(e.detail || '요청 실패');
+  }
+  return r.json();
+}
+
+// ── 최근 가격 추이 차트 ──────────────────────────────────────────────
+function chart(points){
+  if(!points || points.length < 2) return '<p class="loading">추이를 그릴 자료가 부족합니다.</p>';
+
+  // 구간 시작 대비 끝을 보고 색을 정한다. 눈에 보이는 선의 방향과 색이 일치해야
+  // 읽는 사람이 헷갈리지 않는다. ±0.5% 안쪽은 '보합'으로 회색 처리.
+  const first = points[0].price, last0 = points[points.length - 1].price;
+  const periodChg = first ? (last0 - first) / first * 100 : 0;
+  const dir = periodChg > 0.5 ? 'up' : (periodChg < -0.5 ? 'down' : 'flat');
+  const dirWord = dir === 'up' ? '올랐어요' : (dir === 'down' ? '내렸어요' : '거의 그대로예요');
+
+  // 세로로 넉넉해야 가격 움직임이 보인다. 옆칸(하한가·상한가)과 아래 선을 맞추는
+  // 높이이기도 하다 — 여기를 줄이면 두 카드 바닥이 어긋난다.
+  const W = 860, H = 420, L = 60, R = 16, T = 16, B = 380;
+  const vs = points.map(p => p.price);
+  // 평년선도 눈금 안에 들어와야 한다. 실제 가격만으로 세로 범위를 잡으면
+  // 평년가가 위아래로 잘려 나간다.
+  const nvs = points.map(p => p.normal).filter(v => v != null);
+  const all = vs.concat(nvs);
+  const lo = Math.min(...all), hi = Math.max(...all);
+  const pad = (hi - lo) * 0.15 || Math.max(hi * 0.05, 1);
+  const y0 = lo - pad, y1 = hi + pad;
+  const xs = i => L + i / (points.length - 1) * (W - L - R);
+  const ys = v => B - (v - y0) / (y1 - y0) * (B - T);
+
+  const line = points.map((p, i) => `${xs(i).toFixed(1)},${ys(p.price).toFixed(1)}`).join('L');
+  const area = `M${xs(0).toFixed(1)},${B} L${line} L${xs(points.length - 1).toFixed(1)},${B} Z`;
+
+  // 평년선 — 비는 날이 있으면 이어 붙이지 않고 끊어서 그린다
+  let normPath = '', seg = [], firstN = -1;
+  points.forEach((p, i) => {
+    if(p.normal == null){
+      if(seg.length > 1) normPath += 'M' + seg.join('L');
+      seg = [];
+      return;
+    }
+    if(firstN < 0) firstN = i;
+    seg.push(`${xs(i).toFixed(1)},${ys(p.normal).toFixed(1)}`);
+  });
+  if(seg.length > 1) normPath += 'M' + seg.join('L');
+  const hasNorm = normPath !== '';
+
+  let g = '';
+  // 차트가 세로로 길어져 눈금선 3개로는 성기다
+  [0, 0.25, 0.5, 0.75, 1].forEach(f => {
+    const v = y0 + (y1 - y0) * f, y = ys(v);
+    g += `<line class="grid-l" x1="${L}" y1="${y.toFixed(1)}" x2="${W - R}" y2="${y.toFixed(1)}"/>`;
+    g += `<text class="tick" x="${L - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end">${Math.round(v).toLocaleString()}</text>`;
+  });
+  // 가로축은 시작·중간·끝 세 곳만 (촘촘하면 읽기 어렵다)
+  [0, Math.floor(points.length / 2), points.length - 1].forEach(i => {
+    const d = points[i].date.slice(5).replace('-', '/');
+    g += `<text class="tick" x="${xs(i).toFixed(1)}" y="${B + 16}" text-anchor="middle">${d}</text>`;
+  });
+
+  const last = points[points.length - 1];
+  const lx = xs(points.length - 1), ly = ys(last.price);
+  const days = points.length;
+  const span = `${points[0].date.slice(5).replace('-','/')} ~ ${last.date.slice(5).replace('-','/')}`;
+
+  const legend = hasNorm
+    ? `<span class="legend" style="color:var(--${dir === 'flat' ? 'muted' : dir})"><i></i>실제</span>
+       <span class="legend norm"><i></i>평년</span>`
+    : '';
+  // 평년 글자는 선의 왼쪽 끝에 붙인다 — 오른쪽엔 오늘 가격 글자가 이미 있다
+  const normLbl = hasNorm
+    ? `<text class="lbl norm" x="${(xs(firstN) + 5).toFixed(1)}"
+        y="${(ys(points[firstN].normal) - 8).toFixed(1)}">평년</text>`
+    : '';
+
+  return `<div class="chart-head">
+      <span class="t">최근 가격 추이 <b>${span}</b> (조사 ${days}일)</span>
+      <span class="badge ${dir}">${signed(periodChg)}</span>
+      <span class="t">이 기간 ${dirWord}</span>
+      ${legend}
+    </div>
+    <div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img"
+      aria-label="최근 가격 추이, 이 기간 ${signed(periodChg)}${hasNorm ? ', 평년 가격을 점선으로 함께 표시' : ''}">
+    <path class="area ${dir}" d="${area}"/>${g}
+    <path class="series norm" d="${normPath}"/>
+    <path class="series ${dir}" d="M${line}"/>
+    <circle class="dot ${dir}" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="5"/>
+    <text class="lbl" x="${(lx - 10).toFixed(1)}" y="${(ly - 12).toFixed(1)}"
+      text-anchor="end">${won(last.price)}</text>${normLbl}
+  </svg></div>`;
+}
+
+// ── 품목 상세 ────────────────────────────────────────────────────────
+async function showDetail(item, kind, rank){
+  const box = document.getElementById('detail');
+  box.innerHTML = '<div class="loading">불러오는 중…</div>';
+  try{
+    // 등급까지 넘긴다. 안 넘기면 서버가 대표 등급을 새로 고르는데,
+    // 그게 목록에서 누른 등급과 다르면 전혀 다른 가격이 뜬다.
+    const d = await j(`/api/detail?item=${encodeURIComponent(item)}` +
+                      (kind ? `&kind=${encodeURIComponent(kind)}` : '') +
+                      (rank ? `&rank=${encodeURIComponent(rank)}` : ''));
+
+    const cards = d.compares.map(c => {
+      if(!c.available){
+        return `<div class="c na"><div class="l">${c.label}</div>
+                <div class="v">자료 없음</div></div>`;
+      }
+      const cls = dirClass(c.change_pct);
+      const note = c.exact ? '' :
+        `<div class="note">실제 ${c.days_ago}일 전 (${c.date.slice(5).replace('-','/')})</div>`;
+      return `<div class="c ${cls}">
+        <div class="l">${c.label}</div>
+        <div class="v">${signed(c.change_pct)}</div>
+        <div class="p">${won(c.price)}</div>${note}</div>`;
+    }).join('');
+
+    const extra = [];
+    if(d.year_ago != null){
+      const p = (d.price - d.year_ago) / d.year_ago * 100;
+      extra.push(`<div class="c ${dirClass(p)}"><div class="l">1년 전</div>
+        <div class="v">${signed(p)}</div><div class="p">${won(d.year_ago)}</div></div>`);
+    }
+    if(d.normal != null){
+      const p = (d.price - d.normal) / d.normal * 100;
+      extra.push(`<div class="c ${dirClass(p)}"><div class="l">평년</div>
+        <div class="v">${signed(p)}</div><div class="p">${won(d.normal)}</div></div>`);
+    }
+
+    // 마지막 조사가 한참 전이면 큰 숫자를 '오늘 가격'으로 읽지 않도록 먼저 알린다.
+    // 기준은 '대부분의 품목에 값이 있는 최신 조사일'(LATEST_DAY)이다.
+    // 그보다 최신인 품목(축산물은 먼저 올라온다)은 음수가 되므로 0 으로 깎는다.
+    const gap = LATEST_DAY
+      ? Math.max(0, Math.round((Date.parse(LATEST_DAY) - Date.parse(d.date)) / 86400000)) : 0;
+    const stale = gap > 3
+      ? `<div class="stalebar"><span aria-hidden="true">⚠</span><span>지금은 조사가 없는 철입니다.
+           아래 값은 <b>${gap}일 전(${d.date})</b> 마지막 조사 가격이며, 오늘 시세가 아닙니다.</span></div>`
+      : '';
+
+    // 1~3일 묵은 정도는 경고바를 띄울 일이 아니다. 주말마다 큰 경고가 뜨면
+    // 무뎌져서 정작 철 지난 품목의 경고까지 흘려보게 된다. 날짜 옆에 배지만 붙인다.
+    const agoBadge = (gap >= 1 && gap <= 3)
+      ? ` <span class="agobadge">${gap === 1 ? '어제' : gap + '일 전'} 값</span>` : '';
+
+    box.innerHTML = stale + `
+      <div class="today">
+        <div>
+          <div class="name">${d.item_name} · ${d.kind_name}</div>
+          <div class="sub">${d.rank_name} · ${d.category} · ${d.date} 조사${agoBadge}</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div class="big">${won(d.price)}</div>
+          <div class="unit">${d.unit} 기준</div>
+        </div>
+      </div>
+      <div class="cmp">${cards}${extra.join('')}</div>
+      ${chart(d.chart)}`;
+
+    // 품종 칸에 적힌 등급이 실제로 쓰인 등급과 다를 수 있다(급등락에서 넘어온 경우).
+    // 화면이 거짓말하지 않도록 실제 값으로 맞춘다.
+    const opt = selKind.selectedOptions[0];
+    if(opt) opt.textContent = `${d.kind_name} · ${d.rank_name}`;
+  }catch(e){
+    box.innerHTML = `<div class="err">${e.message}</div>`;
+  }
+}
+
+// ── 급등락 ───────────────────────────────────────────────────────────
+function moverRow(m, cls){
+  // 등락률만 있으면 체감이 안 온다. 얼마가 오르내렸는지 금액도 같이 적는다.
+  const diff = m.price - m.prev_price;
+  return `<div class="mrow click" data-item="${m.item_code}" data-kind="${m.kind_code}"
+    data-rank="${esc(m.rank_name)}">
+    <div class="nm">${m.item_name}
+      <small>${m.kind_name} · ${m.rank_name}</small></div>
+    <div class="pr">${won(m.price)}
+      <small>${won(m.prev_price)}에서</small></div>
+    <div class="chg">
+      <div class="pct ${cls}">${signed(m.change_pct)}</div>
+      <div class="diff ${cls}">${wonDiff(diff)}</div>
+    </div>
+  </div>`;
+}
+
+async function showMovers(offset){
+  const box = document.getElementById('movers');
+  box.innerHTML = '<div class="loading">불러오는 중…</div>';
+  try{
+    const m = await j(`/api/movers?offset=${offset}&limit=5`);
+    // 비교 시점이 품목마다 다를 수 있다 (연휴 뒤엔 크게 벌어진다).
+    // 한 품목의 날짜만 적으면 나머지를 잘못 설명하게 되므로 범위로 보여준다.
+    const gap = !m.prev_from ? ''
+      : m.prev_from === m.prev_to
+        ? `${m.prev_from} 대비`
+        : `비교 시점 ${m.prev_from} ~ ${m.prev_to.slice(5).replace('-', '/')} (품목마다 다름)`;
+    box.innerHTML = `<div class="movers">
+      <div class="mlist">
+        <h3><i style="background:var(--down)"></i>하한가 <span>많이 싸졌어요</span></h3>
+        ${m.down.map(x => moverRow(x, 'down')).join('') || '<div class="loading">해당 없음</div>'}
+      </div>
+      <div class="mlist">
+        <h3><i style="background:var(--up)"></i>상한가 <span>많이 비싸졌어요</span></h3>
+        ${m.up.map(x => moverRow(x, 'up')).join('') || '<div class="loading">해당 없음</div>'}
+      </div>
+    </div>
+    <div class="asof">품목 ${m.compared}개 비교 · ${gap}</div>`;
+
+    box.querySelectorAll('.mrow.click').forEach(el => {
+      el.addEventListener('click',
+        () => selectProduct(el.dataset.item, el.dataset.kind, el.dataset.rank));
+    });
+  }catch(e){
+    box.innerHTML = `<div class="err">${e.message}</div>`;
+  }
+}
+
+// ── 포춘쿠키 ─────────────────────────────────────────────────────────
+// 후보를 한 번만 받아 두고 뽑기는 화면에서 한다. '다시 뽑기'마다 서버를
+// 부르면 느리고, 어차피 같은 목록에서 고르는 것이라 부를 이유가 없다.
+let POOL = [], lastPick = -1;
+
+// 품목마다 한 줄. 등락은 이미 숫자로 보이니, 여기서는 무엇을 해 먹을지 거든다.
+const FORTUNE = {
+  // 과실류
+  '감귤':'까먹기 좋은 계절이죠. 손에 배는 향까지 덤이에요.',
+  '단감':'아삭한 단감 한 접시, 후식으로 어떠세요?',
+  '레몬':'레몬 한 조각이면 물도 요리도 산뜻해져요.',
+  '망고':'망고 한 조각으로 하루에 여름을 넣어보세요.',
+  '바나나':'아침 대용으로 하나. 든든합니다.',
+  '배':'배 하나면 목도 편안하고 후식도 해결돼요.',
+  '복숭아':'지금 아니면 못 먹습니다. 복숭아철이에요.',
+  '사과':'하루 한 알, 괜히 하는 말이 아니죠.',
+  '아보카도':'빵에 으깨 올리면 근사한 한 끼가 됩니다.',
+  '오렌지':'갈아서 주스로, 그냥 먹어도 좋고요.',
+  '참다래':'새콤한 참다래로 입맛을 깨워보세요.',
+  '체리':'한 알씩 집어 먹다 보면 어느새 한 줌이죠.',
+  '파인애플':'고기 요리에 곁들이면 궁합이 좋아요.',
+  '포도':'알알이 씻어 두면 계속 손이 갑니다.',
+  // 수산물
+  '가리비':'버터에 구우면 안주로 그만이에요.',
+  '갈치':'노릇하게 구운 갈치 한 토막, 밥도둑이죠.',
+  '건다시마':'국물 낼 때 한 장이면 맛이 달라집니다.',
+  '고등어':'조림이든 구이든 실패가 없어요.',
+  '고등어필렛':'손질할 것 없이 바로 구우면 끝입니다.',
+  '굴':'초고추장에 찍어도, 국으로 끓여도 좋아요.',
+  '김':'김 한 봉이면 반찬 걱정이 줄어듭니다.',
+  '꼬막':'삶아 양념장에 무치면 밥 한 공기 뚝딱이에요.',
+  '꽁치':'통조림 말고 생물로 구워보세요.',
+  '꽃게':'쪄서 손으로 발라 먹는 맛이 있죠.',
+  '낙지':'볶아도, 연포탕으로도 좋습니다.',
+  '마른멸치':'볶음 반찬 하나 만들어두면 든든해요.',
+  '마른미역':'불려서 국 한 냄비 끓여두면 며칠 갑니다.',
+  '마른오징어':'그냥 뜯어 먹는 게 제일 맛있죠.',
+  '멸치액젓':'김치에도 국에도, 감칠맛의 숨은 주역이에요.',
+  '명태':'국으로 끓이면 속이 풀립니다.',
+  '물오징어':'데쳐서 초장에, 볶아서 밥에 얹어도 좋아요.',
+  '바지락':'칼국수에 넣으면 국물이 시원해집니다.',
+  '삼치':'구이로 먹으면 살이 부드러워요.',
+  '새우':'볶음밥에 넣으면 한 끼가 근사해집니다.',
+  '새우젓':'돼지고기에 곁들이면 궁합이 좋아요.',
+  '수입조기':'구이용으로 무난합니다.',
+  '전복':'죽으로 끓이면 보양이 따로 없죠.',
+  '전어':'굽는 냄새에 발길이 돌아온다는 그 생선이죠.',
+  '조기':'노릇하게 구워 밥상에 올려보세요.',
+  '천일염':'좋은 소금 하나가 요리 전체를 바꿉니다.',
+  '홍합':'탕으로 끓이면 국물이 진해요.',
+  // 식량작물
+  '감자':'삶든 볶든 구우든, 실패가 없는 재료죠.',
+  '고구마':'오븐에 구우면 군고구마가 부럽지 않아요.',
+  '녹두':'빈대떡 한 장 부쳐볼까요?',
+  '쌀':'갓 지은 밥 냄새만 한 게 없죠.',
+  '찹쌀':'찰밥이나 죽으로 든든하게.',
+  '콩':'콩자반이나 두유로, 쓰임이 많아요.',
+  '팥':'팥죽 한 그릇이면 속이 든든합니다.',
+  // 채소류
+  '갓':'갓김치는 한번 담그면 계속 생각나죠.',
+  '건고추':'직접 빻으면 고춧가루 맛이 다릅니다.',
+  '고춧가루':'김치도 찌개도 이것부터 시작이죠.',
+  '깐마늘(국산)':'까는 수고를 덜었으니 요리만 하면 됩니다.',
+  '깻잎':'장아찌로 담가두면 밥반찬 걱정이 없어요.',
+  '당근':'볶음에도 국에도, 색까지 살려줍니다.',
+  '딸기':'우유에 갈아 마시면 그만이죠.',
+  '멜론':'시원하게 두었다가 후식으로 내보세요.',
+  '무':'국물 낼 때 한 토막이면 맛이 깊어집니다.',
+  '미나리':'향으로 먹는 채소죠. 전골에 듬뿍 넣어보세요.',
+  '방울토마토':'샐러드에 굴려 넣기만 해도 근사해집니다.',
+  '배추':'겉절이 한 접시면 밥상이 살아나죠.',
+  '붉은고추':'고명으로 얹으면 요리가 달라 보입니다.',
+  '브로콜리':'살짝 데쳐 초장에 찍으면 간단한 반찬이에요.',
+  '상추':'고기 있으면 상추, 상추 있으면 고기죠.',
+  '생강':'차로 우려도, 요리 잡내 잡는 데도 좋아요.',
+  '수박':'반 통 사서 숟가락으로 퍼먹는 게 제맛입니다.',
+  '시금치':'조물조물 무쳐 나물 한 접시 어떠세요?',
+  '알배기배추':'쌈으로도 겉절이로도 딱 좋은 크기예요.',
+  '양배추':'채 썰어 볶음이나 샐러드로, 오늘 양배추 요리 어떠세요?',
+  '양파':'볶을수록 단맛이 나오죠. 어디에나 어울립니다.',
+  '얼갈이배추':'된장국에 넣으면 구수해져요.',
+  '열무':'열무김치에 국수 말면 여름이 지나갑니다.',
+  '오이':'무침으로도, 그냥 썰어 먹어도 시원해요.',
+  '참외':'깎아서 냉장고에 두면 금방 사라집니다.',
+  '토마토':'그냥 먹어도, 익혀 먹어도 좋은 재료죠.',
+  '파':'송송 썰어 올리면 어떤 국이든 살아납니다.',
+  '파프리카':'색만 넣어도 밥상이 환해져요.',
+  '풋고추':'쌈장에 찍어 아삭하게.',
+  '피망':'볶음 요리에 넣으면 향이 살아납니다.',
+  '호박':'전으로 부치면 손이 계속 갑니다.',
+  // 축산물
+  '계란':'계란만 있으면 반찬은 어떻게든 됩니다.',
+  '닭':'백숙이든 볶음탕이든, 오늘 닭 요리 어떠세요?',
+  '돼지':'오늘은 고기다! 삼겹살 구워볼까요?',
+  '소':'오늘은 고기다! 소고기 미역국도 좋고요.',
+  '수입 돼지고기':'부담 없이 구워 먹기 좋습니다.',
+  '수입 소고기':'국거리로 쓰면 넉넉하게 끓일 수 있어요.',
+  '우유':'한 잔이면 아침이 든든해집니다.',
+  // 특용작물
+  '느타리버섯':'찢어서 볶으면 고기 못지않아요.',
+  '땅콩':'한 줌씩 집어 먹기 좋죠.',
+  '새송이버섯':'도톰하게 썰어 구우면 식감이 좋아요.',
+  '아몬드':'간식으로 한 줌, 부담 없죠.',
+  '참깨':'마지막에 톡톡 뿌리면 향이 확 삽니다.',
+  '팽이버섯':'국이든 전골이든 넣기만 하면 되죠.',
+  '호두':'오독오독 씹는 맛이 있어요.',
+};
+
+// 품목 문구가 없을 때를 대비한 부류별 예비 문구. 나중에 품목이 늘어도 빈칸이 되지 않는다.
+const FORTUNE_CAT = {
+  '과실류':'후식으로 한 조각 어떠세요?',
+  '수산물':'오늘 저녁 반찬으로 올려보세요.',
+  '식량작물':'든든하게 한 끼 지어볼까요?',
+  '채소류':'한 가지 곁들이면 밥상이 달라집니다.',
+  '축산물':'오늘은 고기다!',
+  '특용작물':'조금씩 곁들이기 좋은 재료죠.',
+};
+
+function fortuneMsg(c){
+  const base = FORTUNE[c.item_name] || FORTUNE_CAT[c.category] || '오늘 장바구니에 담아보세요.';
+  // 등락은 숫자로 이미 보이니 한마디만 덧붙인다. 보합이면 굳이 붙이지 않는다.
+  const p = c.change_pct;
+  const tail = p <= -3 ? ' 마침 값도 많이 내렸어요.'
+             : p <= -0.5 ? ' 값도 조금 내렸고요.'
+             : p >= 3 ? ' 다만 오늘은 값이 꽤 올랐네요.'
+             : p >= 0.5 ? ' 값은 조금 올랐어요.' : '';
+  return base + tail;
+}
+
+// 안 깨진 쿠키 화면. 여기서 눌러야 결과가 나온다.
+function cookieStage(){
+  const box = document.getElementById('fortune');
+  if(!POOL.length){
+    box.innerHTML = '<div class="loading">오늘 뽑을 품목이 없습니다.</div>';
+    return;
+  }
+  box.innerHTML = `<div class="cookiebox">
+      <button class="cookie" type="button" id="crack" aria-label="포춘쿠키 깨기">
+        <span class="half l" aria-hidden="true">🥠</span>
+        <span class="half r" aria-hidden="true">🥠</span>
+      </button>
+      <p class="cookiehint">쿠키를 눌러 깨보세요</p>
+    </div>`;
+
+  document.getElementById('crack').addEventListener('click', () => {
+    const cookie = box.querySelector('.cookie');
+    if(cookie.classList.contains('crack')) return;   // 두 번 눌러도 한 번만
+    cookie.classList.add('crack');
+    box.querySelector('.cookiehint').textContent = '';
+    // 깨지는 동안 기다렸다가 쪽지를 보여준다
+    const slow = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 430;
+    setTimeout(drawFortune, slow);
+  });
+}
+
+function drawFortune(){
+  const box = document.getElementById('fortune');
+  // 같은 것이 연달아 나오면 뽑은 티가 안 난다
+  let i = Math.floor(Math.random() * POOL.length);
+  if(POOL.length > 1 && i === lastPick) i = (i + 1) % POOL.length;
+  lastPick = i;
+
+  const c = POOL[i];
+  const cls = dirClass(c.change_pct) || 'flat';
+  box.innerHTML = `<div class="fbox">
+      <div class="slip" role="button" tabindex="0" title="눌러서 이 품목 시세 보기">
+        <div class="top">
+          <div>
+            <div class="nm">${esc(c.item_name)}</div>
+            <div class="kd">${esc(c.kind_name)} · ${esc(c.rank_name)}</div>
+          </div>
+          <div class="pr">${won(c.price)}
+            <span class="pct ${cls}">${signed(c.change_pct)}</span></div>
+        </div>
+        <div class="flow">${c.prev_date.slice(5).replace('-', '/')} ${won(c.prev_price)}
+          → ${c.date.slice(5).replace('-', '/')} ${won(c.price)}
+          ${c.days_ago === 1 ? '' : `(${c.days_ago}일 만의 조사)`}</div>
+        <div class="msg">${esc(fortuneMsg(c))}</div>
+      </div>
+      <button class="fbtn" type="button" id="fagain">하나 더 깨기</button>
+    </div>
+    <div class="asof">품목 ${POOL.length}개 중에서 나왔습니다 · ${esc(c.unit)} 기준</div>`;
+
+  const open = () => selectProduct(c.item_code, c.kind_code, c.rank_name);
+  const slip = box.querySelector('.slip');
+  slip.addEventListener('click', open);
+  slip.addEventListener('keydown', e => {
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); }
+  });
+  // 다시 쿠키부터 — 깨는 맛이 이 기능의 전부다
+  document.getElementById('fagain').addEventListener('click', cookieStage);
+}
+
+// ── 시세판 ───────────────────────────────────────────────────────────
+// 포춘쿠키가 받아 온 87개를 그대로 쓴다. 등락 요약과 시세 띠 둘 다 같은 자료다.
+// 띠가 흐르는 속도(px/s). 낮출수록 느려진다. 113 이 기본이었고 눈이 따라가기 벅찼다.
+const TICKER_PX_PER_SEC = 85;
+
+function mark(pct){ return pct > 0 ? '▲' : (pct < 0 ? '▼' : '―'); }
+
+function renderBoard(f){
+  document.getElementById('breadth').innerHTML =
+    `<span class="u">▲ <b>${f.up_count}</b></span>` +
+    `<span class="d">▼ <b>${f.down_count}</b></span>` +
+    `<span class="f">― <b>${f.flat_count}</b></span>` +
+    `<span class="sep">|</span>` +
+    `<span class="f">품목 ${f.count}개 · 직전 조사일 대비</span>`;
+
+  const t = document.getElementById('ticker');
+  if(!f.items.length){ t.hidden = true; return; }
+
+  // 변동이 큰 것부터 흘려야 눈에 걸린다 (보합이 절반이라 순서대로면 밋밋하다)
+  const list = [...f.items].sort((a, b) => Math.abs(b.change_pct) - Math.abs(a.change_pct));
+  const cells = list.map(c => {
+    const cls = dirClass(c.change_pct) || 'flat';
+    // 보합은 '―0.0%' 라고 적으면 지저분하다. 기호만 남긴다.
+    const chg = cls === 'flat' ? '―'
+      : `${mark(c.change_pct)}${Math.abs(c.change_pct).toFixed(1)}%`;
+    return `<span class="it"><b>${esc(c.item_name)}</b>` +
+           `<span class="p">${won(c.price)}</span>` +
+           `<span class="${cls}">${chg}</span></span>`;
+  }).join('');
+
+  // 같은 목록을 두 벌 이어 붙이고 절반만큼 밀면 끊김 없이 이어진다
+  t.innerHTML = `<div class="track">${cells}${cells}</div>`;
+  t.hidden = false;
+
+  // 속도는 px/s 로 정한다. '품목 수 x 몇 초'로 잡으면 품목이 늘거나 이름이
+  // 길어질 때 속도가 저절로 빨라진다. 실제로 읽히는 건 픽셀 속도다.
+  const track = t.querySelector('.track');
+  const oneLoop = track.scrollWidth / 2;          // 두 벌 중 한 벌 폭
+  track.style.animationDuration = (oneLoop / TICKER_PX_PER_SEC).toFixed(1) + 's';
+}
+
+async function showFortune(){
+  try{
+    const f = await j('/api/fortune?offset=1');
+    POOL = f.items;
+    renderBoard(f);
+    cookieStage();
+  }catch(e){
+    document.getElementById('ticker').hidden = true;
+    document.getElementById('fortune').innerHTML = `<div class="err">${e.message}</div>`;
+  }
+}
+
+// ── 테마 ─────────────────────────────────────────────────────────────
+// data-theme 이 없으면 기기 설정을 따른다. 버튼을 누른 뒤에는 그 선택을 기억한다.
+const THEME_KEY = 'nongsdaq-theme';
+const themeBtn = document.getElementById('themebtn');
+
+function currentTheme(){
+  return document.documentElement.getAttribute('data-theme')
+      || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+}
+
+function paintThemeBtn(t){
+  const dark = t === 'dark';
+  themeBtn.querySelector('.ico').textContent = dark ? '☀️' : '🌙';
+  themeBtn.querySelector('.lbl').textContent = dark ? '라이트 모드' : '다크 모드';
+  themeBtn.setAttribute('aria-pressed', dark);
+}
+
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+  paintThemeBtn(t);
+}
+
+paintThemeBtn(currentTheme());
+themeBtn.addEventListener('click', () => setTheme(currentTheme() === 'dark' ? 'light' : 'dark'));
+// 아직 직접 고르지 않았다면 기기 설정이 바뀔 때 따라간다
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+  let saved = null;
+  try{ saved = localStorage.getItem(THEME_KEY); }catch(err){}
+  if(!saved) paintThemeBtn(e.matches ? 'dark' : 'light');
+});
+
+// ── 초기화 ───────────────────────────────────────────────────────────
+let ITEMS = {}, ITEM_LIST = [];
+let LATEST_DAY = null;   // 전체 자료의 마지막 조사일 (상세가 얼마나 묵었는지 재는 기준)
+const selItem = document.getElementById('selItem');
+const selKind = document.getElementById('selKind');
+
+function fillKinds(itemCode, pick){
+  const it = ITEMS[itemCode];
+  if(!it){ selKind.innerHTML = '<option>—</option>'; selKind.disabled = true; return; }
+  selKind.innerHTML = it.kinds.map(k =>
+    `<option value="${k.kind_code}"${k.kind_code === (pick || it.default_kind) ? ' selected' : ''}>` +
+    `${k.kind_name} · ${k.rank_name}</option>`).join('');
+  selKind.disabled = it.kinds.length <= 1;
+}
+
+// 검색·급등락·포춘쿠키 클릭이 모두 이 길로 들어온다 (선택 상자와 상세를 같이 맞춘다).
+// rankName 을 받으면 그 등급 그대로 보여준다 — 누른 줄의 값과 달라지지 않도록.
+function selectProduct(itemCode, kindCode, rankName){
+  selItem.value = itemCode;
+  fillKinds(itemCode, kindCode);
+  showDetail(itemCode, selKind.value, rankName);
+  selItem.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+// ── 검색 ─────────────────────────────────────────────────────────────
+// 품목이 93개라 훑어 내리기 번거롭다. 이름 조각을 치면 그게 든 품종만 남긴다.
+// 품종 155개는 이미 /api/products 로 받아 둔 것이라 서버에 다시 묻지 않는다.
+const qBox = document.getElementById('q');
+const rBox = document.getElementById('results');
+const MAX_HITS = 40;
+let hits = [], cur = -1;
+let lastQ = null;   // 마지막으로 그린 검색어 — 같은 값으로 다시 그리지 않는다
+
+function search(q){
+  const nq = norm(q);
+  if(!nq) return [];
+  const cho = isCho(nq);
+  const key = s => cho ? choOf(norm(s)) : norm(s);
+  const out = [];
+  for(const it of ITEM_LIST){
+    for(const k of it.kinds){
+      if(!key(it.item_name + k.kind_name + k.rank_name).includes(nq)) continue;
+      // 품목명이 걸린 쪽을 위로 올린다. 품종·등급에서만 걸린 건 아래로.
+      const ni = key(it.item_name);
+      out.push({it, k, s: ni.startsWith(nq) ? 0 : (ni.includes(nq) ? 1 : 2)});
+    }
+  }
+  out.sort((a, b) => a.s - b.s || a.k.days_stale - b.k.days_stale ||
+                     a.it.item_name.localeCompare(b.it.item_name, 'ko'));
+  return out;
+}
+
+// 친 글자에 색을 입힌다. 초성으로 찾았으면 그 자리의 원래 글자를 칠한다.
+// 띄어쓰기를 건너뛰어 걸린 경우는 위치를 못 잡으니 칠하지 않고 그냥 둔다.
+function hl(text, q){
+  const nq = norm(q);
+  if(!nq) return esc(text);
+  const low = text.toLowerCase();
+  const i = (isCho(nq) ? choOf(low) : low).indexOf(nq);
+  if(i < 0) return esc(text);
+  return esc(text.slice(0, i)) + '<mark>' + esc(text.slice(i, i + nq.length)) +
+         '</mark>' + esc(text.slice(i + nq.length));
+}
+
+function closeResults(){
+  rBox.hidden = true;
+  qBox.setAttribute('aria-expanded', 'false');
+  cur = -1;
+  lastQ = qBox.value;
+}
+
+function renderResults(q){
+  lastQ = q;
+  if(!q.trim()){ hits = []; closeResults(); return; }
+  hits = search(q);
+  cur = -1;
+
+  if(!hits.length){
+    // 못 찾았을 때만 초성 검색을 알려준다. 평소엔 굳이 화면에 내걸 필요가 없고,
+    // 이미 초성으로 쳤는데 안 나온 사람에게는 도움이 안 되니 그때는 뺀다.
+    const tip = isCho(norm(q)) ? ''
+      : `<div class="rtip">초성으로도 찾을 수 있어요 — <b>ㅂㅊ</b> → 배추</div>`;
+    rBox.innerHTML =
+      `<div class="rnote">'${esc(q.trim())}' 이(가) 든 품목이 없습니다.</div>${tip}`;
+  }else{
+    // 철 지나 조사가 끊긴 품종이 섞여 있다. 그 값은 오늘 시세가 아니니 미리 알려준다.
+    rBox.innerHTML = hits.slice(0, MAX_HITS).map((h, i) => {
+      const stale = h.k.days_stale > 7
+        ? `<span class="st">${h.k.days_stale}일째 조사 없음</span>` : '';
+      return `<div class="rrow" role="option" aria-selected="false" data-i="${i}">
+        <div class="nm">${hl(h.it.item_name, q)}
+          <small>${hl(h.k.kind_name, q)} · ${esc(h.k.rank_name)}</small></div>
+        ${stale}</div>`;
+    }).join('') + (hits.length > MAX_HITS
+      ? `<div class="rnote">외 ${hits.length - MAX_HITS}개 더 있습니다. 조금 더 자세히 쳐 보세요.</div>`
+      : '');
+  }
+  rBox.hidden = false;
+  qBox.setAttribute('aria-expanded', 'true');
+}
+
+function move(d){
+  const rows = [...rBox.querySelectorAll('.rrow')];
+  if(!rows.length) return;
+  cur = (cur + d + rows.length) % rows.length;
+  rows.forEach((r, i) => {
+    r.classList.toggle('on', i === cur);
+    r.setAttribute('aria-selected', i === cur);
+  });
+  rows[cur].scrollIntoView({block:'nearest'});
+}
+
+function pick(i){
+  const h = hits[i];
+  if(!h) return;
+  closeResults();
+  selectProduct(h.it.item_code, h.k.kind_code, h.k.rank_name);
+}
+
+// Enter 로 고른 직후 한글 조합이 확정되면서 input 이 한 번 더 튄다.
+// 글자가 그대로면 목록을 도로 열지 않는다.
+qBox.addEventListener('input', () => {
+  if(qBox.value === lastQ) return;
+  renderResults(qBox.value);
+});
+qBox.addEventListener('focus', () => { if(qBox.value.trim()) renderResults(qBox.value); });
+qBox.addEventListener('keydown', e => {
+  if(e.isComposing) return;          // 한글 조합 중의 Enter 는 글자 확정이지 선택이 아니다
+  if(e.key === 'ArrowDown'){
+    e.preventDefault();
+    if(rBox.hidden) renderResults(qBox.value); else move(1);
+  }else if(e.key === 'ArrowUp'){
+    e.preventDefault(); move(-1);
+  }else if(e.key === 'Enter'){
+    if(!rBox.hidden && hits.length){ e.preventDefault(); pick(cur < 0 ? 0 : cur); }
+  }else if(e.key === 'Escape'){
+    closeResults();
+  }
+});
+// mousedown 으로 잡는다 — click 까지 기다리면 blur 로 목록이 먼저 닫힌다
+rBox.addEventListener('mousedown', e => {
+  const row = e.target.closest('.rrow');
+  if(row){ e.preventDefault(); pick(+row.dataset.i); }
+});
+document.addEventListener('click', e => {
+  if(!e.target.closest('.search')) closeResults();
+});
+
+// 자동 수집 신선도를 헤더에 적는다.
+// meta.updated_at 이 없으면(수집기를 아직 안 붙였으면) 아무것도 띄우지 않는다 —
+// 수동 CSV 적재로 돌리는 환경에서 '갱신됨'이라고 적으면 거짓말이 된다.
+function agoText(min){
+  if(min < 1)  return '방금';
+  if(min < 60) return `${min}분 전`;
+  const h = Math.floor(min / 60);
+  if(h < 24)   return `${h}시간 전`;
+  return `${Math.floor(h / 24)}일 전`;
+}
+
+function showFreshness(meta){
+  const el = document.getElementById('fresh');
+  const u = meta.updated_at;
+  if(!u){ el.hidden = true; return; }
+
+  el.hidden = false;
+  el.classList.toggle('stale', u.stale);
+  // 조사일은 DB 의 최신값을 쓴다. 수집 로그의 survey_date 는 '마지막으로 요청한
+  // 날짜'라서, 빠진 날을 나중에 메우면 날짜가 뒤로 가 버린다.
+  // 조사일은 '대부분의 품목에 값이 있는 최신일'을 적는다. meta.latest 는 공표 전이나
+  // 주말에 축산물만 들어온 날짜라, 그걸 적으면 화면 대부분과 어긋난다.
+  const parts = [
+    '<span class="dot" aria-hidden="true"></span>',
+    `<span class="txt">조사일 ${meta.latest_full || meta.latest} · ${agoText(u.age_minutes)} 자동 갱신</span>`,
+  ];
+  if(u.stale){
+    parts.push('<span class="badge">자동 수집이 24시간 넘게 멈춰 있습니다</span>');
+  }
+  el.innerHTML = parts.join('');
+  el.title = `마지막 수집 ${u.at.replace('T', ' ')} · 요청 조사일 ${u.survey_date} (${u.status})`;
+}
+
+// 화면을 오래 켜 두면 '3분 전'이 굳고, 오후 수집이 반영된 것도 모른다.
+// 1분마다 메타만 다시 읽는다 (가벼운 조회라 차트는 건드리지 않는다).
+// 탭이 숨어 있을 때는 부르지 않는다.
+setInterval(async () => {
+  if(document.hidden) return;
+  try{ showFreshness(await j('/api/meta')); }catch(e){}
+}, 60000);
+
+(async () => {
+  try{
+    const meta = await j('/api/meta');
+    // 묵은 정도를 재는 기준은 '대부분의 품목에 값이 있는 최신 조사일'이다.
+    // meta.latest 를 쓰면 공표 전이나 주말에 축산물만 들어온 날짜가 기준이 되어,
+    // 정상적으로 직전 조사일 값을 보여주는 품목까지 '하루 묵었다'고 표시된다.
+    LATEST_DAY = meta.latest_full || meta.latest;
+    document.getElementById('asof').textContent =
+      `${meta.earliest} ~ ${meta.latest} · ${meta.rows.toLocaleString()}건 · 품목 ${meta.items}개`;
+    showFreshness(meta);
+
+    const d = await j('/api/products');
+    ITEM_LIST = d.items;
+    ITEMS = Object.fromEntries(d.items.map(i => [i.item_code, i]));
+    selItem.innerHTML = d.items.map(i =>
+      `<option value="${i.item_code}">${i.item_name}` +
+      `${i.kinds.length > 1 ? ` (${i.kinds.length}종)` : ''}</option>`).join('');
+
+    selItem.addEventListener('change', () => {
+      fillKinds(selItem.value);
+      showDetail(selItem.value, selKind.value);
+    });
+    selKind.addEventListener('change', () => showDetail(selItem.value, selKind.value));
+
+    if(d.items.length){
+      const first = d.items[0];
+      selItem.value = first.item_code;
+      fillKinds(first.item_code);
+      showDetail(first.item_code, selKind.value);
+    }
+  }catch(e){
+    document.getElementById('detail').innerHTML = `<div class="err">${e.message}</div>`;
+  }
+
+  document.querySelectorAll('#tabs .tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b === btn));
+      showMovers(btn.dataset.offset);
+    });
+  });
+  showMovers(1);
+  showFortune();
+})();
+</script>
+</body>
+</html>
