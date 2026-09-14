@@ -71,16 +71,30 @@ winget install --id Git.Git -e --source winget
 ```powershell
 git --version
 
-git config --global user.name "Hyungnss"
-git config --global user.email "323386612+Hyungnss@users.noreply.github.com"
+git config --global user.name "본인깃허브아이디"
+git config --global user.email "본인noreply이메일"
 git config --global init.defaultBranch main
 ```
 
 이름·이메일은 커밋에 찍히는 **서명**이다. 컴퓨터마다 한 번씩 해주면 된다.
 
-> **이메일이 왜 저 이상한 주소인가** — 깃허브가 주는 대체 주소다.
+> **반드시 본인 것으로 바꿔 넣을 것** — 따옴표 안을 그대로 두거나 다른 팀원 것을
+> 복사하면, 내가 한 커밋이 남의 이름으로 기록된다. 나중에 고치기 번거롭다.
+
+> **이메일은 noreply 주소를 쓴다** — 깃허브가 주는 대체 주소로,
+> `숫자+아이디@users.noreply.github.com` 모양이다.
 > 실제 이메일을 쓰면 커밋 이력에 그대로 남아 노출된다.
-> 자기 주소는 깃허브 → Settings → Emails 에서 확인한다.
+> 자기 주소는 깃허브 → Settings → Emails 의 **Keep my email addresses private**
+> 항목 설명 안에 적혀 있다.
+
+설정이 제대로 됐는지 확인:
+
+```powershell
+git config --global user.name
+git config --global user.email
+```
+
+본인 아이디와 noreply 이메일이 나오면 된다.
 
 ---
 
