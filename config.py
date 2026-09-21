@@ -83,6 +83,12 @@ KAMIS_CERT_ID = get("KAMIS_CERT_ID")
 KAMIS_KIND_NAME_MODE = get("KAMIS_KIND_NAME_MODE", "append_unit_except_livestock")
 
 
+# ── 알림 ──────────────────────────────────────────────────────────────────
+# 수집 완료·실패를 슬랙으로 받을 Incoming Webhook URL. 비워두면 알림을 안 보낸다.
+# 슬랙 api.slack.com/apps 에서 앱 생성 > Incoming Webhooks > 채널 선택 후 발급.
+SLACK_WEBHOOK_URL = get("SLACK_WEBHOOK_URL")
+
+
 def require_kamis():
     """인증키를 돌려준다. 없으면 무엇을 어떻게 채워야 하는지 알려주고 멈춘다."""
     if KAMIS_CERT_KEY and KAMIS_CERT_ID:
