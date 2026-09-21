@@ -1,39 +1,60 @@
-"""오늘 수집이 실제로 됐는지 확인하고, 안 됐으면 슬랙으로 경고한다 (8단계).
+r"""최근 며칠치 수집이 실제로 됐는지 확인하고, 빠진 날이 있으면 슬랙으로 경고한다 (8단계).
 
-  실행:  .venv\\Scripts\\python.exe database\\08_check_daily_fetch.py [YYYY-MM-DD]
-  기본값: 오늘
+  실행:  .venv\Scripts\python.exe database\08_check_daily_fetch.py [--days N]
+         .venv\Scripts\python.exe database\08_check_daily_fetch.py YYYY-MM-DD
+  기본값: 최근 7일
 
 왜 필요한가
   06 의 완료 알림은 '06 이 돌았을 때만' 온다. PC 가 꺼져 있거나 작업 스케줄러가
   걸러 먹거나 스크립트가 시작도 못 하고 죽으면, 수집이 안 됐는데도 슬랙은 조용하다.
   침묵을 성공으로 착각하게 되는 것이다. 이 스크립트가 그 침묵을 대신 깬다.
 
-어떻게
+왜 '오늘' 이 아니라 '최근 N 일' 인가
+  예전에는 date.today() 하루만 봤는데, 그러면 정작 밤새 PC 가 꺼져 있던 날을
+  놓친다. 점검이 밀려서 다음 날 아침에 뒤늦게 실행되면 today 는 이미
+  '다음 날' 로 바뀌어 있다. 아직 수집 시각이 오지도 않은 날의 기록을 찾으니 당연히
+  없고, 그래서 헛경보가 나간다. 정작 빠진 어제는 쳐다보지도 않는다.
+  헛경보가 반복되면 진짜 경고도 흘려보게 되므로, 지나간 날들을 훑는 쪽으로 바꿨다.
+
+  범위를 7 일로 잡은 것은 run_fetch.bat 의 --days 7 백필과 맞추기 위해서다.
+  그 안의 구멍은 다음 수집이 알아서 메우고, 그보다 오래된 구멍은 영구적이라
+  사람이 손을 대야 한다.
+
+오늘을 언제 포함하나
+  FETCH_TIME(17:30, run_fetch.bat 의 예약 시각) 을 넘겼을 때만 센다. 수집이 돌았을
+  시각이 지나야 '기록이 없으면 이상한' 날이 되기 때문이다. 아침에 뒤늦게 돌 때
+  오늘이 빠지는 것도 같은 이유다. run_fetch.bat 의 예약 시각을 옮기면 이 값도
+  같이 옮겨야 한다. 어긋나면 갓 끝난 수집을 점검이 건너뛰거나(늦게 잡으면),
+  아직 오지 않은 수집을 놓쳤다고 경고한다(이르게 잡으면).
+
+어떻게 판단하나
   06 은 하루치를 반영할 때마다 TBL_FETCH_LOG 에 그날의 요약 한 줄
   (CATEGORY_CODE IS NULL) 을 남긴다. 그 요약행을 보고 판단한다.
-    · 없음        -> 06 이 아예 안 돌았다. 경고한다.
+    · 없음        -> 06 이 그날 안 돌았다. 경고한다.
     · STATUS=OK   -> 정상. (완료 알림은 06 이 이미 보냈으니) 조용히 넘어간다.
     · NO_DATA     -> 주말·공휴일이라 자료가 없는 날. 정상이므로 조용하다.
     · ERROR       -> 실패로 기록됐다. 경고한다.
   DB 에 접속조차 못 하면 그것도 경고한다 (오라클이 죽었을 수 있으므로).
 
 언제 도는가
-  06 (18:00) 이 끝난 뒤, 예컨대 19:00 에 작업 스케줄러가 부른다.
-  -StartWhenAvailable 로 걸어두면 18시에 꺼져 있던 날도 PC 를 켜는 순간
-  뒤늦게라도 확인해 준다.
+  자체 예약 작업은 없다. run_fetch.bat 이 06 을 끝낸 직후 check_fetch.bat 을
+  call 로 부른다. 즉 17:30 수집 → 곧바로 점검이다.
 
-    task : KAMIS_check_1900
-    ex)  Register-ScheduledTask -TaskName KAMIS_check_1900 `
-           -Trigger (New-ScheduledTaskTrigger -Daily -At 19:00) `
-           -Action (New-ScheduledTaskAction -Execute check_fetch.bat) `
-           -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable)
+  예전에는 19:00 짜리 작업(KAMIS_check_1900) 이 따로 있었다. 두 작업 모두
+  -StartWhenAvailable 이라, 밤새 PC 가 꺼져 있다 아침에 켜지면 Windows 가 둘을
+  한꺼번에 깨웠다. 밀린 작업은 최대 10 분 랜덤 지연으로 실행되므로 순서가 정해지지
+  않는데, 점검이 먼저 이기면 수집이 아직 채우는 중인 구멍을 보고 헛경보를 보냈다.
+  한 배치 안에서 순서대로 부르면 점검은 언제나 수집이 남긴 결과만 본다.
+
+  손으로 확인하고 싶으면 아무 때나 직접 돌려도 된다. 그때는 오늘이 아직
+  FETCH_TIME 전이라면 점검 대상에서 빠진다.
 
 먼저 07_create_fetch_log.sql 로 TBL_FETCH_LOG 를 만들어 둘 것.
 """
 
 import importlib.util
 import sys
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -41,6 +62,13 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
 from notify import notify_slack
+
+# 기본 점검 범위. run_fetch.bat 의 --days 7 백필과 맞춘다.
+DEFAULT_DAYS = 7
+
+# 오늘을 점검 대상에 넣는 기준 시각. run_fetch.bat 의 예약 시각과 같아야 한다.
+# 수집이 돌았을 시각이 지나야 '기록이 없으면 이상한' 날이 되기 때문이다.
+FETCH_TIME = time(17, 30)
 
 
 def _load(name, filename):
@@ -54,23 +82,66 @@ def _load(name, filename):
 # 접속은 02 의 것을 그대로 쓴다 (06 과 같은 규칙).
 loader = _load("kamis_loader", "02_insert_daily_price.py")
 
+# 한 날짜에 요약행이 여러 번 쌓일 수 있다 (재실행). LOG_NO 오름차순으로 읽어
+# 나중 것으로 덮으면 각 날짜의 최신 상태만 남는다.
 SUMMARY_SQL = """
-SELECT STATUS, ROWS_FETCHED, ROWS_UPSERTED, MESSAGE
+SELECT TO_CHAR(SURVEY_DATE, 'YYYY-MM-DD'), STATUS, ROWS_FETCHED, ROWS_UPSERTED, MESSAGE
 FROM   TBL_FETCH_LOG
-WHERE  SURVEY_DATE = TO_DATE(:d, 'YYYY-MM-DD')
-  AND  CATEGORY_CODE IS NULL
-ORDER  BY LOG_NO DESC
+WHERE  CATEGORY_CODE IS NULL
+  AND  SURVEY_DATE BETWEEN TO_DATE(:d1, 'YYYY-MM-DD') AND TO_DATE(:d2, 'YYYY-MM-DD')
+ORDER  BY SURVEY_DATE, LOG_NO
 """
 
 
-def main():
-    day = sys.argv[1] if len(sys.argv) > 1 else date.today().isoformat()
-    try:
-        date.fromisoformat(day)
-    except ValueError:
-        raise SystemExit(f"날짜 형식이 잘못됐습니다: {day!r} (YYYY-MM-DD)")
+def parse_args(argv, now):
+    """점검할 날짜 목록을 만든다. 날짜를 직접 주면 그 하루만 본다 (테스트용)."""
+    if len(argv) > 1 and not argv[1].startswith("--"):
+        day = argv[1]
+        try:
+            date.fromisoformat(day)
+        except ValueError:
+            raise SystemExit(f"날짜 형식이 잘못됐습니다: {day!r} (YYYY-MM-DD)")
+        return [day]
 
-    print(f"\n===== {date.today()} 수집 점검 · 대상 {day} =====")
+    days = DEFAULT_DAYS
+    if "--days" in argv:
+        try:
+            days = int(argv[argv.index("--days") + 1])
+        except (IndexError, ValueError):
+            raise SystemExit("--days 뒤에 숫자를 주세요. 예: --days 7")
+        if days < 1:
+            raise SystemExit("--days 는 1 이상이어야 합니다.")
+
+    today = now.date()
+    out = []
+    for back in range(days - 1, -1, -1):
+        d = today - timedelta(days=back)
+        # 오늘은 18:00 수집이 끝났을 시간이 지나야 '없으면 이상한' 날이 된다.
+        if d == today and now.time() < FETCH_TIME:
+            continue
+        out.append(d.isoformat())
+    return out
+
+
+def fetch_summaries(conn, days):
+    """날짜 -> (STATUS, 받은행, 반영행, 메시지). 기록이 없는 날은 키가 없다."""
+    found = {}
+    with conn.cursor() as cur:
+        cur.execute(SUMMARY_SQL, d1=days[0], d2=days[-1])
+        for day, status, fetched, upserted, message in cur:
+            found[day] = (status, fetched, upserted, message)
+    return found
+
+
+def main():
+    now = datetime.now()
+    days = parse_args(sys.argv, now)
+
+    print(f"\n===== {now:%Y-%m-%d %H:%M} 수집 점검 =====")
+    if not days:
+        print(f"점검할 날이 없습니다 (오늘은 {FETCH_TIME:%H:%M} 이후에 봅니다).")
+        return
+    print(f"대상 {days[0]} ~ {days[-1]} ({len(days)}일)")
 
     try:
         conn = loader.connect()
@@ -78,39 +149,50 @@ def main():
         msg = f"{type(e).__name__}: {e}"
         print(f"DB 접속 실패 — {msg}")
         notify_slack(
-            f"⚠️ 수집 점검 실패 · {day}\n"
-            f"DB 에 접속하지 못해 오늘 수집 여부를 확인할 수 없습니다.\n{msg}"
+            f"⚠️ KAMIS 수집 점검 실패 · {days[0]} ~ {days[-1]}\n"
+            f"DB 에 접속하지 못해 수집 여부를 확인할 수 없습니다.\n{msg}"
         )
         sys.exit(1)
 
     try:
-        with conn.cursor() as cur:
-            cur.execute(SUMMARY_SQL, d=day)
-            row = cur.fetchone()
+        found = fetch_summaries(conn, days)
     finally:
         conn.close()
 
-    if row is None:
-        print("경고: 오늘 수집 요약 기록이 없습니다.")
-        notify_slack(
-            f"⚠️ 오늘({day}) 수집 기록이 없습니다.\n"
-            "18:00 수집이 실행되지 않았을 수 있습니다 "
-            "(PC 꺼짐 · 스케줄러 누락 · 스크립트 크래시). 확인해 주세요."
-        )
-        sys.exit(1)
+    missing, failed = [], []
+    for day in days:
+        row = found.get(day)
+        if row is None:
+            print(f"  {day}  기록 없음")
+            missing.append(day)
+            continue
+        status, fetched, upserted, message = row
+        if status == "OK":
+            print(f"  {day}  OK       받은 {fetched or 0:,} · 반영 {upserted or 0:,}")
+        elif status == "NO_DATA":
+            print(f"  {day}  자료 없음 (주말·공휴일이면 정상)")
+        else:
+            print(f"  {day}  실패 — {message}")
+            failed.append((day, message))
 
-    status, fetched, upserted, message = row
-    if status == "OK":
-        print(f"정상: 오늘 수집 OK · 받은 {fetched or 0:,} · 반영 {upserted or 0:,}")
-    elif status == "NO_DATA":
-        print("정상: 오늘은 자료 없음 (주말·공휴일이면 정상).")
-    else:
-        print(f"경고: 오늘 수집이 실패로 기록됨 — {message}")
-        notify_slack(
-            f"⚠️ 오늘({day}) 수집이 실패로 기록돼 있습니다.\n"
-            f"{message or ''}\nlogs\\fetch.log 를 확인해 주세요."
-        )
-        sys.exit(1)
+    if not missing and not failed:
+        print(f"정상: {len(days)}일 모두 기록이 있습니다.")
+        return
+
+    # 빠진 날이 백필 범위(run_fetch.bat --days 7) 안이면 다음 수집이 메운다.
+    # 그보다 오래된 구멍은 스스로 사라지지 않으니 따로 짚어 준다.
+    lines = [f"⚠️ KAMIS 수집 점검 · {days[0]} ~ {days[-1]}"]
+    if missing:
+        lines.append(f"기록 없음 ({len(missing)}일): {', '.join(missing)}")
+    for day, message in failed:
+        lines.append(f"실패 기록 {day}: {message or ''}")
+    lines.append(
+        "PC 꺼짐 · 스케줄러 누락 · 스크립트 크래시 중 하나입니다. "
+        "logs\\fetch.log 를 확인해 주세요."
+    )
+    print("\n".join(lines[1:]))
+    notify_slack("\n".join(lines))
+    sys.exit(1)
 
 
 if __name__ == "__main__":
