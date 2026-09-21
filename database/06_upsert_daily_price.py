@@ -55,6 +55,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
+from notify import notify_slack
+
 
 def _load(name, filename):
     """파일명이 숫자로 시작해 일반 import 가 안 된다. 경로로 직접 읽어들인다."""
@@ -273,24 +275,6 @@ def run_day(conn, day, dry):
         print(f"  DB 의 {day}: {n}행 · 당일가격 있는 행 {priced}")
 
     return fetched, upserted, failed
-
-
-def notify_slack(text):
-    """수집 결과를 슬랙으로 알린다. URL 미설정이면 조용히 건너뛴다.
-
-    알림 전송 실패가 수집 자체를 막지는 않도록 예외를 삼킨다.
-    """
-    import config
-
-    url = config.SLACK_WEBHOOK_URL
-    if not url:
-        return
-    try:
-        import requests
-
-        requests.post(url, json={"text": text}, timeout=10)
-    except Exception as e:
-        print(f"  (슬랙 알림 실패: {e})")
 
 
 def main():
