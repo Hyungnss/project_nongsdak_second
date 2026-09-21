@@ -11,9 +11,10 @@ rem inside a rem line - desyncs the parser and the rest of the file breaks.
 rem Korean notes live in REALTIME_MIGRATION.md and 06_upsert_daily_price.py.
 rem
 rem why 18:00  : KAMIS publishes at 17:00; before that only livestock has prices
-rem why --days 3: a once-a-day run asks for that day only, so a missed run would
-rem               leave a permanent hole. Re-asking today/-1/-2 fills the gap and
-rem               picks up KAMIS's after-the-fact revisions. MERGE, so no dupes.
+rem why --days 7: a once-a-day run asks for that day only, so a missed run would
+rem               leave a permanent hole. Re-asking today back through -6 fills a
+rem               week of gaps (covers a longer PC-off stretch) and picks up
+rem               KAMIS's after-the-fact revisions. MERGE, so no dupes.
 rem ===========================================================================
 
 set PYTHONUTF8=1
@@ -26,7 +27,7 @@ rem -u : unbuffered. Redirected to a file, python block-buffers stdout, so a run
 rem      killed partway (2026-09-03 18:00 died on ^C after 8s) loses every line it
 rem      had printed and the log shows nothing at all. Unbuffered costs nothing at
 rem      this volume and keeps the log honest about how far the run got.
-.venv\Scripts\python.exe -u database\06_upsert_daily_price.py --days 3 >> logs\fetch.log 2>&1
+.venv\Scripts\python.exe -u database\06_upsert_daily_price.py --days 7 >> logs\fetch.log 2>&1
 
 rem Surface a failed load as the task's "Last Run Result".
 exit /b %ERRORLEVEL%
