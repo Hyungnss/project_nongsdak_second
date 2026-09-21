@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>농스닥 Slack 시작 안내</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+:root{
+  --bg:#F5F7F1; --surface:#FFFFFF; --surface-2:#ECF0E6; --ink:#1C251F; --muted:#56645A;
+  --line:#D8DFD2; --accent:#2C7547; --accent-ink:#FFFFFF; --accent-soft:#E0EFE4;
+  --warn:#AE4128; --warn-soft:#F7E5DE; --tip:#83640F; --tip-soft:#F5EDD6;
+  --code-bg:#1E2821; --code-ink:#E2ECE4; --code-muted:#8FA497;
+  --mock-rail:#2A3A30; --mock-side:#34483B; --mock-side-ink:#D5E2D8; --mock-main:#FFFFFF;
+  --display:"Do Hyeon","IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111612; --surface:#19201B; --surface-2:#212A24; --ink:#E2E9E3; --muted:#98A69C;
+    --line:#2D3830; --accent:#74C290; --accent-ink:#0E1912; --accent-soft:#1D3325;
+    --warn:#E98C73; --warn-soft:#3A231E; --tip:#D8B75B; --tip-soft:#332B16;
+    --code-bg:#0B0F0C; --code-ink:#DAE6DD; --code-muted:#7D9184;
+    --mock-rail:#0D130F; --mock-side:#18231C; --mock-side-ink:#C9D7CD; --mock-main:#1E2621;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111612; --surface:#19201B; --surface-2:#212A24; --ink:#E2E9E3; --muted:#98A69C;
+  --line:#2D3830; --accent:#74C290; --accent-ink:#0E1912; --accent-soft:#1D3325;
+  --warn:#E98C73; --warn-soft:#3A231E; --tip:#D8B75B; --tip-soft:#332B16;
+  --code-bg:#0B0F0C; --code-ink:#DAE6DD; --code-muted:#7D9184;
+  --mock-rail:#0D130F; --mock-side:#18231C; --mock-side-ink:#C9D7CD; --mock-main:#1E2621;
+}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:anywhere}
+a{color:var(--accent);text-underline-offset:3px}
+a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+code,kbd{font-family:var(--mono);font-size:.88em}
+p code,li code,td code,dd code{background:var(--surface-2);border:1px solid var(--line);padding:.05em .4em;border-radius:4px}
+kbd{display:inline-block;background:var(--surface);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 .45em;line-height:1.6;white-space:nowrap}
+
+.shell{max-width:1120px;margin:0 auto;padding-inline:20px;padding-block:0 64px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:56px}
+
+/* ---- header ---- */
+.masthead{grid-column:1/-1;padding-block:48px 8px;display:grid;gap:14px;max-width:760px}
+.eyebrow{font-size:13px;letter-spacing:.06em;color:var(--muted);font-weight:500}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(40px,7vw,64px);line-height:1.05;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.lead{font-size:18px;color:var(--muted);margin:0;max-width:40em}
+.quickpath{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px;font-size:14px}
+.quickpath a{display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 14px 6px 6px}
+.quickpath a:hover{border-color:var(--accent)}
+.quickpath b{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:12px}
+.quickpath .arrow{color:var(--muted)}
+
+/* ---- toc ---- */
+.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 24px);align-self:start;font-size:14px;padding-top:8px}
+.toc h2{font-size:12px;letter-spacing:.08em;color:var(--muted);font-weight:500;margin:0 0 6px}
+.toc ol,.toc ul{list-style:none;margin:0 0 20px;padding:0;display:grid;gap:2px}
+.toc a{display:block;padding:4px 10px;border-radius:6px;color:var(--muted);text-decoration:none;border-left:2px solid transparent}
+.toc a:hover{color:var(--ink);background:var(--surface-2)}
+.toc a.on{color:var(--ink);border-left-color:var(--accent);background:var(--surface-2);border-radius:0 6px 6px 0}
+
+/* ---- content ---- */
+main{min-width:0;max-width:720px}
+section{padding-top:40px;scroll-margin-top:calc(env(safe-area-inset-top,0px) + 70px)}
+section + section{border-top:1px solid var(--line);margin-top:40px}
+.sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.step-no{font-family:var(--display);font-size:15px;color:var(--accent-ink);background:var(--accent);border-radius:6px;padding:0 8px;line-height:1.7}
+.ref-tag{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 8px;letter-spacing:.04em}
+h2{font-family:var(--display);font-weight:400;font-size:30px;line-height:1.2;margin:0;text-wrap:balance}
+h3{font-size:18px;font-weight:700;margin:32px 0 8px;line-height:1.4}
+p{margin:0 0 14px}
+ul.plain,ol.steps{margin:0 0 14px;padding-left:1.3em}
+ol.steps li,ul.plain li{margin-bottom:6px}
+ol.steps li::marker{color:var(--accent);font-weight:700}
+.path{font-weight:500}
+.path i{font-style:normal;color:var(--muted);padding-inline:4px}
+
+.note{border-radius:10px;padding:14px 16px;margin:18px 0;font-size:15px;background:var(--tip-soft)}
+.note strong:first-child{display:block;color:var(--tip);margin-bottom:2px}
+.note.warn{background:var(--warn-soft)}
+.note.warn strong:first-child{color:var(--warn)}
+.note.good{background:var(--accent-soft)}
+.note.good strong:first-child{color:var(--accent)}
+.note p:last-child{margin-bottom:0}
+
+/* terms */
+dl.terms{display:grid;grid-template-columns:max-content 1fr;gap:0;margin:0;border-top:1px solid var(--line)}
+dl.terms dt,dl.terms dd{padding:10px 0;border-bottom:1px solid var(--line);margin:0}
+dl.terms dt{font-weight:700;padding-right:20px;white-space:nowrap}
+dl.terms dt span{font-family:var(--mono);color:var(--accent);font-weight:500;margin-left:6px}
+dl.terms dd{color:var(--ink)}
+
+/* tabs */
+.tabs{margin-top:8px}
+.tablist{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:0}
+.tablist button{font:inherit;font-size:14px;font-weight:500;color:var(--muted);background:transparent;border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;padding:8px 14px;cursor:pointer}
+.tablist button[aria-selected="true"]{color:var(--ink);background:var(--surface);position:relative;top:1px}
+.tabpanel{background:var(--surface);border:1px solid var(--line);border-radius:0 10px 10px 10px;padding:20px 20px 8px}
+
+/* code */
+.code{position:relative;margin:12px 0 16px;background:var(--code-bg);color:var(--code-ink);border-radius:10px;overflow:hidden}
+.code .label{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12px;color:var(--code-muted);padding:8px 12px 0 14px}
+.code pre{margin:0;padding:8px 14px 14px;overflow-x:auto;font-family:var(--mono);font-size:13.5px;line-height:1.6}
+.copy{font:inherit;font-family:var(--body);font-size:12px;color:var(--code-ink);background:transparent;border:1px solid color-mix(in srgb,var(--code-ink) 25%,transparent);border-radius:6px;padding:2px 10px;cursor:pointer}
+.copy:hover{border-color:var(--code-ink)}
+
+/* checklist */
+.checklist{list-style:none;margin:8px 0 0;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.checklist li + li{border-top:1px solid var(--line)}
+.checklist label{display:grid;grid-template-columns:22px 1fr;gap:12px;padding:14px 16px;cursor:pointer;align-items:start}
+.checklist input{width:18px;height:18px;margin:4px 0 0;accent-color:var(--accent)}
+.checklist .t{font-weight:700;display:block}
+.checklist .d{color:var(--muted);font-size:14.5px;display:block}
+.checklist input:checked + span .t{text-decoration:line-through;text-decoration-color:var(--accent);color:var(--muted)}
+.progress{display:flex;align-items:center;gap:12px;margin-top:10px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.bar{flex:1;height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+
+/* screen mock */
+.mock-wrap{overflow-x:auto;margin:14px 0 6px;padding-bottom:4px}
+.mock{min-width:600px;display:grid;grid-template-columns:52px 170px 1fr;grid-template-rows:auto 1fr;border-radius:12px;overflow:hidden;border:1px solid var(--line);font-size:13px;line-height:1.5;background:var(--mock-main)}
+.mock .search{grid-column:1/-1;background:var(--mock-rail);padding:8px;display:flex;justify-content:center}
+.mock .search span{background:color-mix(in srgb,var(--mock-side-ink) 16%,transparent);color:var(--mock-side-ink);border-radius:6px;padding:3px 16px;width:50%;text-align:center;font-size:12px}
+.mock .rail{background:var(--mock-rail);color:var(--mock-side-ink);display:grid;align-content:start;gap:14px;padding:12px 0;justify-items:center;font-size:11px}
+.mock .rail div{display:grid;justify-items:center;gap:2px}
+.mock .rail b{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:color-mix(in srgb,var(--mock-side-ink) 14%,transparent);font-weight:500;font-size:12px}
+.mock .side{background:var(--mock-side);color:var(--mock-side-ink);padding:12px 10px}
+.mock .ws{font-weight:700;font-size:14px;margin-bottom:12px}
+.mock .grp{font-size:11px;opacity:.75;margin:10px 0 2px}
+.mock .ch{padding:2px 8px;border-radius:5px}
+.mock .ch.unread{font-weight:700}
+.mock .ch.on{background:var(--accent);color:var(--accent-ink)}
+.mock .main{display:grid;grid-template-rows:auto 1fr auto;color:var(--ink)}
+.mock .top{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);font-weight:700}
+.mock .top span{font-weight:400;color:var(--muted)}
+.mock .msgs{padding:10px 14px;display:grid;gap:12px;align-content:start}
+.mock .who{font-weight:700}
+.mock .who small{font-weight:400;color:var(--muted);margin-left:6px}
+.mock .meta{display:flex;gap:8px;margin-top:4px}
+.mock .pill{font-size:11.5px;color:var(--accent);border:1px solid var(--line);border-radius:99px;padding:0 8px}
+.mock .input{margin:10px 14px 14px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--muted)}
+.mock .callout{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--tip);color:var(--bg);font-size:11px;font-weight:700;margin-right:4px;vertical-align:1px}
+.legend{display:grid;gap:6px;margin:12px 0 0;padding:0;list-style:none;font-size:15px}
+.legend .callout{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--tip);color:var(--bg);font-size:11px;font-weight:700;margin-right:8px;vertical-align:1px}
+
+/* thread compare */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+.compare figure{margin:0;border-radius:12px;padding:14px 16px;background:var(--surface);border:1px solid var(--line)}
+.compare figcaption{font-weight:700;font-size:14px;margin-bottom:10px;display:flex;gap:8px;align-items:center}
+.compare figcaption i{font-style:normal;font-size:12px;font-weight:500;border-radius:99px;padding:0 8px}
+.compare .bad figcaption i{background:var(--warn-soft);color:var(--warn)}
+.compare .ok figcaption i{background:var(--accent-soft);color:var(--accent)}
+.compare ol{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:14px}
+.compare li b{font-weight:700;margin-right:6px}
+.compare .rep{display:inline-block;margin:2px 0 0 18px;font-size:12px;color:var(--accent);border:1px solid var(--line);border-radius:99px;padding:0 8px}
+.compare .result{margin-top:10px;font-size:13px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
+
+/* tables */
+.tbl{overflow-x:auto;margin:10px 0 16px}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;padding:9px 12px 9px 0;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12.5px;color:var(--muted);font-weight:500;letter-spacing:.04em}
+td:first-child{white-space:nowrap}
+
+/* channels */
+.channels{display:grid;gap:0;margin:10px 0 18px;border-top:1px solid var(--line)}
+.channels div{display:grid;grid-template-columns:170px 1fr;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}
+.channels code{font-size:14px;color:var(--accent);background:none;border:none;padding:0;font-weight:500}
+.alert-sample{margin-top:8px;display:grid;gap:4px;font-family:var(--mono);font-size:12.5px;background:var(--surface-2);border-radius:8px;padding:10px 12px;color:var(--ink)}
+.rules{list-style:none;padding:0;margin:0;display:grid;gap:12px}
+.rules li{padding-left:16px;border-left:2px solid var(--line)}
+.rules li.hot{border-left-color:var(--warn)}
+.rules b{display:block}
+
+/* faq */
+details.faq{border-bottom:1px solid var(--line)}
+details.faq:first-of-type{border-top:1px solid var(--line)}
+details.faq summary{cursor:pointer;padding:14px 0;font-weight:700;list-style:none;display:flex;justify-content:space-between;gap:12px}
+details.faq summary::-webkit-details-marker{display:none}
+details.faq summary::after{content:"+";color:var(--muted);font-weight:400;font-size:20px;line-height:1}
+details.faq[open] summary::after{content:"–"}
+details.faq .ans{padding-bottom:14px;color:var(--ink)}
+details.faq .ans p:last-child,details.faq .ans ol:last-child{margin-bottom:0}
+
+/* appendix */
+details.appendix{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 18px}
+details.appendix > summary{cursor:pointer;padding:16px 0;font-weight:700;display:flex;justify-content:space-between;gap:12px;list-style:none}
+details.appendix > summary::-webkit-details-marker{display:none}
+details.appendix > summary span{font-weight:400;color:var(--muted);font-size:14px}
+details.appendix[open] > summary{border-bottom:1px solid var(--line);margin-bottom:16px}
+details.appendix > div{padding-bottom:6px}
+
+/* claude code flow */
+.flow{list-style:none;margin:16px 0 18px;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;counter-reset:f}
+.flow.loop li:last-child{background:var(--surface);border:1px dashed var(--accent)}
+.dir td:nth-child(2){white-space:nowrap}
+.yes{color:var(--accent);font-weight:700}
+.no{color:var(--warn);font-weight:700}
+h4{font-size:15px;font-weight:700;margin:20px 0 6px}
+.flow li{counter-increment:f;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13.5px;line-height:1.5;position:relative}
+.flow li::before{content:counter(f);display:block;font-family:var(--display);font-size:18px;color:var(--accent);line-height:1.2;margin-bottom:2px}
+.flow li:last-child{background:var(--accent-soft);border-color:transparent}
+.flow b{font-weight:700}
+.req{display:grid;gap:10px;margin:8px 0 12px}
+.req .ex{border-radius:10px;padding:12px 14px;font-size:14.5px;line-height:1.65;background:var(--surface);border:1px solid var(--line)}
+.req .ex small{display:block;font-size:12px;font-weight:700;margin-bottom:4px;letter-spacing:.03em}
+.req .bad small{color:var(--warn)}
+.req .good small{color:var(--accent)}
+.req .ex code{background:none;border:none;padding:0}
+.btnname{display:inline-block;font-size:13px;font-weight:700;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:1px 8px;white-space:nowrap}
+
+footer{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+
+@media (max-width: 860px){
+  .shell{grid-template-columns:minmax(0,1fr);gap:0;padding-inline:16px}
+  .masthead{padding-block:32px 16px}
+  .toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);margin-inline:-16px;padding:8px 16px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap}
+  .toc h2{display:none}
+  .toc ol,.toc ul{display:inline-flex;gap:4px;margin:0}
+  .toc a{display:inline-block;border-left:none;padding:4px 10px;border-radius:99px}
+  .toc a.on{border-radius:99px;background:var(--accent-soft);color:var(--accent)}
+  .compare{grid-template-columns:1fr}
+  .channels div{grid-template-columns:1fr;gap:4px}
+  dl.terms{grid-template-columns:1fr}
+  dl.terms dt{border-bottom:none;padding-bottom:0}
+  h2{font-size:26px}
+}
+@media (prefers-reduced-motion: reduce){ .bar i{transition:none} html{scroll-behavior:auto} }
+html{scroll-behavior:smooth}
+body{margin:0}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <header class="masthead">
+    <div class="eyebrow">농스닥 팀 · 협업 도구 안내</div>
+    <h1>Slack 처음 쓰기</h1>
+    <p class="lead">농스닥 팀은 Slack 에서 대화하고, 매일 17시 30분 KAMIS 가격 수집 결과도 여기로 받는다. Slack 을 한 번도 안 써 본 사람이 설치부터 팀 채널에서 대화하기까지 혼자 따라 할 수 있게 적었다.</p>
+    <nav class="quickpath" aria-label="빠른 시작">
+      <a href="#install"><b>1</b>설치</a><span class="arrow">→</span>
+      <a href="#join"><b>2</b>가입</a><span class="arrow">→</span>
+      <a href="#setup"><b>3</b>처음 설정</a><span class="arrow">→</span>
+      <span>이 세 단계면 팀 대화를 시작할 수 있다.</span>
+    </nav>
+  </header>
+
+  <aside class="toc" aria-label="목차">
+    <h2>순서대로</h2>
+    <ol>
+      <li><a href="#terms">용어</a></li>
+      <li><a href="#install">1 · 설치</a></li>
+      <li><a href="#join">2 · 가입</a></li>
+      <li><a href="#setup">3 · 처음 설정</a></li>
+    </ol>
+    <h2>쓰면서 보기</h2>
+    <ul>
+      <li><a href="#screen">화면 구성</a></li>
+      <li><a href="#basics">기본 사용법</a></li>
+      <li><a href="#keys">단축키</a></li>
+      <li><a href="#rules">팀 사용 규칙</a></li>
+      <li><a href="#claude">Claude Code 붙이기</a></li>
+      <li><a href="#free">무료 플랜</a></li>
+      <li><a href="#faq">자주 막히는 곳</a></li>
+      <li><a href="#webhook">부록 · 알림 웹훅</a></li>
+    </ul>
+  </aside>
+
+  <main>
+    <div class="note">
+      <strong>버튼 이름은 조금씩 다를 수 있다</strong>
+      <p>Slack 은 화면을 자주 바꾼다. 여기 적힌 메뉴 이름이 실제 화면과 살짝 다르면 비슷한 이름을 찾으면 된다. 막히면 <a href="https://slack.com/help" target="_blank" rel="noopener">Slack 고객센터</a> 에 한국어 도움말이 있다.</p>
+    </div>
+
+    <section id="terms">
+      <div class="sec-head"><span class="ref-tag">먼저</span><h2>알아 둘 용어</h2></div>
+      <dl class="terms">
+        <dt>워크스페이스</dt><dd>팀 전용 공간. 카카오톡으로 치면 "우리 팀 단톡방들을 모아 둔 곳"</dd>
+        <dt>채널<span>#</span></dt><dd>주제별 대화방. <code>#nongsdaq-dev</code> 처럼 이름 앞에 <code>#</code> 이 붙는다</dd>
+        <dt>비공개 채널<span>🔒</span></dt><dd>초대받은 사람만 보이는 채널</dd>
+        <dt>DM</dt><dd>1:1 (또는 몇 명끼리) 개인 대화</dd>
+        <dt>스레드</dt><dd>메시지 하나에 달리는 댓글 묶음. 채널을 깔끔하게 유지하는 핵심 기능</dd>
+        <dt>멘션<span>@</span></dt><dd><code>@이름</code> 으로 특정 사람을 불러 알림을 보낸다</dd>
+        <dt>반응</dt><dd>메시지에 이모지를 붙이는 것. "확인했어요" 대신 ✅ 하나로 끝낸다</dd>
+        <dt>허들</dt><dd>음성 통화 · 화면 공유</dd>
+      </dl>
+    </section>
+
+    <section id="install">
+      <div class="sec-head"><span class="step-no">1</span><h2>설치</h2></div>
+      <p>PC 와 휴대폰 <strong>둘 다</strong> 까는 것을 권한다. PC 로 일하고, 휴대폰으로 알림을 받는다.</p>
+      <div class="tabs" data-tabs="install">
+        <div class="tablist" role="tablist" aria-label="기기 선택">
+          <button role="tab" id="tab-win" aria-controls="p-win" aria-selected="true">Windows</button>
+          <button role="tab" id="tab-mac" aria-controls="p-mac" aria-selected="false">Mac</button>
+          <button role="tab" id="tab-phone" aria-controls="p-phone" aria-selected="false">휴대폰</button>
+          <button role="tab" id="tab-web" aria-controls="p-web" aria-selected="false">설치 없이 (브라우저)</button>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="p-win" aria-labelledby="tab-win">
+          <p><strong>방법 A — 명령 한 줄.</strong> PowerShell 을 열고 붙여 넣는다.</p>
+          <div class="code"><div class="label">PowerShell<button class="copy" type="button">복사</button></div><pre><code>winget install --id SlackTechnologies.Slack -e</code></pre></div>
+          <p><strong>방법 B — 직접 받기.</strong> <a href="https://slack.com/downloads" target="_blank" rel="noopener">slack.com/downloads</a> 에서 <strong>Windows 용 다운로드</strong>를 눌러 받은 파일을 실행한다. 설치 화면에서 따로 고를 것은 없고, 끝나면 Slack 이 저절로 열린다.</p>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="p-mac" aria-labelledby="tab-mac" hidden>
+          <p>App Store 에서 <code>Slack</code> 을 검색해 설치하거나, <a href="https://slack.com/downloads" target="_blank" rel="noopener">slack.com/downloads</a> 에서 Mac 용을 받는다.</p>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="p-phone" aria-labelledby="tab-phone" hidden>
+          <p>App Store(아이폰) · Play 스토어(안드로이드) 에서 <code>Slack</code> 을 검색한다. 제작사가 <strong>Slack Technologies</strong> 인지 확인하고 설치한다.</p>
+          <p>처음 실행할 때 나오는 <strong>알림 허용</strong>은 꼭 누른다. 수집 실패 알림을 놓치지 않으려면 필요하다.</p>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="p-web" aria-labelledby="tab-web" hidden>
+          <p>브라우저에서 <a href="https://app.slack.com" target="_blank" rel="noopener">app.slack.com</a> 으로 들어가도 된다. 남의 PC 를 잠깐 쓸 때 편하다. 다만 알림은 설치한 앱이 훨씬 잘 온다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="join">
+      <div class="sec-head"><span class="step-no">2</span><h2>가입하고 팀에 들어가기</h2></div>
+      <p><strong>팀원 대부분은 "초대를 받았다" 쪽만 하면 된다.</strong> 워크스페이스는 팀장 한 명만 만든다.</p>
+      <div class="tabs" data-tabs="join">
+        <div class="tablist" role="tablist" aria-label="내 상황">
+          <button role="tab" id="tab-inv" aria-controls="p-inv" aria-selected="true">초대를 받았다 (팀원)</button>
+          <button role="tab" id="tab-new" aria-controls="p-new" aria-selected="false">새로 만든다 (팀장 1명)</button>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="p-inv" aria-labelledby="tab-inv">
+          <ol class="steps">
+            <li>메일함에서 Slack 초대 메일을 찾는다. 제목에 <strong>초대</strong> 또는 <strong>Join</strong> 이 들어 있다.</li>
+            <li>메일 안의 <strong>지금 가입</strong>(<code>Join Now</code>) 버튼을 누른다.</li>
+            <li>이름을 적는다. 팀원이 알아볼 수 있게 <strong>실명</strong>을 권한다.</li>
+            <li>비밀번호를 정하거나 <strong>Google 로 계속하기</strong>를 누른다.</li>
+            <li>설치한 Slack 앱을 열고 같은 이메일로 로그인한다. 이메일로 <strong>6자리 확인 코드</strong>가 오면 그대로 입력한다.</li>
+          </ol>
+          <div class="note">
+            <strong>초대 메일이 안 보이면</strong>
+            <p>스팸함 · 프로모션함부터 확인한다. 그래도 없으면 팀장에게 이메일 주소가 맞는지 알려 주고 다시 초대해 달라고 한다. 초대 링크는 기한이 있을 수 있어서, 오래된 메일이면 새로 받는 게 빠르다.</p>
+          </div>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="p-new" aria-labelledby="tab-new" hidden>
+          <ol class="steps">
+            <li><a href="https://slack.com" target="_blank" rel="noopener">slack.com</a> 에서 <strong>시작하기</strong>를 누르고 이메일을 입력한다.</li>
+            <li>메일로 온 <strong>6자리 코드</strong>를 입력한다.</li>
+            <li><strong>워크스페이스 만들기</strong>를 누른다.</li>
+            <li>팀 이름을 적는다 — 예: <code>농스닥</code></li>
+            <li>내 이름과 사진을 정한다. 사진은 건너뛰어도 된다.</li>
+            <li>팀원 이메일을 넣어 초대한다. 나중에 해도 된다.</li>
+            <li>지금 하고 있는 일을 물으면 그게 첫 채널 이름이 된다 — 예: <code>nongsdaq-dev</code></li>
+            <li>요금제 화면이나 유료 체험 권유가 나오면 <strong>무료 플랜</strong>을 고르거나 건너뛴다.</li>
+          </ol>
+          <div class="note good">
+            <strong>팀원을 더 초대하려면</strong>
+            <p>왼쪽 위 <span class="path">워크스페이스 이름 <i>→</i> 사람 초대</span>. 이메일로 보내거나 초대 링크를 복사해 카톡으로 전달할 수 있다.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="setup">
+      <div class="sec-head"><span class="step-no">3</span><h2>처음 설정</h2></div>
+      <p>설정은 모두 <strong>내 프로필 사진</strong>(오른쪽 위 또는 왼쪽 아래)을 눌러서 들어간다. 끝낸 항목을 체크해 두면 이 브라우저에서는 다음에 열어도 남아 있다.</p>
+      <ul class="checklist" id="checklist">
+        <li><label><input type="checkbox" id="ck-lang"><span><span class="t">한국어로 바꾸기</span><span class="d">영어로 나오면: 프로필 사진 → <code>Preferences</code> → <code>Language &amp; region</code> → <code>Language</code> 를 <code>한국어</code> 로</span></span></label></li>
+        <li><label><input type="checkbox" id="ck-profile"><span><span class="t">이름 · 사진 정하기</span><span class="d">프로필 사진 → 프로필. 팀원이 누가 누군지 알아볼 수 있으면 된다</span></span></label></li>
+        <li><label><input type="checkbox" id="ck-notify"><span><span class="t">알림을 "DM, 멘션 및 키워드" 로</span><span class="d">프로필 사진 → 환경설정 → 알림. "모든 새 메시지" 로 두면 알림이 너무 많아서 결국 전부 무시하게 된다</span></span></label></li>
+        <li><label><input type="checkbox" id="ck-phone"><span><span class="t">휴대폰 알림 허용</span><span class="d">휴대폰 앱을 처음 열 때 나오는 알림 허용을 누른다</span></span></label></li>
+        <li><label><input type="checkbox" id="ck-dnd"><span><span class="t">밤에는 알림 일시 중지</span><span class="d">같은 알림 화면에서 방해 금지 시간을 정한다. 예: 매일 23시 ~ 8시</span></span></label></li>
+        <li><label><input type="checkbox" id="ck-channels"><span><span class="t">팀 채널 네 개 참여</span><span class="d"><code>#general</code> <code>#nongsdaq-dev</code> <code>#nongsdaq-alerts</code> <code>#random</code> — 팀 사용 규칙 참고</span></span></label></li>
+      </ul>
+      <div class="progress" aria-live="polite"><div class="bar"><i id="bar"></i></div><span id="count">0 / 6</span></div>
+    </section>
+
+    <section id="screen">
+      <div class="sec-head"><span class="ref-tag">참고</span><h2>화면 구성</h2></div>
+      <div class="mock-wrap" role="img" aria-label="Slack 화면 구성 예시: 왼쪽 메뉴, 채널 목록, 대화 화면">
+        <div class="mock">
+          <div class="search"><span>🔍 검색</span></div>
+          <div class="rail">
+            <div><b>홈</b></div>
+            <div><b>DM</b></div>
+            <div><b>활동</b></div>
+            <div><span class="callout">①</span></div>
+          </div>
+          <div class="side">
+            <div class="ws">농스닥 ▾ <span class="callout">②</span></div>
+            <div class="grp">▾ 채널</div>
+            <div class="ch"># general</div>
+            <div class="ch on"># nongsdaq-dev</div>
+            <div class="ch unread"># nongsdaq-alerts</div>
+            <div class="ch"># random</div>
+            <div class="grp">▾ 다이렉트 메시지</div>
+            <div class="ch">김철수</div>
+          </div>
+          <div class="main">
+            <div class="top"># nongsdaq-dev <span class="callout">③</span><span>👥 4 &nbsp; 🎧</span></div>
+            <div class="msgs">
+              <div>
+                <div class="who">홍길동<small>오후 3:12</small></div>
+                KAMIS 응답에 '-' 로 오는 가격은 어떻게 보여 줄까요?
+                <div class="meta"><span class="pill">💬 답글 3개</span></div>
+              </div>
+              <div>
+                <div class="who">김철수<small>오후 3:15</small></div>
+                API 응답 형식 정리해서 노션에 올렸어요
+                <div class="meta"><span class="pill">✅ 2</span><span class="pill">👀 1</span></div>
+              </div>
+            </div>
+            <div class="input">#nongsdaq-dev 에 메시지 보내기</div>
+          </div>
+        </div>
+      </div>
+      <ul class="legend">
+        <li><span class="callout">①</span><strong>맨 왼쪽 메뉴</strong> — 홈, DM 모아 보기, 활동(나를 멘션한 것 · 내 글에 달린 반응)</li>
+        <li><span class="callout">②</span><strong>채널 · DM 목록</strong> — 안 읽은 채널은 <strong>굵은 글씨</strong>로 보인다</li>
+        <li><span class="callout">③</span><strong>대화 화면</strong> — 맨 아래 입력창에 쓴다. 오른쪽 위 🎧 가 허들(음성), 👥 가 채널 멤버</li>
+      </ul>
+    </section>
+
+    <section id="basics">
+      <div class="sec-head"><span class="ref-tag">참고</span><h2>기본 사용법</h2></div>
+
+      <h3>메시지 보내기 · 고치기 · 지우기</h3>
+      <ul class="plain">
+        <li>입력창에 쓰고 <kbd>Enter</kbd> 를 누르면 보내진다.</li>
+        <li>줄을 바꾸려면 <kbd>Shift</kbd> + <kbd>Enter</kbd>. 그냥 <kbd>Enter</kbd> 를 누르면 쓰다 만 글이 보내진다 — 가장 흔한 실수다.</li>
+        <li>보낸 메시지에 마우스를 올리면 오른쪽에 작은 메뉴가 뜬다. <span class="path">⋮ 더 보기 <i>→</i> 메시지 편집 / 메시지 삭제</span></li>
+        <li>방금 보낸 내 메시지는 입력창이 비어 있을 때 <kbd>↑</kbd> 를 누르면 바로 고칠 수 있다.</li>
+      </ul>
+
+      <h3>스레드로 답하기 — 가장 중요</h3>
+      <p>메시지에 마우스를 올리고 <strong>💬 스레드에서 답장</strong>을 누르면, 오른쪽에 그 메시지 전용 댓글 창이 열린다.</p>
+      <div class="compare">
+        <figure class="bad">
+          <figcaption>채널에 바로 답하면 <i>뒤섞임</i></figcaption>
+          <ol>
+            <li><b>A</b>회의 몇 시에 할까요?</li>
+            <li><b>B</b>API 문서 올렸어요</li>
+            <li><b>C</b>3시요</li>
+            <li><b>D</b>문서 확인했습니다</li>
+            <li><b>A</b>그럼 3시로 할게요</li>
+          </ol>
+          <div class="result">회의 이야기와 문서 이야기가 한 줄씩 엇갈린다.</div>
+        </figure>
+        <figure class="ok">
+          <figcaption>스레드로 답하면 <i>정리됨</i></figcaption>
+          <ol>
+            <li><b>A</b>회의 몇 시에 할까요?<br><span class="rep">💬 답글 2개</span></li>
+            <li><b>B</b>API 문서 올렸어요<br><span class="rep">💬 답글 1개</span></li>
+          </ol>
+          <div class="result">채널에는 주제만 남고, 대화는 각 스레드 안에 모인다.</div>
+        </figure>
+      </div>
+      <p><strong>원칙: 누군가의 글에 답할 때는 스레드로 단다.</strong> 새 주제를 꺼낼 때만 채널에 바로 쓴다. 스레드 창 아래 <strong>채널에도 보내기</strong>를 체크하면 결론을 채널에도 함께 남길 수 있다.</p>
+
+      <h3>멘션으로 부르기</h3>
+      <ul class="plain">
+        <li><code>@</code> 를 치고 이름을 고르면 그 사람에게 알림이 간다. 예: <code>@김철수 이거 확인 부탁해요</code></li>
+        <li><code>@here</code> — 지금 접속해 있는 채널 멤버에게 알림</li>
+        <li><code>@channel</code> — 채널 멤버 <strong>전원</strong>에게 알림. 급한 공지에만 쓴다. 남발하면 다들 알림을 꺼 버린다.</li>
+      </ul>
+
+      <h3>반응(이모지) 달기</h3>
+      <p>메시지에 마우스를 올리고 <strong>😊 반응 추가</strong>를 누른다. "확인했습니다", "좋아요" 같은 짧은 답은 글 대신 반응으로 한다. 채널이 조용해진다.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>반응</th><th>이 팀에서의 뜻 (제안)</th></tr></thead>
+        <tbody>
+          <tr><td>👀</td><td>봤고, 확인 중</td></tr>
+          <tr><td>✅</td><td>처리 끝 / 동의</td></tr>
+          <tr><td>🙏</td><td>고마워요</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>파일 · 이미지 · 코드 보내기</h3>
+      <p>파일이나 캡처 이미지는 입력창에 <strong>끌어다 놓거나</strong> <kbd>Ctrl</kbd> + <kbd>V</kbd> 로 붙여 넣는다. 코드나 오류 메시지는 <strong>코드 블록</strong>으로 감싸야 줄이 안 깨진다.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>이렇게 쓰면</th><th>이렇게 보인다</th></tr></thead>
+        <tbody>
+          <tr><td><code>*굵게*</code></td><td><strong>굵게</strong></td></tr>
+          <tr><td><code>_기울임_</code></td><td><em>기울임</em></td></tr>
+          <tr><td><code>~취소선~</code></td><td><s>취소선</s></td></tr>
+          <tr><td><code>`코드`</code></td><td><code>코드</code></td></tr>
+          <tr><td><code>```</code> 로 위아래 감싸기</td><td>여러 줄 코드 블록</td></tr>
+          <tr><td><code>&gt; 인용</code></td><td>인용문</td></tr>
+        </tbody>
+      </table></div>
+      <p>입력창 위의 서식 버튼(<strong>B</strong>, <em>I</em>, <code>&lt;/&gt;</code> 등)을 눌러도 똑같이 된다.</p>
+
+      <h3>DM 보내기</h3>
+      <p>왼쪽 목록의 <strong>다이렉트 메시지</strong> 옆 <strong>+</strong> 를 누르고 이름을 고른다. DM 목록에서 <strong>내 이름</strong>을 누르면 나만 보는 대화방이 된다. 링크나 메모를 잠깐 적어 두는 메모장으로 쓰기 좋다.</p>
+
+      <h3>채널 찾아 들어가기</h3>
+      <p>왼쪽 <span class="path">채널 옆 + <i>→</i> 채널 둘러보기</span> 에서 채널을 골라 <strong>참여</strong>를 누른다. 공개 채널은 초대받지 않아도 스스로 들어갈 수 있다.</p>
+
+      <h3>검색</h3>
+      <p>맨 위 <strong>검색창</strong>에 단어를 넣는다. 사람 · 채널 · 날짜로 좁힐 수 있다. 채널이나 사람에게 빨리 가고 싶으면 <kbd>Ctrl</kbd> + <kbd>K</kbd> 를 누르고 이름 몇 글자만 친다.</p>
+
+      <h3>허들 (음성 · 화면 공유)</h3>
+      <p>채널이나 DM 오른쪽 위 <strong>🎧</strong> 를 누르면 바로 음성 통화가 시작된다. 화면 공유도 여기서 한다. <strong>무료 플랜에서는 1:1 로만</strong> 쓸 수 있다. 여러 명 회의는 다른 도구를 쓴다(<a href="#free">무료 플랜</a> 참고).</p>
+
+      <h3>나중에 다시 보기</h3>
+      <p>메시지에 마우스를 올리고 <strong>🔖 나중을 위해 저장</strong>을 누르면 왼쪽 메뉴의 <strong>나중에</strong> 목록에 모인다. 지금 당장 답하기 어려운 부탁을 놓치지 않게 해 준다.</p>
+    </section>
+
+    <section id="keys">
+      <div class="sec-head"><span class="ref-tag">참고</span><h2>자주 쓰는 단축키</h2></div>
+      <p>Windows 기준이다. Mac 은 <kbd>Ctrl</kbd> 을 <kbd>Cmd</kbd> 로 바꾸면 된다.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>단축키</th><th>하는 일</th></tr></thead>
+        <tbody>
+          <tr><td><kbd>Enter</kbd></td><td>보내기</td></tr>
+          <tr><td><kbd>Shift</kbd> + <kbd>Enter</kbd></td><td>줄 바꿈</td></tr>
+          <tr><td><kbd>↑</kbd></td><td>입력창이 비었을 때 — 방금 보낸 내 메시지 고치기</td></tr>
+          <tr><td><kbd>Ctrl</kbd> + <kbd>K</kbd></td><td>채널 · 사람으로 빨리 이동</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>지금 채널을 읽음으로 표시</td></tr>
+          <tr><td><kbd>Ctrl</kbd> + <kbd>/</kbd></td><td>단축키 전체 목록 보기</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="rules">
+      <div class="sec-head"><span class="ref-tag">제안</span><h2>농스닥 팀 사용 규칙</h2></div>
+      <h3 style="margin-top:0">채널</h3>
+      <div class="channels">
+        <div><code>#general</code><span>공지 · 일정. 모두 들어가 있다</span></div>
+        <div><code>#nongsdaq-dev</code><span>개발 이야기 전부 — 기능, 버그, 코드 리뷰. <code>@Claude</code> 도 여기서 부른다(<a href="#claude">Claude Code 붙이기</a>)</span></div>
+        <div><code>#nongsdaq-alerts</code>
+          <span>매일 17시 30분 가격 수집 결과가 <strong>자동으로</strong> 올라온다. 사람은 새 글을 안 쓰고, 실패 알림에 스레드로만 대응한다.
+            <span class="alert-sample" aria-label="알림 예시">
+              <span>✅ [농스닥] 2026-09-18 수집 완료 — 3일치 543행 반영</span>
+              <span>⚠️ [농스닥] 2026-09-20 자료 없음 (주말·공휴일이면 정상)</span>
+              <span>❌ [농스닥] 2026-09-18 실패 — 실패한 부류: 400,500</span>
+            </span>
+          </span></div>
+        <div><code>#random</code><span>잡담</span></div>
+      </div>
+      <p>채널이 너무 많으면 오히려 어디에 써야 할지 헷갈린다. 이 네 개로 시작하고, 필요해지면 늘린다.</p>
+
+      <h3>규칙</h3>
+      <ul class="rules">
+        <li><b>답은 스레드로.</b>새 주제만 채널에 바로 쓴다.</li>
+        <li><b>짧은 대답은 반응으로.</b>✅ 👀</li>
+        <li><b>결정한 것은 문서로 옮긴다.</b>무료 플랜은 90일이 지나면 메시지가 안 보인다. 회의 결론 · 설계 결정은 <code>WORKLOG.md</code> 나 노션에 남긴다.</li>
+        <li class="hot"><b>비밀번호 · 인증키 · 웹훅 URL 은 절대 메시지로 올리지 않는다.</b>KAMIS 인증키, Oracle 비밀번호, <code>.env</code> 파일 내용이 여기에 해당한다. 한 번 올리면 지워도 다른 사람 알림 · 휴대폰에 남을 수 있다.</li>
+        <li><b><code>@channel</code> 은 급할 때만.</b></li>
+      </ul>
+    </section>
+
+    <section id="claude">
+      <div class="sec-head"><span class="ref-tag">연동</span><h2>Claude Code 붙이기</h2></div>
+      <p>채널에서 <code>@Claude</code> 를 부르면 Claude Code 가 <strong>클라우드에서</strong> 우리 GitHub 저장소를 열고 코드를 고친다. 버그 이야기를 하던 스레드에서 그대로 일을 맡길 수 있는 게 장점이다.</p>
+      <ol class="flow" aria-label="작업 흐름">
+        <li>스레드에서 <b>@Claude</b> 로 요청</li>
+        <li>클라우드에 작업 세션이 생긴다</li>
+        <li>진행 상황이 스레드에 올라온다</li>
+        <li>끝나면 나를 <b>멘션</b>해서 알려 준다</li>
+        <li><b>View Session</b> 으로 확인, <b>Create PR</b> 로 PR 생성</li>
+      </ol>
+      <div class="note">
+        <strong>2026-09 기준 내용이다</strong>
+        <p>화면 이름과 조건은 바뀔 수 있다. 막히면 공식 문서 <a href="https://code.claude.com/docs/en/slack" target="_blank" rel="noopener">Claude Code in Slack</a> 을 본다.</p>
+      </div>
+
+      <h3>준비물 — 쓰는 사람마다 각자</h3>
+      <div class="tbl"><table>
+        <thead><tr><th>무엇</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td>Claude 유료 요금제</td><td>Claude Code 가 포함된 Pro · Max. <strong>쓰는 사람마다 각자</strong> 필요하고, 사용량도 각자의 한도에서 빠진다</td></tr>
+          <tr><td>GitHub 계정</td><td><code>project_nongsdak</code> 은 비공개 저장소라 <strong>협업자로 초대</strong>받아 있어야 한다</td></tr>
+          <tr><td>claude.ai/code 로그인</td><td>같은 Claude 계정으로 한 번 들어가 GitHub 를 연결해 둔다</td></tr>
+          <tr><td>Slack 계정 연결</td><td>Slack 안의 Claude 앱에서 내 Claude 계정과 잇는다</td></tr>
+        </tbody>
+      </table></div>
+      <p style="color:var(--muted);font-size:14px">Claude 를 Team · Enterprise 요금제로 쓰는 경우는 방식이 다르다(Claude Tag). 여기는 개인 요금제(Pro · Max) 기준이다.</p>
+
+      <h3>연결하기</h3>
+      <div class="tabs" data-tabs="claude">
+        <div class="tablist" role="tablist" aria-label="누가 하는 일">
+          <button role="tab" id="tab-cl-lead" aria-controls="p-cl-lead" aria-selected="true">팀장이 한 번</button>
+          <button role="tab" id="tab-cl-each" aria-controls="p-cl-each" aria-selected="false">쓰려는 사람 각자</button>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="p-cl-lead" aria-labelledby="tab-cl-lead">
+          <ol class="steps">
+            <li><a href="https://slack.com/marketplace/A08SF47R6P4" target="_blank" rel="noopener">Slack 앱 마켓의 Claude 앱</a> 에서 <span class="btnname">Add to Slack</span> 을 눌러 워크스페이스에 설치한다. 워크스페이스 관리자만 설치할 수 있다.</li>
+            <li><code>#nongsdaq-dev</code> 채널 입력창에 아래를 쳐서 Claude 를 초대한다.
+              <div class="code"><div class="label">Slack 입력창<button class="copy" type="button">복사</button></div><pre><code>/invite @Claude</code></pre></div>
+              Claude 는 <strong>초대된 채널에서만</strong> 대답한다. 설치만 하고 초대를 안 하면 불러도 조용하다.
+            </li>
+          </ol>
+          <p style="color:var(--muted);font-size:14px">무료 Slack 의 외부 앱 10개 한도에서 Claude 앱도 1개로 센다.</p>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="p-cl-each" aria-labelledby="tab-cl-each" hidden>
+          <ol class="steps">
+            <li><strong><a href="https://claude.ai/code" target="_blank" rel="noopener">claude.ai/code</a> 에 로그인해 GitHub 를 연결한다.</strong> 안내에 따라 GitHub 계정을 잇고 <code>project_nongsdak</code> 저장소를 고른다. 이걸 한 번도 안 하면 Slack 에서 <code>Claude Code is not enabled for your account</code> 오류가 난다.</li>
+            <li><strong>Slack 과 Claude 계정을 잇는다.</strong> <span class="path">왼쪽 앱 목록 <i>→</i> Claude <i>→</i> 홈(App Home) 탭 <i>→</i> Connect</span>. 브라우저가 열리면 1번과 <strong>같은 Claude 계정</strong>으로 로그인한다.</li>
+            <li><strong>라우팅 모드를 고른다.</strong> 같은 홈 탭의 <span class="btnname">Routing Mode</span> 에서:
+              <div class="tbl"><table>
+                <tbody>
+                  <tr><td><strong>Code + Chat</strong> (권장)</td><td>코딩 요청이면 Claude Code 가, 그냥 질문이면 일반 대답이 나온다</td></tr>
+                  <tr><td><strong>Code only</strong></td><td><code>@Claude</code> 를 부르면 무조건 Claude Code 작업이 된다</td></tr>
+                </tbody>
+              </table></div>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>쓰는 법</h3>
+      <ul class="plain">
+        <li><strong>채널에서만 된다.</strong> DM 에서 부르면 Claude Code 작업이 시작되지 않는다.</li>
+        <li><strong>스레드에서 부르는 게 가장 좋다.</strong> 스레드 전체를 읽고 맥락을 파악하기 때문이다. 버그를 이야기하던 스레드 맨 아래에서 부르면 설명을 다시 할 필요가 없다.</li>
+        <li>요청은 <strong>무엇을 · 어디서 · 끝나면 뭘 할지</strong>를 구체적으로 쓴다. 아래는 쓰는 방식을 보여 주는 예시다.</li>
+      </ul>
+      <div class="req">
+        <div class="ex bad"><small>막연한 요청</small><code>@Claude</code> 화면 좀 좋게 바꿔 줘</div>
+        <div class="ex good"><small>구체적인 요청</small><code>@Claude</code> 품목 상세 화면에서 오늘 가격 옆에 평년 대비 몇 % 인지 같이 보여 줘. 화면은 <code>webservice/static/index.html</code>, 데이터는 <code>webservice/db.py</code> 에서 온다. 다 되면 PR 만들어 줘.</div>
+      </div>
+      <p>작업이 끝나면 스레드에 버튼이 붙는다.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>버튼</th><th>하는 일</th></tr></thead>
+        <tbody>
+          <tr><td><span class="btnname">View Session</span></td><td>브라우저에서 작업 전체 내용을 본다. 거기서 이어서 더 시킬 수도 있다</td></tr>
+          <tr><td><span class="btnname">Create PR</span></td><td>바뀐 코드로 PR 을 만든다. 작업 하나에 PR 하나</td></tr>
+          <tr><td><span class="btnname">Retry as Code</span></td><td>일반 대답이 나왔는데 코딩 작업을 원했을 때 다시 시킨다</td></tr>
+          <tr><td><span class="btnname">Change Repo</span></td><td>저장소를 잘못 골랐을 때 바꾼다</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>이 프로젝트에서 알아 둘 것</h3>
+      <ul class="rules">
+        <li class="hot"><b>클라우드는 우리 PC 의 Oracle DB 와 .env 를 볼 수 없다.</b>코드 · 문서 고치기와 PR 만들기까지는 되지만, 실제 DB 에 붙여 돌려 보는 확인은 안 된다. PR 을 받아 각자 PC 에서 실행해 보고 병합한다. 수집 스크립트 실행 · DB 조회는 맡길 수 없다. DB 로 확인하는 방법은 바로 아래 <a href="#claude-db">DB 확인이 필요할 때</a> 에 있다.</li>
+        <li><b>PR 은 바로 main 에 들어가지 않는다.</b>팀원이 PR 을 보고 병합해야 반영된다. Claude 가 만든 코드도 사람이 만든 코드처럼 리뷰한다.</li>
+        <li class="hot"><b>Claude 는 스레드 안의 다른 메시지에 적힌 지시도 따를 수 있다.</b>팀원만 있는 채널에서만 쓰고, 외부인이 들어오는 채널에는 Claude 를 초대하지 않는다.</li>
+        <li><b>비밀 정보 규칙은 그대로다.</b>스레드에 인증키를 붙이면 Claude 도 그걸 읽는다.</li>
+        <li><b>GitHub 저장소만 된다.</b>다른 곳에 있는 코드는 다룰 수 없다.</li>
+      </ul>
+
+      <h3 id="claude-db" style="scroll-margin-top:80px">DB 확인이 필요할 때 — 터미널 Claude Code 와 이어 쓰기</h3>
+      <p>Slack 의 Claude 는 클라우드에서 돌아서 DB 를 못 본다. 하지만 <strong>Oracle 이 설치된 PC 에서 도는 터미널 Claude Code</strong> 는 DB 에 붙는다. 둘이 실시간으로 대화하지는 못하고, 되는 것과 안 되는 것은 이렇다.</p>
+      <div class="tbl"><table class="dir">
+        <thead><tr><th>방향</th><th>되나</th><th>방법</th></tr></thead>
+        <tbody>
+          <tr><td>터미널 → Slack 세션</td><td class="yes">메시지 보내기</td><td><code>claude -p "메시지" --cloud &lt;세션ID&gt;</code></td></tr>
+          <tr><td>Slack 세션 → 터미널</td><td class="no">안 됨</td><td>클라우드 쪽에서 먼저 말을 걸 수는 없다</td></tr>
+          <tr><td>Slack 세션을 터미널로</td><td class="yes">가져오기</td><td><code>claude --teleport</code> — 방법 A</td></tr>
+          <tr><td>PR 을 사이에 두고</td><td class="yes">시간차 주고받기</td><td>PR 리뷰 댓글 + Auto-fix — 방법 B</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note good">
+        <strong>세션 ID 찾기</strong>
+        <p>Slack 스레드의 <span class="btnname">View Session</span> 을 누르면 열리는 주소 <code>claude.ai/code/session_...</code> 에서 <code>session_...</code> 부분이다. 주소를 통째로 넣어도 된다.</p>
+      </div>
+
+      <div class="tabs" data-tabs="claude-db">
+        <div class="tablist" role="tablist" aria-label="이어 쓰는 방법">
+          <button role="tab" id="tab-db-a" aria-controls="p-db-a" aria-selected="true">방법 A · 터미널로 가져오기 (기본)</button>
+          <button role="tab" id="tab-db-b" aria-controls="p-db-b" aria-selected="false">방법 B · PR 로 주고받기</button>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="p-db-a" aria-labelledby="tab-db-a">
+          <p>Slack 에서 시킨 작업을 <strong>대화 기록 · 작업 브랜치째로</strong> 이 PC 에 가져와 이어서 한다. 설명을 다시 할 필요가 없어서 가장 간단하다.</p>
+          <ol class="flow" aria-label="방법 A 흐름">
+            <li>Slack 에서 <b>@Claude</b> 로 코드 수정</li>
+            <li>터미널에서 <b>claude --teleport</b></li>
+            <li>대화 기록 · 브랜치가 이 PC 로 넘어옴</li>
+            <li>DB 에 붙여 실행 · 검증 후 <b>push</b></li>
+          </ol>
+          <ol class="steps">
+            <li>Slack 에서 <code>@Claude</code> 로 작업을 시킨다. 끝나면 <span class="btnname">View Session</span> 을 누른다.</li>
+            <li>세션 화면 메뉴의 <span class="path">Open in <i>→</i> Terminal</span> 을 누르면 붙여 넣을 명령이 복사된다.</li>
+            <li><strong>프로젝트 폴더</strong>에서 PowerShell 을 열고 붙여 넣는다. 세션 ID 없이 치면 목록에서 고를 수 있다.
+              <div class="code"><div class="label">PowerShell<button class="copy" type="button">복사</button></div><pre><code>claude --teleport</code></pre></div>
+            </li>
+            <li>대화가 이어지면 DB 가 필요한 일을 시킨다. 예: <code>이 변경으로 웹서비스 띄워서 실제 DB 데이터로 화면 확인해 줘</code></li>
+            <li>문제없으면 push 하고 PR 을 병합한다.</li>
+          </ol>
+          <ul class="plain">
+            <li><strong>커밋 안 한 변경이 있으면</strong> 먼저 치워 두라고(stash) 물어본다. 가져오기 전에 작업 폴더를 깨끗하게 한다.</li>
+            <li><strong>가져온 뒤 작업은 이 PC 에만 남는다.</strong> 원래 클라우드 세션에는 반영되지 않으니, 그 뒤로는 터미널에서 계속한다.</li>
+          </ul>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="p-db-b" aria-labelledby="tab-db-b" hidden>
+          <p>클라우드 Claude 가 계속 코드를 고치고, 터미널 Claude Code 가 DB 로 검증해 PR 에 리뷰를 남긴다. 둘이 "대화" 하는 것에 가장 가까운 방식이다.</p>
+          <ol class="flow loop" aria-label="방법 B 흐름">
+            <li>Slack 세션: <b>PR 생성</b> + <b>Auto-fix</b> 켜기</li>
+            <li>터미널: PR 브랜치를 받아 <b>DB 로 검증</b></li>
+            <li>터미널: 결과를 <b>PR 리뷰 댓글</b>로</li>
+            <li>Slack 세션: 댓글을 읽고 <b>고쳐서 push</b></li>
+            <li>2 ~ 4 반복, 끝나면 <b>사람이 병합</b></li>
+          </ol>
+          <h4>처음 한 번 준비</h4>
+          <ul class="plain">
+            <li><strong>저장소 관리자</strong>가 <a href="https://github.com/apps/claude" target="_blank" rel="noopener">Claude GitHub App</a> 을 <code>project_nongsdak</code> 에 설치한다. Auto-fix 가 PR 댓글을 받으려면 필요하다.</li>
+            <li><strong>터미널 쪽 PC</strong> 에 GitHub CLI 를 깔고 로그인한다. 터미널 Claude Code 가 PR 에 댓글을 달 때 쓴다.
+              <div class="code"><div class="label">PowerShell<button class="copy" type="button">복사</button></div><pre><code>winget install --id GitHub.cli -e
+gh auth login</code></pre></div>
+            </li>
+          </ul>
+          <h4>순서</h4>
+          <ol class="steps">
+            <li>Slack 에서 작업을 시키고 <span class="btnname">Create PR</span> 로 PR 을 만든다.</li>
+            <li><span class="btnname">View Session</span> 에서 CI 상태 표시줄의 <strong>Auto-fix</strong> 를 켠다. 세션에 <code>이 PR 지켜보다가 리뷰 댓글 달리면 고쳐 줘</code> 라고 말해도 된다.</li>
+            <li>이 PC 의 터미널 Claude Code 에게 시킨다. 예: <code>PR #12 브랜치 받아서 실제 DB 로 검증하고, 문제 있으면 PR 에 리뷰 댓글로 남겨 줘</code></li>
+            <li>클라우드 Claude 가 댓글을 읽고 고쳐서 push 한다. 요청이 애매하면 고치지 않고 세션에서 되묻는다 — <span class="btnname">View Session</span> 에서 답한다.</li>
+            <li>3 ~ 4 를 반복한다. 끝나면 <strong>사람이 리뷰하고 병합</strong>한 뒤 Auto-fix 를 끈다.</li>
+          </ol>
+          <ul class="plain">
+            <li><strong>클라우드 쪽 답글은 PR 을 만든 사람의 GitHub 계정 이름으로 달린다.</strong> "Claude Code 가 작성" 표시가 붙는다.</li>
+            <li><strong>병합 충돌은 알아서 못 고친다.</strong> 충돌이 나면 세션에 <code>main 기준으로 rebase 해 줘</code> 라고 말한다.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h4>덧붙임 — 터미널에서 클라우드 세션에 한마디 보내기</h4>
+      <p>PR 까지 갈 것 없이 검증 결과만 전하고 싶으면 터미널에서 바로 보낸다. 보내고 끝나며, 답은 <span class="btnname">View Session</span> 에서 본다. 아래 메시지는 예시다.</p>
+      <div class="code"><div class="label">PowerShell<button class="copy" type="button">복사</button></div><pre><code>claude -p "DB 로 돌려 보니 2026-09-20 행이 비어 있어. 주말엔 축산물만 오니 빈 화면 대신 안내 문구를 보여 줘" --cloud &lt;세션ID&gt;</code></pre></div>
+
+      <h4>공통 제약</h4>
+      <ul class="rules">
+        <li><b>같은 Claude 계정끼리만 된다.</b>팀원 A 가 Slack 에서 시작한 세션을 팀원 B 의 터미널로 가져오거나 메시지를 보낼 수는 없다.</li>
+        <li><b>터미널 쪽은 누군가 PC 에서 Claude Code 를 켜야 한다.</b>클라우드 쪽에서 로컬을 깨울 방법은 없다.</li>
+        <li><b>DB 검증은 Oracle 이 설치된 PC 에서만 할 수 있다.</b></li>
+      </ul>
+    </section>
+
+    <section id="free">
+      <div class="sec-head"><span class="ref-tag">참고</span><h2>무료 플랜에서 알아 둘 것</h2></div>
+      <p>Slack 은 무료로 쓸 수 있고, 유료 플랜은 기능을 더 열어 주는 방식이다. 이 팀은 무료로 충분하다.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>제한</th><th>영향</th></tr></thead>
+        <tbody>
+          <tr><td>메시지 · 파일은 <strong>최근 90일치</strong>만 보인다</td><td>중요한 결정은 문서로 옮겨야 한다</td></tr>
+          <tr><td>외부 앱 연동은 <strong>최대 10개</strong></td><td>수집 알림 웹훅, Claude 앱, GitHub 연동 정도는 넉넉하다</td></tr>
+          <tr><td>허들은 <strong>1:1 만</strong></td><td>여러 명 음성 회의는 Discord · Google Meet · Zoom 등을 함께 쓴다</td></tr>
+        </tbody>
+      </table></div>
+      <p style="color:var(--muted);font-size:14px">무료 플랜 조건은 Slack 정책에 따라 바뀐다. 정확한 내용은 Slack 공식 요금제 페이지에서 확인한다.</p>
+    </section>
+
+    <section id="faq">
+      <div class="sec-head"><span class="ref-tag">참고</span><h2>자주 막히는 곳</h2></div>
+      <details class="faq"><summary>초대 메일이 안 온다</summary><div class="ans"><p>스팸함을 먼저 본다. 없으면 팀장에게 이메일 주소를 확인받고 다시 초대받는다.</p></div></details>
+      <details class="faq"><summary>로그인했는데 우리 팀 채널이 안 보인다</summary><div class="ans"><p>다른 워크스페이스에 들어가 있는 것이다. 왼쪽 맨 위 워크스페이스 이름(또는 아이콘)을 눌러 <code>농스닥</code> 으로 바꾼다. 초대받은 이메일과 로그인한 이메일이 다른 경우도 많다.</p></div></details>
+      <details class="faq"><summary>휴대폰으로 알림이 안 온다</summary><div class="ans"><ol class="steps">
+        <li>휴대폰 설정 → 앱 → Slack → 알림이 켜져 있는지 본다.</li>
+        <li>PC 에서 Slack 을 쓰고 있으면 휴대폰으로는 알림이 바로 안 갈 수 있다. <span class="path">환경설정 <i>→</i> 알림</span> 의 모바일 알림 시점 설정을 확인한다.</li>
+        <li>알림 일시 중지(방해 금지) 시간이 아닌지 본다.</li>
+      </ol></div></details>
+      <details class="faq"><summary>예전 메시지가 사라졌다</summary><div class="ans"><p>삭제된 게 아니라 무료 플랜의 90일 제한으로 가려진 것이다.</p></div></details>
+      <details class="faq"><summary>Enter 를 눌렀더니 쓰다 만 글이 보내졌다</summary><div class="ans"><p>⋮ → 메시지 편집으로 고치면 된다. 줄 바꿈은 <kbd>Shift</kbd> + <kbd>Enter</kbd>.</p></div></details>
+      <details class="faq"><summary>@Claude 를 불렀는데 아무 대답이 없다</summary><div class="ans"><p>그 채널에 Claude 가 초대돼 있는지 본다. 없으면 <code>/invite @Claude</code>. DM 에서는 Claude Code 작업이 안 된다.</p></div></details>
+      <details class="faq"><summary>"Claude Code is not enabled for your account" 라고 나온다</summary><div class="ans"><p><a href="https://claude.ai/code" target="_blank" rel="noopener">claude.ai/code</a> 에 Slack 과 연결한 <strong>같은 계정</strong>으로 한 번 들어가 GitHub 연결까지 끝낸다. 다음에 부르면 사라진다. 팀원마다 각자 해야 한다.</p></div></details>
+      <details class="faq"><summary>작업은 시작되는데 우리 저장소를 못 찾는다</summary><div class="ans"><p>GitHub 에서 <code>project_nongsdak</code> 협업자 초대를 수락했는지, claude.ai/code 에서 그 저장소를 연결했는지 본다. 엉뚱한 저장소를 골랐다면 <span class="btnname">Change Repo</span> 를 누르거나 요청에 저장소 이름을 적는다.</p></div></details>
+    </section>
+
+    <section id="webhook">
+      <div class="sec-head"><span class="ref-tag">부록</span><h2>수집 알림 웹훅 만들기</h2></div>
+      <p>매일 17시 30분 수집 결과를 <code>#nongsdaq-alerts</code> 로 보내려면 <strong>Incoming Webhook</strong> 주소가 하나 필요하다. <strong>팀 전체에서 담당자 한 명이 한 번만</strong> 만들면 된다. 나머지 팀원은 건너뛰어도 된다.</p>
+      <details class="appendix">
+        <summary>담당자용 단계 펼치기 <span>8단계 · 설정 화면은 영어</span></summary>
+        <div>
+          <ol class="steps">
+            <li><code>#nongsdaq-alerts</code> 채널을 먼저 만들어 둔다.</li>
+            <li><a href="https://api.slack.com/apps" target="_blank" rel="noopener">api.slack.com/apps</a> 에 들어가 <strong>Create New App → From scratch</strong> 를 누른다.</li>
+            <li>App Name 에 <code>농스닥 알림</code>, 워크스페이스는 <code>농스닥</code> 을 고르고 <strong>Create App</strong>.</li>
+            <li>왼쪽 메뉴 <strong>Incoming Webhooks</strong> → 오른쪽 스위치를 <strong>On</strong> 으로 켠다.</li>
+            <li>아래 <strong>Add New Webhook to Workspace</strong> → 채널 <code>#nongsdaq-alerts</code> 선택 → <strong>허용</strong>(<code>Allow</code>).</li>
+            <li>생긴 <strong>Webhook URL</strong>(<code>https://hooks.slack.com/services/...</code>) 을 복사한다.</li>
+            <li>프로젝트 폴더의 <code>.env</code> 에 한 줄 넣는다.
+              <div class="code"><div class="label">.env<button class="copy" type="button">복사</button></div><pre><code>SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...</code></pre></div>
+            </li>
+            <li>PowerShell 에서 테스트 메시지를 보내 본다. <code>ok</code> 가 출력되고 <code>#nongsdaq-alerts</code> 에 글이 뜨면 성공이다.
+              <div class="code"><div class="label">PowerShell<button class="copy" type="button">복사</button></div><pre><code>$url  = "여기에_복사한_웹훅_URL"
+$body = [Text.Encoding]::UTF8.GetBytes('{"text":"농스닥 알림 테스트입니다"}')
+Invoke-RestMethod -Method Post -Uri $url -ContentType "application/json; charset=utf-8" -Body $body</code></pre></div>
+            </li>
+          </ol>
+          <div class="note warn">
+            <strong>웹훅 URL 은 비밀번호처럼 다룬다</strong>
+            <p>이 주소만 알면 누구나 채널에 글을 쓸 수 있다. <code>.env</code> 에만 두고, 커밋하거나 채팅에 올리지 않는다. 새어 나갔다면 3번의 앱 설정 화면에서 그 웹훅을 지우고(<strong>Remove</strong>) 새로 만든다.</p>
+          </div>
+          <div class="note">
+            <strong>관리자 승인이 필요하다고 나오면</strong>
+            <p>워크스페이스 설정에 따라 앱 설치에 관리자 승인이 필요할 수 있다. 워크스페이스를 만든 팀장이 승인하면 된다.</p>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <footer>저장소의 <code>SLACK_GUIDE.md</code> 와 같은 내용이다 · 2026-09-18 작성 · 메뉴 이름은 Slack 업데이트로 달라질 수 있다.</footer>
+  </main>
+</div>
+
+<script>
+(function(){
+  function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+
+  // tabs
+  document.querySelectorAll('[data-tabs]').forEach(function(box){
+    var key='nsq-slack-tab-'+box.dataset.tabs;
+    var tabs=[].slice.call(box.querySelectorAll('[role=tab]'));
+    function pick(t,save){
+      tabs.forEach(function(x){
+        var on=x===t;
+        x.setAttribute('aria-selected',on);
+        x.tabIndex=on?0:-1;
+        document.getElementById(x.getAttribute('aria-controls')).hidden=!on;
+      });
+      if(save)store(key,t.id);
+    }
+    tabs.forEach(function(t,i){
+      t.addEventListener('click',function(){pick(t,true)});
+      t.addEventListener('keydown',function(e){
+        var d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;
+        if(!d)return;
+        var n=tabs[(i+d+tabs.length)%tabs.length];n.focus();pick(n,true);
+      });
+    });
+    var saved=store(key);
+    var first=tabs.filter(function(t){return t.id===saved})[0]||tabs[0];
+    pick(first,false);
+  });
+
+  // checklist
+  var boxes=[].slice.call(document.querySelectorAll('#checklist input'));
+  function update(){
+    var n=boxes.filter(function(b){return b.checked}).length;
+    document.getElementById('count').textContent=n+' / '+boxes.length+(n===boxes.length?' · 준비 끝':'');
+    document.getElementById('bar').style.width=(n/boxes.length*100)+'%';
+  }
+  boxes.forEach(function(b){
+    if(store('nsq-slack-'+b.id)==='1')b.checked=true;
+    b.addEventListener('change',function(){store('nsq-slack-'+b.id,b.checked?'1':'0');update()});
+  });
+  update();
+
+  // copy buttons
+  document.querySelectorAll('.copy').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var code=btn.closest('.code').querySelector('code');
+      var text=code.textContent;
+      function done(msg){btn.textContent=msg;setTimeout(function(){btn.textContent='복사'},1600)}
+      function fallback(){
+        try{var r=document.createRange();r.selectNodeContents(code);var s=getSelection();s.removeAllRanges();s.addRange(r);done('선택됨 · Ctrl+C')}catch(e){done('직접 선택')}
+      }
+      try{
+        if(navigator.clipboard&&navigator.clipboard.writeText){
+          navigator.clipboard.writeText(text).then(function(){done('복사됨')},fallback);
+        }else fallback();
+      }catch(e){fallback()}
+    });
+  });
+
+  // toc highlight
+  var links=[].slice.call(document.querySelectorAll('.toc a'));
+  var map={};links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a});
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(en.isIntersecting){
+          links.forEach(function(a){a.classList.remove('on')});
+          var a=map[en.target.id];
+          if(a){a.classList.add('on');var toc=document.querySelector('.toc');if(window.innerWidth<=860){toc.scrollLeft=a.offsetLeft-toc.clientWidth/2+a.offsetWidth/2}}
+        }
+      });
+    },{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('main section').forEach(function(s){io.observe(s)});
+  }
+})();
+</script>
+</body>
+</html>
