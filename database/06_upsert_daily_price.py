@@ -275,6 +275,24 @@ def run_day(conn, day, dry):
     return fetched, upserted, failed
 
 
+def notify_slack(text):
+    """수집 결과를 슬랙으로 알린다. URL 미설정이면 조용히 건너뛴다.
+
+    알림 전송 실패가 수집 자체를 막지는 않도록 예외를 삼킨다.
+    """
+    import config
+
+    url = config.SLACK_WEBHOOK_URL
+    if not url:
+        return
+    try:
+        import requests
+
+        requests.post(url, json={"text": text}, timeout=10)
+    except Exception as e:
+        print(f"  (슬랙 알림 실패: {e})")
+
+
 def main():
     day, days, dry = parse_args(sys.argv[1:])
     targets = target_days(day, days)
@@ -313,8 +331,22 @@ def main():
 
         if failed_days:
             print(f"실패: {' · '.join(failed_days)}")
+            notify_slack(
+                f"❌ KAMIS 수집 실패 · 조사일 {span}\n"
+                f"실패한 날: {' · '.join(failed_days)}\n"
+                f"받은 행 {total_fetched:,} · 반영 {total_upserted:,}"
+            )
             sys.exit(1)
 
+        notify_slack(
+            f"✅ KAMIS 수집 완료 · 조사일 {span}\n"
+            f"받은 행 {total_fetched:,} · 반영 {total_upserted:,}\n"
+            f"테이블 전체 {total:,}행 · 최신 조사일 {last:%Y-%m-%d}"
+        )
+
+    except Exception as e:
+        notify_slack(f"❌ KAMIS 수집 오류 · 조사일 {span}\n{type(e).__name__}: {e}")
+        raise
     finally:
         if conn:
             conn.close()
