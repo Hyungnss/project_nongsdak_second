@@ -16,7 +16,23 @@ KAMIS 인증키에는 기본값을 두지 않는다. 없는 채로 수집기를 
 """
 
 import os
+import sys
 from pathlib import Path
+
+# 표준 출력을 UTF-8 로 고정한다.
+#
+# 출력이 파일이나 파이프로 넘어가면 (스케줄러가 로그를 남길 때가 그렇다) Python 은
+# Windows 기본 인코딩인 cp949 로 글자를 바꾼다. 그런데 cp949 에는 em dash(—) 같은
+# 문자가 없어서, 그 글자가 섞인 print 한 줄 때문에 UnicodeEncodeError 로 프로세스가
+# 통째로 죽는다. 하필 그런 문구가 대부분 실패·오류 안내라서, 정작 원인을 알려 줘야 할
+# 자리에서 엉뚱한 인코딩 에러만 남기고 끝난다.
+#
+# errors="replace" 를 같이 주는 이유는, 앞으로 이모지처럼 표현 못 하는 글자를 써도
+# 그 글자만 ? 로 바뀌고 프로그램은 계속 돌게 하기 위해서다.
+# (진짜 콘솔에 붙어 있을 때는 Python 이 이미 UTF-8 로 쓰므로 달라지는 게 없다.)
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 BASE_DIR = Path(__file__).resolve().parent
 ENV_FILE = BASE_DIR / ".env"

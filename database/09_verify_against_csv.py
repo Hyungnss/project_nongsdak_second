@@ -141,7 +141,7 @@ def main():
     print(f"\n[5] 단위 {len(units)}종  {units[:8]}{' ...' if len(units) > 8 else ''}")
     if kg_only:
         ok = False
-        print("    전부 1kg 이다 — p_convert_kg_yn 이 Y 로 들어갔다. N 으로 고칠 것.")
+        print("    전부 1kg 이다 - p_convert_kg_yn 이 Y 로 들어갔다. N 으로 고칠 것.")
 
     print("\n" + ("=" * 60))
     if ok:
