@@ -18,7 +18,9 @@ rem ===========================================================================
 set PYTHONUTF8=1
 set PYTHONIOENCODING=utf-8
 
-cd /d "C:\Users\euclid_edu\Desktop\Hyun\project_grocery_price_insights_service"
+rem %~dp0 = the folder this .bat lives in. A hard-coded path broke when the
+rem project moved to a new PC, so follow the file instead.
+cd /d "%~dp0"
 if not exist logs mkdir logs
 
 .venv\Scripts\python.exe -u database\08_check_daily_fetch.py >> logs\fetch.log 2>&1

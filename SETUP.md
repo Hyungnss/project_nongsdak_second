@@ -33,6 +33,12 @@ python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
 ```
 
+> **`UnicodeDecodeError: 'cp949' codec can't decode` 가 나면** — `requirements.txt` 의 한글 주석을
+> pip 가 윈도우 기본 인코딩(cp949)으로 읽다 깨진 것이다. UTF-8 모드를 켜고 다시 실행한다.
+> ```powershell
+> $env:PYTHONUTF8='1'; .venv\Scripts\pip install -r requirements.txt
+> ```
+
 `requirements.txt` 가 없다면 직접 적어도 된다.
 
 ```
@@ -54,7 +60,7 @@ Copy-Item .env.example .env
 
 | 값 | 설명 |
 |---|---|
-| `ORACLE_CLIENT_DIR` | **사람마다 다르다.** Instant Client 압축을 푼 폴더로 바꿀 것 |
+| `ORACLE_CLIENT_DIR` | **사람마다 다르다.** Instant Client 압축을 푼 폴더로 바꿀 것. `oci.dll` 이 **바로 들어 있는 안쪽 폴더**(`...\instantclient_23_26`)여야 한다 |
 | `ORACLE_USER` · `ORACLE_PASSWORD` | 실습 환경(`kdt_admin` / `1234`)과 같다면 지워도 된다 |
 | `KAMIS_CERT_KEY` · `KAMIS_CERT_ID` | 6단계에서 채운다. 지금은 비워 둬도 웹서비스는 뜬다 |
 
@@ -121,8 +127,10 @@ Oracle 연결 성공 (thick 모드)
 
    ```
    KAMIS_CERT_KEY=발급받은키
-   KAMIS_CERT_ID=신청할때쓴아이디
+   KAMIS_CERT_ID=마이페이지의ID
    ```
+
+   `KAMIS_CERT_ID` 는 **로그인 아이디가 아니다.** KAMIS 마이페이지에 따로 나오는 ID 를 넣는다.
 
 3. 수집 이력 테이블을 만든다: `database/07_create_fetch_log.sql`
 4. 빠진 날짜를 채운다. `--days N` 은 그날부터 거슬러 N일치를 함께 받는다.
@@ -134,8 +142,8 @@ Oracle 연결 성공 (thick 모드)
 `MERGE` 라 여러 번 돌려도 중복되지 않고 값만 최신이 된다.
 
 **매일 자동으로 받으려면** 작업 스케줄러에 등록한다 — 명령과 옵션은
-[REALTIME_MIGRATION.md](REALTIME_MIGRATION.md) 의 7단계에 그대로 적어 뒀다.
-`run_fetch.bat` 안의 경로는 자기 PC 에 맞게 고칠 것.
+[REALTIME_MIGRATION.md](REALTIME_MIGRATION.md) 의 7단계에 그대로 적어 뒀다 (매일 17:30).
+`run_fetch.bat` 은 자기 위치로 이동하므로 경로를 고칠 필요가 없다. 등록 명령의 `$dir` 만 자기 폴더로 바꾼다.
 
 > `run_fetch.bat` 은 **주석까지 ASCII 로만** 쓴다. 한글을 넣으면 `cmd` 가 코드페이지 때문에
 > 파일을 잘못 읽어 통째로 깨진다. 자세한 건 [WORKLOG.md](WORKLOG.md).
@@ -167,7 +175,9 @@ Oracle 연결 성공 (thick 모드)
 
 | 증상 | 원인과 해결 |
 |---|---|
-| `DPY-3010` | Instant Client 경로(`CLIENT_LIB_DIR`)가 틀렸다. 2단계 확인 |
+| `DPY-3010` | Instant Client 경로(`CLIENT_LIB_DIR`)가 틀렸다. 2단계 확인 — 압축 폴더 바깥쪽을 적은 경우가 많다 |
+| `DPI-1047` | Visual C++ 런타임이 없다. `winget install --id Microsoft.VCRedist.2015+.x64 -e` |
+| pip 설치 중 `'cp949' codec can't decode` | 1단계의 `PYTHONUTF8` 안내 참고 |
 | 화면이 "불러오는 중…" 에서 멈춤 | 서버는 떴는데 DB 접속 실패. 터미널에 찍힌 오류 확인 |
 | 품목이 93개가 아님 | CSV 를 다 못 넣었다. 4단계 출력의 행 수 확인 |
 | 값이 8월 14일까지만 나옴 | 합치기 전 옛 CSV 를 넣었다. 파일명이 `..._20260818.csv` 인지 확인 |

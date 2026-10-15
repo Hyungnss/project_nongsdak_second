@@ -116,7 +116,7 @@ def parse_args(argv, now):
     out = []
     for back in range(days - 1, -1, -1):
         d = today - timedelta(days=back)
-        # 오늘은 18:00 수집이 끝났을 시간이 지나야 '없으면 이상한' 날이 된다.
+        # 오늘은 17:30 수집이 끝났을 시간이 지나야 '없으면 이상한' 날이 된다.
         if d == today and now.time() < FETCH_TIME:
             continue
         out.append(d.isoformat())

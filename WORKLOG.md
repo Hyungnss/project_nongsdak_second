@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-10-15 · 새 PC 이전 (초기화한 PC 에 환경 재구성)
+
+PC 를 초기화해서 Python · Oracle XE 11g · Instant Client 부터 다시 깔았다.
+CSV 적재(43,480행) 후 `06 --days 60` 으로 08-17 ~ 10-15 를 메워 **52,303행** · 최신 조사일 2026-10-15.
+
+### 바꾼 것
+
+| 무엇 | 왜 |
+|---|---|
+| `run_fetch.bat` · `check_fetch.bat` 의 `cd` 를 `cd /d "%~dp0"` 로 | 예전 PC 경로(`C:\Users\euclid_edu\...\project_grocery_price_insights_service`)가 박혀 있어서 새 PC 에서는 그대로 실패한다. 자기 위치로 가게 하면 폴더를 옮겨도 고칠 게 없다 |
+| 작업 스케줄러 `KAMIS_fetch_1730` (매일 **17:30**) 로 재등록 | bat 주석과 `08_check_daily_fetch.py` 의 `FETCH_TIME` 은 이미 17:30 이었는데 문서만 18:00 이었다. 17:30 으로 통일 |
+| 문서의 18:00 · `KAMIS_fetch_1800` · `--days 3` 을 현재 값으로 | 위와 같은 이유. 09-02 기록 자체는 당시 사실이라 그대로 두고 갱신 안내만 붙였다 |
+
+### 새 PC 세팅에서 걸린 것
+
+**① pip 가 `requirements.txt` 를 못 읽는다.**
+`UnicodeDecodeError: 'cp949' codec can't decode byte 0xeb` — 한글 주석을 윈도우 기본 인코딩으로
+읽다 깨진다. `$env:PYTHONUTF8='1'` 을 켜고 돌리면 된다. → SETUP.md 1단계에 적었다.
+
+**② `ORACLE_CLIENT_DIR` 을 압축 폴더 바깥쪽으로 적었다.**
+Instant Client zip 을 풀면 `instantclient-basic-windows...\instantclient_23_26\` 처럼 한 겹 더 있다.
+`oci.dll` 이 있는 안쪽 폴더여야 한다. → SETUP.md · NEW_PC_SETUP.md · `.env.example` 에 적었다.
+
+**③ `KAMIS_CERT_ID` 는 로그인 아이디가 아니다.**
+KAMIS 마이페이지에 따로 나오는 ID 다. 문서에 "가입한 아이디"라고 잘못 적혀 있어 고쳤다.
+
+---
+
 ## 2026-09-02 · KAMIS 실시간 전환 마무리 (7단계 + 보류했던 결정 3건)
 
 이 날 이전 상태: 2~6·8·9단계는 끝났고 **7단계(스케줄러)만 미착수**.

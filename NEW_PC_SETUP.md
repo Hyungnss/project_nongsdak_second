@@ -175,6 +175,22 @@ cd project_nongsdak
 Instant Client 는 압축을 풀기만 하면 되고, **푼 폴더 경로를 `.env` 의
 `ORACLE_CLIENT_DIR` 에 적어야 한다.** 사람마다 다른 값이다.
 
+> **압축 폴더 안쪽 경로를 적을 것** — zip 을 풀면 `instantclient-basic-windows...` 폴더 안에
+> `instantclient_23_26` 폴더가 하나 더 있다. `oci.dll` 이 들어 있는 **안쪽 폴더**가 정답이다.
+> 바깥쪽을 적으면 `DPY-3010` 이 난다.
+>
+> ```
+> ORACLE_CLIENT_DIR=C:\...\instantclient-basic-windows.x64-23.26.3.0.0\instantclient_23_26
+> ```
+
+> **DB 계정 만들기** — 새로 설치한 XE 에는 `kdt_admin` 이 없다. `sqlplus system/설치때정한비밀번호` 로
+> 접속해 만든다.
+> ```sql
+> CREATE USER kdt_admin IDENTIFIED BY 1234;
+> GRANT CONNECT, RESOURCE TO kdt_admin;
+> ALTER USER kdt_admin DEFAULT TABLESPACE USERS QUOTA UNLIMITED ON USERS;
+> ```
+
 설치 후 할 일은 [SETUP.md](SETUP.md) 3단계(테이블 만들기)부터 이어진다.
 
 ---

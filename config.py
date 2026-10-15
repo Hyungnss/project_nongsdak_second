@@ -113,5 +113,5 @@ def require_kamis():
         "KAMIS 인증키가 없습니다.\n"
         f"  {ENV_FILE} 를 만들고 아래 두 줄을 채워 주세요.\n\n"
         "    KAMIS_CERT_KEY=발급받은키\n"
-        "    KAMIS_CERT_ID=신청할때쓴아이디\n"
+        "    KAMIS_CERT_ID=마이페이지의ID   (로그인 아이디 아님)\n"
     )

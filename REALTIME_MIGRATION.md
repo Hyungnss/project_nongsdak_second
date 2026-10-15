@@ -10,6 +10,10 @@ Oracle 에 적재해 돌린다. 이 문서는 그 자리에 **KAMIS OpenAPI 자�
 
 ## 진행 상황 (2026-09-02 09:15 기준)
 
+> **2026-10-15 현재:** 매일 **17:30** · 작업 이름 `KAMIS_fetch_1730` · `--days 7` 로 돈다.
+> 수집 직후 `check_fetch.bat` 이 최근 7일을 점검한다. 아래 18:00 · `--days 3` 은 09-02 당시 기록이다.
+> 바뀐 경위는 [WORKLOG.md](WORKLOG.md).
+
 **1~9단계를 전부 끝냈다. 스케줄러가 실제로 도는 것까지 확인했다.**
 16:59 에 작업 스케줄러로 실행해 543행 수집·반영, 09-02 당일가격이 29 -> 176 건이 됐다.
 이제 사람이 손댈 것 없이 매일 18:00 에 저절로 갱신된다.
@@ -71,7 +75,7 @@ Oracle 에 적재해 돌린다. 이 문서는 그 자리에 **KAMIS OpenAPI 자�
 `>> logs\fetch.log` 로 돌리기 때문이다. 진행 상황은 로그로 본다:
 
 ```powershell
-Get-ScheduledTaskInfo -TaskName KAMIS_fetch_1800 | Select LastRunTime, LastTaskResult
+Get-ScheduledTaskInfo -TaskName KAMIS_fetch_1730 | Select LastRunTime, LastTaskResult
 Get-Content logs\fetch.log -Tail 20 -Encoding UTF8
 ```
 
@@ -186,7 +190,7 @@ A 로 가면 **기존 `webservice/` 코드는 거의 그대로 쓴다.** 새로 
 | 값 | 파라미터명 | 설명 |
 |---|---|---|
 | 인증키 | `p_cert_key` | 신청 후 발급되는 문자열 |
-| 요청자 ID | `p_cert_id` | 보통 가입한 아이디 |
+| 요청자 ID | `p_cert_id` | **로그인 아이디가 아니다.** KAMIS 마이페이지에 따로 나오는 ID |
 
 승인에 시간이 걸릴 수 있으니 **이 단계를 제일 먼저 시작한다.** 기다리는 동안 2·3단계를 진행한다.
 
@@ -526,7 +530,11 @@ CREATE INDEX IX_FETCH_LOG_TIME ON TBL_FETCH_LOG (FETCHED_AT DESC);
 **실제로 등록한 내용은 아래와 같다** (계획 초안의 12:00/16:00/18:00 세 번은 폐기했다 —
 KAMIS 공표가 17:00 이라 그 전 두 번은 축산물만 받아 오는 헛돈이다. **18:00 한 번**으로 간다).
 
-`run_fetch.bat` — `logs\` 는 bat 이 알아서 만든다.
+> **2026-10-15 갱신:** 지금은 **17:30 · `KAMIS_fetch_1730` · `--days 7`** 이고, bat 은
+> 경로를 박아 두지 않고 `cd /d "%~dp0"` 로 자기 위치에 간다. 아래 bat 은 09-02 당시 초판이다 —
+> **현재 내용은 저장소의 `run_fetch.bat` 을 볼 것.** 등록 명령은 현재 기준으로 고쳐 두었다.
+
+`run_fetch.bat` — `logs\` 는 bat 이 알아서 만든다. (09-02 초판)
 
 ```bat
 @echo off
@@ -545,16 +553,16 @@ exit /b %ERRORLEVEL%
 한글 설명은 이 문서와 `06_upsert_daily_price.py` 첫 주석에 둔다.
 로그를 UTF-8 로 남기는 건 `PYTHONUTF8`·`PYTHONIOENCODING` 두 줄이 맡는다.
 
-등록은 PowerShell 에서:
+등록은 PowerShell 에서 (`$dir` 만 자기 프로젝트 폴더로 바꾼다):
 
 ```powershell
-$dir = "C:\Users\euclid_edu\Desktop\Hyun\project_grocery_price_insights_service"
+$dir = "C:\Users\본인계정\Desktop\Hyun\project_nongsdak"
 $action  = New-ScheduledTaskAction -Execute "cmd.exe" -Argument ('/c "' + $dir + '\run_fetch.bat"') -WorkingDirectory $dir
-$trigger = New-ScheduledTaskTrigger -Daily -At (Get-Date -Hour 18 -Minute 0 -Second 0)
+$trigger = New-ScheduledTaskTrigger -Daily -At (Get-Date -Hour 17 -Minute 30 -Second 0)
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries `
               -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 1) `
               -MultipleInstances IgnoreNew
-Register-ScheduledTask -TaskName "KAMIS_fetch_1800" -Action $action -Trigger $trigger -Settings $settings
+Register-ScheduledTask -TaskName "KAMIS_fetch_1730" -Action $action -Trigger $trigger -Settings $settings
 ```
 
 옵션을 그렇게 준 이유:

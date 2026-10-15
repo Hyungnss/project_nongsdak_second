@@ -61,7 +61,7 @@ KAMIS 일별 소매 시세를 Oracle 에 적재해 두고, 오늘 가격과 시�
 | `database/07_create_fetch_log.sql` | 수집 이력 테이블 `TBL_FETCH_LOG` |
 | `database/09_verify_against_csv.py` | API 값과 원본 CSV 값 대조 |
 
-**평소에는 아무것도 안 해도 된다.** 작업 스케줄러가 매일 18:00 에 `06` 을 돌린다.
+**평소에는 아무것도 안 해도 된다.** 작업 스케줄러가 매일 17:30 에 `06` 을 돌린다.
 손으로 돌릴 일이 있으면:
 
 ```
@@ -79,17 +79,25 @@ KAMIS 일별 소매 시세를 Oracle 에 적재해 두고, 오늘 가격과 시�
 | | |
 |---|---|
 | 진입점 | `run_fetch.bat` (**ASCII 전용** — 이유는 [WORKLOG.md](WORKLOG.md)) |
-| 작업 이름 | `KAMIS_fetch_1800` · 매일 **18:00** · 놓친 실행은 PC 가 켜지면 따라잡음 |
-| 받는 범위 | `--days 3` — 오늘·어제·그저께 (실행 누락 + KAMIS 사후 개정 대응) |
+| 작업 이름 | `KAMIS_fetch_1730` · 매일 **17:30** · 놓친 실행은 PC 가 켜지면 따라잡음 |
+| 받는 범위 | `--days 7` — 오늘부터 거슬러 7일치 (실행 누락 + KAMIS 사후 개정 대응) |
+| 점검 | 수집 직후 `check_fetch.bat` 이 최근 7일 기록을 확인하고, 빈 날이 있으면 슬랙으로 알림 |
 | 로그 | `logs\fetch.log` · DB 쪽은 `TBL_FETCH_LOG` |
 
-18:00 인 이유는 **KAMIS 공표가 17:00** 이라서다. 그 전에 받으면 축산물밖에 값이 없다.
+17:30 인 이유는 **KAMIS 공표가 17:00** 이라서다. 그 전에 받으면 축산물밖에 값이 없다.
+30분 여유를 두고, 그래도 늦게 올라온 값은 다음 날 `--days 7` 이 다시 받아 메운다.
 실행해도 화면에는 아무것도 안 뜬다 — 출력이 전부 로그 파일로 간다.
 
 ```powershell
-Get-ScheduledTaskInfo -TaskName KAMIS_fetch_1800 | Select LastRunTime, LastTaskResult
+Get-ScheduledTaskInfo -TaskName KAMIS_fetch_1730 | Select LastRunTime, LastTaskResult
 Get-Content logs\fetch.log -Tail 20 -Encoding UTF8
 ```
+
+> **실행 중(17:30 직후 1분쯤)에는 작업 상태를 들여다보지 말 것** — 그 실행이 `^C` 로 죽는다.
+> 끝난 뒤 로그로 확인한다. 이유는 [WORKLOG.md](WORKLOG.md).
+
+새 PC 에서 작업을 다시 등록하는 명령은 [REALTIME_MIGRATION.md](REALTIME_MIGRATION.md) 7단계에 있다.
+`.bat` 은 자기 위치(`%~dp0`)로 이동하므로 경로를 고칠 필요가 없다.
 
 화면 위쪽 최신성 표시는 `TBL_FETCH_LOG` 를 읽는다. 수집이 조용히 죽으면
 어제 값이 오늘 값처럼 보이므로, 그걸 막으려고 `/api/meta` 가 `status`·`age_minutes`·`stale` 을 같이 준다.
@@ -149,7 +157,7 @@ Oracle Database XE 11g + Instant Client (thick 모드 필수)
 ## 앞으로
 
 **KAMIS OpenAPI 자동 수집 전환은 2026-09-02 에 끝났다** — 사람이 CSV 를 받아 옮기는 과정은
-없어졌고, 매일 18:00 에 저절로 갱신된다. 과정과 결정 근거는
+없어졌고, 매일 17:30 에 저절로 갱신된다. 과정과 결정 근거는
 [REALTIME_MIGRATION.md](REALTIME_MIGRATION.md), 날짜별 기록은 [WORKLOG.md](WORKLOG.md) 에 있다.
 
 남은 것은 **배포**다. 지금은 이 PC 가 켜져 있을 때만 돌고 Oracle XE 도 로컬이라,
