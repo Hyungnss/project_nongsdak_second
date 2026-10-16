@@ -36,6 +36,9 @@ r"""최근 며칠치 수집이 실제로 됐는지 확인하고, 빠진 날이 �
     · ERROR       -> 실패로 기록됐다. 경고한다.
   DB 에 접속조차 못 하면 그것도 경고한다 (오라클이 죽었을 수 있으므로).
 
+  요약행은 소매·도매마다 하나씩 남는다 (2026-10-15~). 둘 다 따로 본다 —
+  도매만 실패해도 '그날은 됐다' 고 넘어가면 도매 탭이 조용히 멈춘다.
+
 언제 도는가
   자체 예약 작업은 없다. run_fetch.bat 이 06 을 끝낸 직후 check_fetch.bat 을
   call 로 부른다. 즉 17:30 수집 → 곧바로 점검이다.
@@ -82,10 +85,14 @@ def _load(name, filename):
 # 접속은 02 의 것을 그대로 쓴다 (06 과 같은 규칙).
 loader = _load("kamis_loader", "02_insert_daily_price.py")
 
+# 점검할 시장. 06 이 --market all 로 둘 다 받는다.
+MARKETS = ["소매", "도매"]
+
 # 한 날짜에 요약행이 여러 번 쌓일 수 있다 (재실행). LOG_NO 오름차순으로 읽어
 # 나중 것으로 덮으면 각 날짜의 최신 상태만 남는다.
 SUMMARY_SQL = """
-SELECT TO_CHAR(SURVEY_DATE, 'YYYY-MM-DD'), STATUS, ROWS_FETCHED, ROWS_UPSERTED, MESSAGE
+SELECT TO_CHAR(SURVEY_DATE, 'YYYY-MM-DD'), NVL(MARKET_TYPE, '소매'),
+       STATUS, ROWS_FETCHED, ROWS_UPSERTED, MESSAGE
 FROM   TBL_FETCH_LOG
 WHERE  CATEGORY_CODE IS NULL
   AND  SURVEY_DATE BETWEEN TO_DATE(:d1, 'YYYY-MM-DD') AND TO_DATE(:d2, 'YYYY-MM-DD')
@@ -124,12 +131,12 @@ def parse_args(argv, now):
 
 
 def fetch_summaries(conn, days):
-    """날짜 -> (STATUS, 받은행, 반영행, 메시지). 기록이 없는 날은 키가 없다."""
+    """(날짜, 시장) -> (STATUS, 받은행, 반영행, 메시지). 기록이 없으면 키가 없다."""
     found = {}
     with conn.cursor() as cur:
         cur.execute(SUMMARY_SQL, d1=days[0], d2=days[-1])
-        for day, status, fetched, upserted, message in cur:
-            found[day] = (status, fetched, upserted, message)
+        for day, market, status, fetched, upserted, message in cur:
+            found[(day, market)] = (status, fetched, upserted, message)
     return found
 
 
@@ -161,29 +168,31 @@ def main():
 
     missing, failed = [], []
     for day in days:
-        row = found.get(day)
-        if row is None:
-            print(f"  {day}  기록 없음")
-            missing.append(day)
-            continue
-        status, fetched, upserted, message = row
-        if status == "OK":
-            print(f"  {day}  OK       받은 {fetched or 0:,} · 반영 {upserted or 0:,}")
-        elif status == "NO_DATA":
-            print(f"  {day}  자료 없음 (주말·공휴일이면 정상)")
-        else:
-            print(f"  {day}  실패 — {message}")
-            failed.append((day, message))
+        for market in MARKETS:
+            tag = f"{day} {market}"
+            row = found.get((day, market))
+            if row is None:
+                print(f"  {tag}  기록 없음")
+                missing.append(tag)
+                continue
+            status, fetched, upserted, message = row
+            if status == "OK":
+                print(f"  {tag}  OK       받은 {fetched or 0:,} · 반영 {upserted or 0:,}")
+            elif status == "NO_DATA":
+                print(f"  {tag}  자료 없음 (주말·공휴일이면 정상)")
+            else:
+                print(f"  {tag}  실패 — {message}")
+                failed.append((tag, message))
 
     if not missing and not failed:
-        print(f"정상: {len(days)}일 모두 기록이 있습니다.")
+        print(f"정상: {len(days)}일 모두 소매·도매 기록이 있습니다.")
         return
 
     # 빠진 날이 백필 범위(run_fetch.bat --days 7) 안이면 다음 수집이 메운다.
     # 그보다 오래된 구멍은 스스로 사라지지 않으니 따로 짚어 준다.
     lines = [f"⚠️ KAMIS 수집 점검 · {days[0]} ~ {days[-1]}"]
     if missing:
-        lines.append(f"기록 없음 ({len(missing)}일): {', '.join(missing)}")
+        lines.append(f"기록 없음 ({len(missing)}건): {', '.join(missing)}")
     for day, message in failed:
         lines.append(f"실패 기록 {day}: {message or ''}")
     lines.append(

@@ -9,6 +9,10 @@
     실제 날짜와 며칠 차이인지를 함께 돌려준다.
   · PRICE_1Y / PRICE_NORMAL 은 250일치 데이터로 복원할 수 없으므로 저장된 값을 그대로 쓴다.
   · 등급은 자동으로 대표 등급 하나만 고른다 (상품/중품 -> 상품, 大/中/小 -> 大).
+  · 소매·도매는 한 테이블에 MARKET_TYPE 으로 나뉘어 있다 (2026-10-15~). 모든 조회는
+    **한 시장 안에서만** 한다 — 같은 품종·등급이 양쪽에 있어서, 조건 하나만 빠져도
+    '1포기' 소매가와 '10kg' 도매가가 한 차트·한 순위에 섞인다.
+    그래서 공개 함수는 전부 market 을 받고, 기본값은 지금까지와 같은 소매다.
 """
 
 import sys
@@ -59,6 +63,10 @@ TOLERANCE = {1: 11, 7: 4, 14: 5, 30: 8}
 # list_products 와 _resolve_rank 가 같은 값을 써야 목록과 상세가 같은 등급을 가리킨다.
 MIN_RECENT = 20
 
+# API 의 market 값 -> TBL_DAILY_PRICE.MARKET_TYPE
+MARKETS = {"retail": "소매", "wholesale": "도매"}
+RETAIL = "소매"
+
 _pool = None
 
 
@@ -103,11 +111,12 @@ def rank_key(rank):
 STALE_FETCH_HOURS = 24
 
 
-def _last_fetch():
-    """마지막 수집 성공 시각과 상태. TBL_FETCH_LOG 가 없으면 None.
+def _last_fetch(market=RETAIL):
+    """그 시장의 마지막 수집 성공 시각과 상태. TBL_FETCH_LOG 가 없으면 None.
 
     수집 로그는 자동화를 붙인 뒤에 생긴 테이블이라, 아직 07 을 실행하지 않은
     환경에서도 화면은 떠야 한다. 그래서 없으면 조용히 None 을 돌려준다.
+    MARKET_TYPE 이 없던 시절의 기록은 전부 소매라 NVL 로 소매로 읽는다.
     """
     try:
         rows = _query("""
@@ -115,9 +124,10 @@ def _last_fetch():
                 SELECT FETCHED_AT, SURVEY_DATE, STATUS, ROWS_UPSERTED
                 FROM   TBL_FETCH_LOG
                 WHERE  CATEGORY_CODE IS NULL AND STATUS IN ('OK', 'NO_DATA')
+                  AND  NVL(MARKET_TYPE, '소매') = :m
                 ORDER  BY LOG_NO DESC
             ) WHERE ROWNUM = 1
-        """)
+        """, {"m": market})
         # FETCH FIRST ... ROWS ONLY 는 12c 문법이라 이 DB(11g)에서 못 쓴다. ROWNUM 을 쓴다.
     except oracledb.DatabaseError:
         return None
@@ -140,7 +150,7 @@ def _last_fetch():
 FULL_DAY_RATIO = 0.5
 
 
-def _latest_full_day():
+def _latest_full_day(market=RETAIL):
     """대부분의 품목에 값이 있는 최신 조사일.
 
     MAX(SURVEY_DATE) 를 그대로 쓰면 화면이 거짓말을 한다. 두 경우 때문이다.
@@ -155,10 +165,12 @@ def _latest_full_day():
     rows = _query("""
         SELECT SURVEY_DATE, COUNT(PRICE_TODAY) AS priced
         FROM   TBL_DAILY_PRICE
-        WHERE  SURVEY_DATE >= (SELECT MAX(SURVEY_DATE) - 60 FROM TBL_DAILY_PRICE)
+        WHERE  MARKET_TYPE = :m
+          AND  SURVEY_DATE >= (SELECT MAX(SURVEY_DATE) - 60 FROM TBL_DAILY_PRICE
+                               WHERE MARKET_TYPE = :m)
         GROUP  BY SURVEY_DATE
         ORDER  BY SURVEY_DATE DESC
-    """)
+    """, {"m": market})
     if not rows:
         return None
     peak = max(int(r["priced"]) for r in rows)
@@ -170,19 +182,22 @@ def _latest_full_day():
     return None
 
 
-def get_meta():
+def get_meta(market=RETAIL):
     r = _query("""
         SELECT MAX(SURVEY_DATE) AS latest,
                MIN(SURVEY_DATE) AS earliest,
                COUNT(*) AS rows_total,
                COUNT(DISTINCT ITEM_CODE) AS items
         FROM   TBL_DAILY_PRICE
-    """)[0]
+        WHERE  MARKET_TYPE = :m
+    """, {"m": market})[0]
     latest_priced = _query("""
-        SELECT MAX(SURVEY_DATE) AS d FROM TBL_DAILY_PRICE WHERE PRICE_TODAY IS NOT NULL
-    """)[0]["d"]
-    latest_full = _latest_full_day()
+        SELECT MAX(SURVEY_DATE) AS d FROM TBL_DAILY_PRICE
+        WHERE  PRICE_TODAY IS NOT NULL AND MARKET_TYPE = :m
+    """, {"m": market})[0]["d"]
+    latest_full = _latest_full_day(market)
     return {
+        "market": market,
         "latest": r["latest"].date().isoformat() if r["latest"] else None,
         "latest_priced": latest_priced.date().isoformat() if latest_priced else None,
         # 헤더에 적고, 상세가 얼마나 묵었는지 재는 기준. latest 와 다를 수 있다.
@@ -191,7 +206,7 @@ def get_meta():
         "rows": int(r["rows_total"]),
         "items": int(r["items"]),
         # 자동 수집 상태. 아직 수집기를 안 붙였으면 None 이다.
-        "updated_at": _last_fetch(),
+        "updated_at": _last_fetch(market),
     }
 
 
@@ -199,20 +214,21 @@ def get_meta():
 # 요청마다 테이블 전체를 GROUP BY 하는 무거운 조회라 짧게 캐시한다.
 # 수집은 하루 세 번뿐이라 이보다 짧게 잡을 이유가 없다.
 PRODUCTS_TTL = 60          # 초
-_products_cache = {"at": 0.0, "data": None}
+_products_cache = {}      # market -> {"at": 시각, "data": 목록}
 
 
-def list_products():
-    """품목 -> 품종 목록. 60초 캐시를 앞에 둔다."""
+def list_products(market=RETAIL):
+    """품목 -> 품종 목록. 시장마다 60초 캐시를 앞에 둔다."""
     now = time.time()
-    if _products_cache["data"] is not None and now - _products_cache["at"] < PRODUCTS_TTL:
-        return _products_cache["data"]
-    out = _list_products_uncached()
-    _products_cache.update(at=now, data=out)
+    hit = _products_cache.get(market)
+    if hit and now - hit["at"] < PRODUCTS_TTL:
+        return hit["data"]
+    out = _list_products_uncached(market)
+    _products_cache[market] = {"at": now, "data": out}
     return out
 
 
-def _list_products_uncached():
+def _list_products_uncached(market=RETAIL):
     """품목 -> 품종 계층. 품종마다 대표 등급 하나를 자동으로 고른다.
 
     기본 품종은 '가장 최근에 조사된 것'으로 잡는다.
@@ -229,13 +245,16 @@ def _list_products_uncached():
                MAX(SURVEY_DATE) AS latest,
                COUNT(*) AS obs_total,
                SUM(CASE WHEN SURVEY_DATE >=
-                             (SELECT MAX(SURVEY_DATE) - 90 FROM TBL_DAILY_PRICE)
+                             (SELECT MAX(SURVEY_DATE) - 90 FROM TBL_DAILY_PRICE
+                              WHERE MARKET_TYPE = :m)
                         THEN 1 ELSE 0 END) AS obs_recent
         FROM   TBL_DAILY_PRICE
-        WHERE  PRICE_TODAY IS NOT NULL
+        WHERE  PRICE_TODAY IS NOT NULL AND MARKET_TYPE = :m
         GROUP BY ITEM_CODE, ITEM_NAME, KIND_CODE, KIND_NAME,
                  RANK_NAME, UNIT, CATEGORY_NAME
-    """)
+    """, {"m": market})
+    if not rows:
+        return []
     global_latest = max(r["latest"] for r in rows).date()
 
     kinds = {}
@@ -280,7 +299,7 @@ def _list_products_uncached():
     return sorted(out, key=lambda i: i["item_name"])
 
 
-def _series(item_code, kind_code, rank_name, limit=400):
+def _series(item_code, kind_code, rank_name, limit=400, market=RETAIL):
     """한 품종의 가격 이력 (최근 것부터). 가격이 없는 날은 제외한다."""
     # FETCH FIRST 는 Oracle 12c 이상 문법이다. 이 DB 는 그보다 낮으므로 ROWNUM 을 쓴다.
     return _query("""
@@ -288,11 +307,13 @@ def _series(item_code, kind_code, rank_name, limit=400):
             SELECT SURVEY_DATE, PRICE_TODAY, PRICE_1Y, PRICE_NORMAL,
                    ITEM_NAME, KIND_NAME, RANK_NAME, UNIT, CATEGORY_NAME
             FROM   TBL_DAILY_PRICE
-            WHERE  ITEM_CODE = :item AND KIND_CODE = :kind AND RANK_NAME = :rank
+            WHERE  MARKET_TYPE = :m
+              AND  ITEM_CODE = :item AND KIND_CODE = :kind AND RANK_NAME = :rank
               AND  PRICE_TODAY IS NOT NULL
             ORDER BY SURVEY_DATE DESC
         ) WHERE ROWNUM <= :lim
-    """, {"item": item_code, "kind": kind_code, "rank": rank_name, "lim": limit})
+    """, {"m": market, "item": item_code, "kind": kind_code, "rank": rank_name,
+          "lim": limit})
 
 
 def _nearest(rows, target_date, tolerance):
@@ -307,7 +328,7 @@ def _nearest(rows, target_date, tolerance):
     return best
 
 
-def _resolve_rank(item_code, kind_code, rank_name=None):
+def _resolve_rank(item_code, kind_code, rank_name=None, market=RETAIL):
     """등급을 지정하지 않았을 때 쓸 대표 등급을 고른다.
 
     등급 우선순위(상품·大)만 보면 안 된다. 오렌지 '네이블 호주'의 상품 등급은
@@ -319,13 +340,15 @@ def _resolve_rank(item_code, kind_code, rank_name=None):
     rows = _query("""
         SELECT RANK_NAME,
                SUM(CASE WHEN SURVEY_DATE >=
-                             (SELECT MAX(SURVEY_DATE) - 90 FROM TBL_DAILY_PRICE)
+                             (SELECT MAX(SURVEY_DATE) - 90 FROM TBL_DAILY_PRICE
+                              WHERE MARKET_TYPE = :m)
                         THEN 1 ELSE 0 END) AS obs_recent
         FROM   TBL_DAILY_PRICE
-        WHERE  ITEM_CODE = :item AND KIND_CODE = :kind
+        WHERE  MARKET_TYPE = :m
+          AND  ITEM_CODE = :item AND KIND_CODE = :kind
           AND  PRICE_TODAY IS NOT NULL
         GROUP BY RANK_NAME
-    """, {"item": item_code, "kind": kind_code})
+    """, {"m": market, "item": item_code, "kind": kind_code})
     if not rows:
         return None
     rows.sort(key=lambda r: (0 if int(r["obs_recent"]) >= MIN_RECENT else 1,
@@ -333,12 +356,12 @@ def _resolve_rank(item_code, kind_code, rank_name=None):
     return rows[0]["rank_name"]
 
 
-def get_detail(item_code, kind_code, rank_name=None, chart_days=90):
+def get_detail(item_code, kind_code, rank_name=None, chart_days=90, market=RETAIL):
     """한 품종의 최신 가격과 시점별 비교."""
-    rank_name = _resolve_rank(item_code, kind_code, rank_name)
+    rank_name = _resolve_rank(item_code, kind_code, rank_name, market)
     if rank_name is None:
         return None
-    rows = _series(item_code, kind_code, rank_name)
+    rows = _series(item_code, kind_code, rank_name, market=market)
     if not rows:
         return None
 
@@ -383,6 +406,7 @@ def get_detail(item_code, kind_code, rank_name=None, chart_days=90):
              for r in reversed(rows) if r["survey_date"].date() >= cutoff]
 
     return {
+        "market": market,
         "item_code": item_code, "kind_code": kind_code, "rank_name": rank_name,
         "item_name": today["item_name"], "kind_name": today["kind_name"],
         "category": today["category_name"], "unit": today["unit"],
@@ -397,8 +421,8 @@ def get_detail(item_code, kind_code, rank_name=None, chart_days=90):
 
 
 # ── 급등락 ──────────────────────────────────────────────────────────────
-def _recent_by_product(depth=40):
-    """모든 품종의 최근 depth 개 관측을 한 번에 가져온다.
+def _recent_by_product(depth=40, market=RETAIL):
+    """한 시장 모든 품종의 최근 depth 개 관측을 한 번에 가져온다.
 
     품목당 여러 등급이 있어도 여기서는 전부 가져오고, 대표 등급 선별은 파이썬에서 한다.
     (약 170 품종 x 40 = 7천 행이라 부담이 없다.)
@@ -412,12 +436,12 @@ def _recent_by_product(depth=40):
                        ORDER BY SURVEY_DATE DESC
                    ) AS rn
             FROM   TBL_DAILY_PRICE
-            WHERE  PRICE_TODAY IS NOT NULL
+            WHERE  PRICE_TODAY IS NOT NULL AND MARKET_TYPE = :m
         ) WHERE rn <= :depth
-    """, {"depth": depth})
+    """, {"depth": depth, "m": market})
 
 
-def _compare_all(offset=1, max_stale=3):
+def _compare_all(offset=1, max_stale=3, market=RETAIL):
     """모든 품목의 '지금 가격 vs offset 일 전 가격'을 구한다. 품목당 대표 등급 하나.
 
     offset=1 이면 '직전 조사일 대비', 그 외에는 '해당 일수에 가장 가까운 조사일 대비'.
@@ -430,7 +454,9 @@ def _compare_all(offset=1, max_stale=3):
     급등락(get_movers)과 포춘쿠키(get_fortune)가 같은 규칙을 쓰도록 여기 한 곳에 모아 둔다.
     두 곳에 따로 적어두면 나중에 한쪽만 고쳐져 두 화면이 다른 말을 하게 된다.
     """
-    rows = _recent_by_product()
+    rows = _recent_by_product(market=market)
+    if not rows:
+        return []
     by_product = {}
     for r in rows:
         by_product.setdefault((r["item_code"], r["kind_code"], r["rank_name"]), []).append(r)
@@ -487,13 +513,14 @@ def _prev_range(picked):
     return (prevs[0], prevs[-1]) if prevs else (None, None)
 
 
-def get_movers(offset=1, limit=5, max_stale=3):
+def get_movers(offset=1, limit=5, max_stale=3, market=RETAIL):
     """가격이 많이 오른/내린 품목 상위 limit 개."""
-    picked = _compare_all(offset, max_stale)
+    picked = _compare_all(offset, max_stale, market)
     down = sorted(picked, key=lambda c: c["change_pct"])[:limit]
     up = sorted(picked, key=lambda c: -c["change_pct"])[:limit]
     lo, hi = _prev_range(picked)
     return {
+        "market": market,
         "offset": offset,
         "compared": len(picked),
         "prev_from": lo,
@@ -503,18 +530,19 @@ def get_movers(offset=1, limit=5, max_stale=3):
     }
 
 
-def get_fortune(offset=1, max_stale=3):
+def get_fortune(offset=1, max_stale=3, market=RETAIL):
     """포춘쿠키 후보 — 비교 가능한 품목 전부. 오른 것도 내린 것도 그대로 넘긴다.
 
     화면에서 이 중 하나를 무작위로 뽑아 등락과 함께 보여준다.
     걸러내는 것은 조사가 끊긴 품종뿐이고(그건 오늘 시세가 아니므로),
     등락 방향으로는 거르지 않는다.
     """
-    picked = _compare_all(offset, max_stale)
+    picked = _compare_all(offset, max_stale, market)
     lo, hi = _prev_range(picked)
     up = sum(1 for c in picked if c["change_pct"] > 0)
     down = sum(1 for c in picked if c["change_pct"] < 0)
     return {
+        "market": market,
         "offset": offset,
         "count": len(picked),
         "up_count": up,

@@ -1,0 +1,49 @@
+/* 로그인 · 회원가입. 색은 index.html 의 :root 토큰을 그대로 따른다 (다크 모드 포함). */
+
+/* 오른쪽 위 — 로그인 버튼과 테마 버튼을 나란히 */
+.topright{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex:none}
+.authbox{display:flex;gap:8px;align-items:center}
+.authbox .who{font-size:13.5px;color:var(--ink2);white-space:nowrap}
+.authbox .who b{color:var(--ink)}
+.authbtn{font:inherit;font-size:13.5px;padding:8px 14px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--line);background:var(--card);color:var(--ink2);white-space:nowrap}
+.authbtn:hover{color:var(--ink);border-color:var(--muted)}
+.authbtn.primary{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.authbtn.primary:hover{color:var(--card);opacity:.88}
+.authbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* 팝업 */
+.authdlg{border:1px solid var(--line);border-radius:16px;padding:0;width:min(400px,calc(100vw - 32px));
+  background:var(--card);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.authdlg::backdrop{background:rgba(0,0,0,.45)}
+.authdlg form{display:flex;flex-direction:column;gap:14px;padding:24px}
+.authdlg .hd{display:flex;align-items:center;justify-content:space-between}
+.authdlg h2{margin:0;font-size:20px}
+.authdlg .x{font:inherit;font-size:22px;line-height:1;border:0;background:none;color:var(--muted);
+  cursor:pointer;padding:4px 6px;border-radius:6px}
+.authdlg .x:hover{color:var(--ink)}
+.authdlg .x:focus-visible{outline:2px solid var(--accent)}
+
+/* 로그인 / 회원가입 전환 */
+.authdlg .switch{display:flex;padding:3px;border-radius:999px;background:var(--card2);border:1px solid var(--line)}
+.authdlg .switch button{flex:1;font:inherit;font-size:14px;font-weight:600;padding:7px 0;border-radius:999px;
+  border:0;background:transparent;color:var(--ink2);cursor:pointer}
+.authdlg .switch button.on{background:var(--ink);color:var(--card)}
+.authdlg .switch button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.authdlg label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--muted)}
+.authdlg label[hidden]{display:none}
+.authdlg input{font:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;
+  background:var(--card);color:var(--ink)}
+.authdlg input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.authdlg .hint{font-size:12px;color:var(--muted)}
+.authdlg .err{margin:0;font-size:13.5px;color:var(--up);min-height:1.2em}
+.authdlg .submit{font:inherit;font-size:15px;font-weight:700;padding:11px;border-radius:10px;border:0;
+  background:var(--accent);color:#fff;cursor:pointer}
+.authdlg .submit:disabled{opacity:.6;cursor:default}
+.authdlg .submit:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.authdlg .note{margin:0;font-size:12.5px;color:var(--muted);text-align:center}
+
+@media (max-width:560px){
+  .authbox .who{display:none}
+}
