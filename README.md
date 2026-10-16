@@ -1,7 +1,7 @@
 # 농스닥
 
 "지금 이 가격이 평년 대비 어느 수준인가"를 한눈에 보여주는 웹서비스.
-KAMIS 일별 소매 시세를 Oracle 에 적재해 두고, 오늘 가격과 시점별 변동을 화면에 띄운다.
+KAMIS 일별 **소매·도매** 시세를 Oracle 에 적재해 두고, 오늘 가격과 시점별 변동을 화면에 띄운다.
 
 팀 **다채롭조**에서 월별/주별/일별로 나눠 맡았고, 이 저장소는 **일별(daily)** 파트다.
 
@@ -23,17 +23,22 @@ KAMIS 일별 소매 시세를 Oracle 에 적재해 두고, 오늘 가격과 시�
 
 | 영역 | 내용 |
 |---|---|
+| **소매 · 도매 탭** | 제목 아래. 누르면 화면 전체(띠·등락·검색·시세·급등락·포춘쿠키)가 그 시장으로 바뀐다. 기본은 소매 |
 | 맨 위 띠 | 오늘 조사된 품목이 흘러간다. 마우스를 올리면 멈춘다 |
 | 등락 요약 | `▲47 ▼21 ―19` — 오른/내린/보합 품목 수 |
 | **검색** | 품목명·품종명·등급명 부분일치 + **초성 검색**(`ㅂㅊ` → 배추) |
 | **품목별 시세** | 오늘 가격 + 어제/1주일/2주일/1개월/1년전/평년 대비 + 최근 90일 추이 차트 |
 | **하한가 · 상한가** | 많이 내린/오른 품목 5개씩. 어제·일주일·한 달 탭 |
 | 오늘의 포춘쿠키 | 쿠키를 깨면 품목 하나를 무작위로 추천 |
-| 오른쪽 위 버튼 | 다크 모드 전환 |
+| 오른쪽 위 버튼 | **로그인 · 회원가입** (선택) · 다크 모드 전환 |
 
-검색은 `/api/products`로 이미 받아 둔 품종 162개를 클라이언트에서 거르므로 서버 왕복이 없다.
+검색은 `/api/products`로 이미 받아 둔 품종 163개를 클라이언트에서 거르므로 서버 왕복이 없다.
 조사가 끊긴 품종에는 `N일째 조사 없음`을 붙여 오늘 시세가 아님을 알린다.
 차트는 주식처럼 상승 빨강 / 하락 파랑이고, **평년가를 청록 점선**으로 겹쳐 그린다.
+
+고른 시장은 주소(`?market=wholesale`)와 브라우저에 기억된다 — 새로고침해도, 링크를 건네도 같은 탭으로 열린다.
+도매 탭에서는 **단위를 가격 옆에 크게** 적고 위에 안내를 띄운다. 도매 배추는 `10kg(그물망 3포기)` 단위라
+'1포기' 소매가와 같은 눈으로 읽으면 안 되기 때문이다. 축산물은 도매 탭에 없다(아래 함정 참고).
 
 ---
 
@@ -41,32 +46,81 @@ KAMIS 일별 소매 시세를 Oracle 에 적재해 두고, 오늘 가격과 시�
 
 | 파일 | 하는 일 |
 |---|---|
-| `webservice/app.py` | FastAPI 라우트 (`/api/meta`, `/api/products`, `/api/detail`, `/api/movers`, `/api/fortune`) |
-| `webservice/db.py` | Oracle 조회·집계. 대표 등급 우선순위 `RANK_PRIORITY`도 여기 있다 |
-| `webservice/static/index.html` | 화면 전체 (외부 리소스 0건, 단독 파일) |
+| `webservice/app.py` | FastAPI 라우트 (`/api/meta`, `/api/products`, `/api/detail`, `/api/movers`, `/api/fortune`). 전부 `?market=retail\|wholesale` 를 받는다 (기본 retail) |
+| `webservice/db.py` | Oracle 조회·집계. 모든 조회가 `MARKET_TYPE` 한 시장 안에서만 돈다. 대표 등급 우선순위 `RANK_PRIORITY`도 여기 있다 |
+| `webservice/auth.py` | 회원가입 · 로그인 · 로그아웃 (`/api/auth/*`). 다른 API 가 붙여 쓰는 `current_user` · `require_user` 의존성 |
+| `webservice/static/index.html` | 화면 전체 (외부 리소스 0건) |
+| `webservice/static/auth.js` · `auth.css` | 오른쪽 위 로그인 버튼과 팝업. 다른 기능이 쓰는 `window.nongsdaqAuth` |
+
+---
+
+## 로그인
+
+**시세는 로그인 없이 본다.** 회원은 장바구니 · 레시피 정리처럼 '내 것'을 저장하는 기능에만 필요하다.
+
+| | |
+|---|---|
+| 가입 정보 | 아이디(영문 소문자·숫자·`_` 4~20자, 대소문자 구분 없음) · 비밀번호(8~64자) · 닉네임(2~20자) |
+| 비밀번호 | 표준 라이브러리 `hashlib.scrypt` 해시만 `TBL_USER` 에 저장. 원문은 어디에도 남지 않는다 |
+| 로그인 유지 | `TBL_USER_SESSION` + HttpOnly 쿠키 `nongsdaq_session` (14일). 쿠키에는 무작위 토큰만 있고, DB 에는 그 SHA-256 만 둔다. 로그아웃하면 행을 지워 즉시 무효 |
+| API | `POST /api/auth/signup` · `POST /api/auth/login` · `POST /api/auth/logout` · `GET /api/auth/me` |
+
+새 기능에서 로그인을 쓰는 법 — 자세한 예시는 `auth.py` · `auth.js` 맨 위 주석에 있다.
+
+```python
+# 서버: 로그인 안 했으면 401. 회원 번호는 user["user_no"]
+@app.get("/api/cart")
+def cart(user: dict = Depends(auth.require_user)): ...
+```
+
+```js
+// 화면: 로그인 안 했으면 팝업을 띄우고, 로그인하면 user 를 돌려준다 (닫으면 null)
+const user = await nongsdaqAuth.require();
+```
+
+개인 데이터 테이블은 `TBL_USER.USER_NO` 를 외래키로 건다.
+로그인 시도 횟수 제한(무차별 대입 방어)은 아직 없다 — 배포 전에 붙일 것.
 
 ---
 
 ## 데이터베이스
 
-`TBL_DAILY_PRICE` — **45,909행** · `2025-09-01 ~ 2026-09-02` · 조사일 267일 · 품목 100개 · 품종 163개
+`TBL_DAILY_PRICE` — **118,397행** · `2025-09-01 ~ 2026-10-15` (2026-10-16 기준)
+
+| 시장 | 행 | 가격 있는 날 | 품목 · 품종 (화면 기준) |
+|---|---|---|---|
+| 소매 | 61,789 | 410일 (주말은 축산물만) | 100개 · 163개 |
+| 도매 | 56,608 | 272일 | 78개 · 126개 (축산물 없음) |
 
 | 스크립트 | 하는 일 |
 |---|---|
 | `database/01_create_kamis_table.sql` | 테이블·시퀀스·인덱스 생성 (컬럼 주석 포함) |
 | `database/02_insert_daily_price.py` | **전체 적재** — `TRUNCATE` 후 CSV 전량을 다시 넣는다 |
 | `database/04_insert_new_days.py` | **증분 적재** — DB에 없는 조사 건만 골라 이어붙인다 (CSV용) |
-| `database/05_fetch_kamis.py` | KAMIS OpenAPI 로 하루치를 받아 CSV 모양으로 만든다 (DB는 안 건드림) |
-| **`database/06_upsert_daily_price.py`** | **자동 수집의 본체** — 받아서 `MERGE` 로 덮어쓴다 |
+| `database/05_fetch_kamis.py` | KAMIS OpenAPI 호출·응답 해석 (소매 01 / 도매 02). 단독 실행하면 소매 하루치를 CSV 로 떨군다 |
+| **`database/06_upsert_daily_price.py`** | **자동 수집의 본체** — 받아서 원문을 `TBL_API_RAW` 에 남기고 `MERGE` 로 덮어쓴다 |
 | `database/07_create_fetch_log.sql` | 수집 이력 테이블 `TBL_FETCH_LOG` |
+| `database/08_check_daily_fetch.py` | 최근 7일 소매·도매 수집 기록 점검 (빈 날이면 슬랙) |
 | `database/09_verify_against_csv.py` | API 값과 원본 CSV 값 대조 |
+| `database/10_add_wholesale_and_raw.sql` | 도매 추가 — 자연키에 `MARKET_TYPE`, 원본 테이블 `TBL_API_RAW`, 등급코드·비교 기준일 컬럼 |
+| `database/11_create_user.sql` | 회원 `TBL_USER` · 로그인 세션 `TBL_USER_SESSION` |
+
+| 테이블 | 담는 것 |
+|---|---|
+| `TBL_DAILY_PRICE` | 가격. 한 행 = (시장, 조사일, 품목, 품종, 등급). `MARKET_TYPE` 이 `소매`/`도매` |
+| `TBL_API_RAW` | KAMIS 응답 JSON 원문. 호출 1회 = 1행. 직전 원문과 같으면 쌓지 않으므로 **KAMIS 사후 개정 이력**이 된다. 인증키는 `***` 로 가려 저장 |
+| `TBL_FETCH_LOG` | 수집 이력. 시장·부류마다 1행 + 시장별 하루 요약 1행 |
+| `TBL_USER` | 회원. 아이디 · scrypt 비밀번호 해시 · 닉네임 |
+| `TBL_USER_SESSION` | 로그인 세션. 쿠키 토큰의 SHA-256 · 만료 시각. 회원을 지우면 같이 지워진다 |
 
 **평소에는 아무것도 안 해도 된다.** 작업 스케줄러가 매일 17:30 에 `06` 을 돌린다.
 손으로 돌릴 일이 있으면:
 
 ```
-.venv\Scripts\python.exe database\06_upsert_daily_price.py [YYYY-MM-DD] [--days N] [--dry-run]
+.venv\Scripts\python.exe database\06_upsert_daily_price.py [YYYY-MM-DD] [--days N] [--market retail|wholesale|all] [--dry-run]
 ```
+
+`--market` 을 안 주면 소매·도매 둘 다 받는다 (하루 = 소매 6 + 도매 6 호출).
 
 여러 번 돌려도 중복되지 않고 값만 최신이 된다 (`MERGE` + `NVL` 이라 늦게 온 `-` 가
 기존 값을 지우지도 않는다). `--days N` 은 그날부터 거슬러 N일치를 함께 요청한다.
@@ -80,8 +134,8 @@ KAMIS 일별 소매 시세를 Oracle 에 적재해 두고, 오늘 가격과 시�
 |---|---|
 | 진입점 | `run_fetch.bat` (**ASCII 전용** — 이유는 [WORKLOG.md](WORKLOG.md)) |
 | 작업 이름 | `KAMIS_fetch_1730` · 매일 **17:30** · 놓친 실행은 PC 가 켜지면 따라잡음 |
-| 받는 범위 | `--days 7` — 오늘부터 거슬러 7일치 (실행 누락 + KAMIS 사후 개정 대응) |
-| 점검 | 수집 직후 `check_fetch.bat` 이 최근 7일 기록을 확인하고, 빈 날이 있으면 슬랙으로 알림 |
+| 받는 범위 | `--days 7` — 오늘부터 거슬러 7일치, **소매·도매 둘 다** (실행 누락 + KAMIS 사후 개정 대응) |
+| 점검 | 수집 직후 `check_fetch.bat` 이 최근 7일 소매·도매 기록을 각각 확인하고, 빈 날이 있으면 슬랙으로 알림 |
 | 로그 | `logs\fetch.log` · DB 쪽은 `TBL_FETCH_LOG` |
 
 17:30 인 이유는 **KAMIS 공표가 17:00** 이라서다. 그 전에 받으면 축산물밖에 값이 없다.
@@ -126,6 +180,17 @@ Get-Content logs\fetch.log -Tail 20 -Encoding UTF8
 - **평년가격은 KAMIS가 계산해 준 값이다.** 최근 5년 중 최고·최저 연도를 뺀 3개년 평균이라,
   적재는 1년치여도 화면에는 5년치 기준선이 뜬다. 다만 **명목가격이라 물가 보정이 없다.**
 - **원본 CSV는 절대 덮어쓰지 않는다.** 합칠 때도 새 파일로 만들고 건수를 로그에 남긴다.
+- **소매·도매는 같은 품종·등급 코드를 쓴다.** '배추 · 고랭지 · 상품' 이 양쪽에 다 있다.
+  그래서 자연키에 `MARKET_TYPE` 이 들어가고, `db.py` 의 모든 조회가 시장 조건을 건다.
+  하나라도 빠지면 '1포기' 소매가와 '10kg' 도매가가 한 차트·한 순위에 섞인다.
+- **도매 축산물은 KAMIS 가 소매 값을 그대로 돌려준다.** `p_product_cls_code=02` 로 축산물(500)을
+  요청해도 data 가 소매와 완전히 같다 (세 날짜로 확인). `06` 이 같은 날 소매 응답과 비교해 같으면
+  건너뛴다 — 원문만 `TBL_API_RAW` 에 남는다. KAMIS 가 따로 주기 시작하면 비교가 달라져 저절로 들어간다.
+  같은 날 소매 축산물이 실패했거나 `--market wholesale` 로 돌리면 비교할 값이 없으므로 그 자리에서
+  소매 축산물을 한 번 더 받아 비교한다. 그것도 실패하면 넣지 않고 ERROR 로 남긴다
+  (예전에는 그대로 넣어 2026-02-15 에 도매 축산물 29행이 생겼다 — WORKLOG 2026-10-16).
+- **KAMIS 응답의 `condition` 에 인증키가 그대로 돌아온다.** 원문을 저장·출력할 때는 반드시
+  `05` 의 `mask()` / `raw_text()` 를 거칠 것.
 
 ---
 
@@ -134,8 +199,8 @@ Get-Content logs\fetch.log -Tail 20 -Encoding UTF8
 ```
 project_grocery_price_insights_service/
 ├── webservice/                  FastAPI 서비스
-│   ├── app.py  db.py
-│   └── static/index.html
+│   ├── app.py  db.py  auth.py
+│   └── static/index.html  auth.js  auth.css
 ├── database/                    Oracle DDL·적재·수집 스크립트
 ├── raws/                        원본 CSV (수정 금지)
 ├── logs/                        fetch.log — 자동 수집 로그 (커밋 안 함)

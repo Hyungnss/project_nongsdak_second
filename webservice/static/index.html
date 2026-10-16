@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>농스닥 — 오늘의 장바구니 시세</title>
+<link rel="stylesheet" href="/static/auth.css">
 <style>
 :root{
   color-scheme:light;
@@ -87,6 +88,24 @@ header .tagline{margin:6px 0 0;font-size:16px;color:var(--ink);font-weight:600;
   letter-spacing:-.3px}
 header p{margin:0;color:var(--ink2);font-size:14.5px}
 header .lede{margin-top:4px}
+
+/* 소매 · 도매 전환. 화면 전체가 이 값을 따르므로 제목 바로 아래, 가장 먼저 눈에 띄는 곳에 둔다.
+   한 덩어리 버튼(세그먼트)이라 '둘 중 하나'라는 게 모양으로 드러난다. */
+.mkt{display:inline-flex;margin-top:14px;padding:3px;border-radius:999px;
+  background:var(--card2);border:1px solid var(--line)}
+.mbtn{font:inherit;font-size:14px;font-weight:600;padding:6px 18px;border-radius:999px;
+  border:0;background:transparent;color:var(--ink2);cursor:pointer}
+.mbtn:hover{color:var(--ink)}
+.mbtn.on{background:var(--ink);color:var(--card)}
+.mbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* 도매가는 대량 단위(10kg 등)라 소매가와 같은 눈으로 읽으면 안 된다. 그걸 미리 알린다. */
+.mktnote{margin:0 0 14px;padding:9px 12px;border-radius:10px;font-size:13.5px;
+  background:var(--card2);color:var(--ink2)}
+.mktnote b{color:var(--ink)}
+.mtag{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 7px;border-radius:999px;
+  margin-right:6px;vertical-align:1px;border:1px solid var(--teal);color:var(--teal)}
+/* 도매는 단위를 가격만큼 크게 — '14,600원' 을 한 포기 값으로 읽지 않도록 */
+.today .unit.wh{font-size:16px;font-weight:700;color:var(--teal)}
 
 /* 오늘 몇 개가 오르고 내렸는지 — 증권 시세판의 '등락 종목 수'에 해당한다 */
 .breadth{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px;
@@ -357,14 +376,22 @@ try{
       <h1>농스닥<span class="tick" aria-hidden="true"><span class="u">▲</span><span class="d">▼</span></span></h1>
       <p class="tagline">오늘의 장바구니 시세</p>
       <p class="lede">당신의 지갑을 지켜드립니다.</p>
+      <div class="mkt" id="mkt" role="tablist" aria-label="소매 · 도매 선택">
+        <button class="mbtn on" type="button" role="tab" aria-selected="true" data-market="retail">소매</button>
+        <button class="mbtn" type="button" role="tab" aria-selected="false" data-market="wholesale">도매</button>
+      </div>
       <div class="asof" id="asof">불러오는 중…</div>
       <div class="fresh" id="fresh" hidden></div>
       <div class="breadth" id="breadth"></div>
     </header>
 
-    <button class="themebtn" type="button" id="themebtn" aria-pressed="false">
-      <span class="ico" aria-hidden="true">🌙</span><span class="lbl">다크 모드</span>
-    </button>
+    <div class="topright">
+      <!-- 로그인 · 회원가입 버튼. 내용은 /static/auth.js 가 그린다 -->
+      <div class="authbox" id="authbox"></div>
+      <button class="themebtn" type="button" id="themebtn" aria-pressed="false">
+        <span class="ico" aria-hidden="true">🌙</span><span class="lbl">다크 모드</span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -374,6 +401,11 @@ try{
 
   <section class="card">
     <h2>품목별 시세</h2>
+    <p class="mktnote" id="mktnote" hidden>
+      <b>도매가</b>는 시장에서 상자·포대(예: 배추 10kg) 단위로 거래되는 값이라
+      소매가와 바로 비교할 수 없어요. 단위를 꼭 함께 보세요.
+      축산물은 도매 조사가 따로 없어 소매에서만 보여요.
+    </p>
     <div class="picker">
       <div class="fld search">
         <span>검색</span>
@@ -406,7 +438,7 @@ try{
   </section>
 
   <footer>
-    자료: KAMIS 농산물유통정보 소매 조사 · Oracle <code>TBL_DAILY_PRICE</code><br>
+    자료: KAMIS 농산물유통정보 <span id="srcmkt">소매</span> 조사 · Oracle <code>TBL_DAILY_PRICE</code><br>
     비교 시점은 저장된 값이 아니라 실제 조사 이력에서 가장 가까운 날을 찾아 계산합니다.
   </footer>
 </div>
@@ -442,6 +474,25 @@ async function j(url){
   }
   return r.json();
 }
+
+// ── 소매 · 도매 ──────────────────────────────────────────────────────
+// 화면 전체가 한 시장을 본다. 주소(?market=)가 먼저, 없으면 지난번 고른 것, 그것도 없으면 소매.
+// 주소에 남겨 두면 링크를 건네받은 사람도 같은 탭으로 열린다.
+const MARKET_KEY = 'nongsdaq-market';
+const MARKET_NAME = {retail: '소매', wholesale: '도매'};
+let MARKET = (() => {
+  const q = new URLSearchParams(location.search).get('market');
+  if(q && MARKET_NAME[q]) return q;
+  try{
+    const s = localStorage.getItem(MARKET_KEY);
+    if(s && MARKET_NAME[s]) return s;
+  }catch(e){}
+  return 'retail';
+})();
+
+// 모든 API 호출은 이 길로 — 시장 조건이 하나라도 빠지면 소매·도매가 섞인다.
+const api = (path, params = {}) =>
+  j(path + '?' + new URLSearchParams({...params, market: MARKET}));
 
 // ── 최근 가격 추이 차트 ──────────────────────────────────────────────
 function chart(points){
@@ -534,12 +585,15 @@ function chart(points){
 async function showDetail(item, kind, rank){
   const box = document.getElementById('detail');
   box.innerHTML = '<div class="loading">불러오는 중…</div>';
+  const m = MARKET;
   try{
     // 등급까지 넘긴다. 안 넘기면 서버가 대표 등급을 새로 고르는데,
     // 그게 목록에서 누른 등급과 다르면 전혀 다른 가격이 뜬다.
-    const d = await j(`/api/detail?item=${encodeURIComponent(item)}` +
-                      (kind ? `&kind=${encodeURIComponent(kind)}` : '') +
-                      (rank ? `&rank=${encodeURIComponent(rank)}` : ''));
+    const q = {item};
+    if(kind) q.kind = kind;
+    if(rank) q.rank = rank;
+    const d = await api('/api/detail', q);
+    if(m !== MARKET) return;    // 기다리는 사이 탭을 바꿨으면 늦게 온 응답은 버린다
 
     const cards = d.compares.map(c => {
       if(!c.available){
@@ -586,11 +640,11 @@ async function showDetail(item, kind, rank){
       <div class="today">
         <div>
           <div class="name">${d.item_name} · ${d.kind_name}</div>
-          <div class="sub">${d.rank_name} · ${d.category} · ${d.date} 조사${agoBadge}</div>
+          <div class="sub"><span class="mtag">${MARKET_NAME[m]}</span>${d.rank_name} · ${d.category} · ${d.date} 조사${agoBadge}</div>
         </div>
         <div style="margin-left:auto;text-align:right">
           <div class="big">${won(d.price)}</div>
-          <div class="unit">${d.unit} 기준</div>
+          <div class="unit${m === 'wholesale' ? ' wh' : ''}">${esc(d.unit)} 기준</div>
         </div>
       </div>
       <div class="cmp">${cards}${extra.join('')}</div>
@@ -601,6 +655,7 @@ async function showDetail(item, kind, rank){
     const opt = selKind.selectedOptions[0];
     if(opt) opt.textContent = `${d.kind_name} · ${d.rank_name}`;
   }catch(e){
+    if(m !== MARKET) return;
     box.innerHTML = `<div class="err">${e.message}</div>`;
   }
 }
@@ -622,11 +677,16 @@ function moverRow(m, cls){
   </div>`;
 }
 
+let MOVER_OFFSET = 1;   // 지금 눌려 있는 탭 — 시장을 바꿔도 같은 기간으로 다시 그린다
+
 async function showMovers(offset){
+  MOVER_OFFSET = offset;
   const box = document.getElementById('movers');
   box.innerHTML = '<div class="loading">불러오는 중…</div>';
+  const mk = MARKET;
   try{
-    const m = await j(`/api/movers?offset=${offset}&limit=5`);
+    const m = await api('/api/movers', {offset, limit: 5});
+    if(mk !== MARKET || offset !== MOVER_OFFSET) return;
     // 비교 시점이 품목마다 다를 수 있다 (연휴 뒤엔 크게 벌어진다).
     // 한 품목의 날짜만 적으면 나머지를 잘못 설명하게 되므로 범위로 보여준다.
     const gap = !m.prev_from ? ''
@@ -650,6 +710,7 @@ async function showMovers(offset){
         () => selectProduct(el.dataset.item, el.dataset.kind, el.dataset.rank));
     });
   }catch(e){
+    if(mk !== MARKET) return;
     box.innerHTML = `<div class="err">${e.message}</div>`;
   }
 }
@@ -889,12 +950,16 @@ function renderBoard(f){
 }
 
 async function showFortune(){
+  const mk = MARKET;
   try{
-    const f = await j('/api/fortune?offset=1');
+    const f = await api('/api/fortune', {offset: 1});
+    if(mk !== MARKET) return;
     POOL = f.items;
+    lastPick = -1;
     renderBoard(f);
     cookieStage();
   }catch(e){
+    if(mk !== MARKET) return;
     document.getElementById('ticker').hidden = true;
     document.getElementById('fortune').innerHTML = `<div class="err">${e.message}</div>`;
   }
@@ -1001,6 +1066,13 @@ function closeResults(){
   qBox.setAttribute('aria-expanded', 'false');
   cur = -1;
   lastQ = qBox.value;
+}
+
+// 시장을 바꾸면 이전 시장 품목으로 찾은 결과는 무효다. 검색어와 목록을 비운다.
+function searchReset(){
+  qBox.value = '';
+  hits = [];
+  closeResults();
 }
 
 function renderResults(q){
@@ -1118,52 +1190,101 @@ function showFreshness(meta){
 // 탭이 숨어 있을 때는 부르지 않는다.
 setInterval(async () => {
   if(document.hidden) return;
-  try{ showFreshness(await j('/api/meta')); }catch(e){}
+  const mk = MARKET;
+  try{
+    const meta = await api('/api/meta');
+    if(mk === MARKET) showFreshness(meta);
+  }catch(e){}
 }, 60000);
 
-(async () => {
+// 시장 하나를 통째로 그린다. 처음 열 때와 소매·도매 탭을 바꿀 때 모두 이 길로 온다.
+// keepItem: 보던 품목이 새 시장에도 있으면 그대로 보여준다 (배추를 보다 도매로 넘기면 도매 배추).
+async function loadMarket(keepItem){
+  const mk = MARKET;
+  document.getElementById('srcmkt').textContent = MARKET_NAME[mk];
+  document.getElementById('mktnote').hidden = mk !== 'wholesale';
+  document.getElementById('detail').innerHTML = '<div class="loading">불러오는 중…</div>';
+  searchReset();
+
+  showMovers(MOVER_OFFSET);
+  showFortune();
+
   try{
-    const meta = await j('/api/meta');
+    const meta = await api('/api/meta');
+    if(mk !== MARKET) return;
     // 묵은 정도를 재는 기준은 '대부분의 품목에 값이 있는 최신 조사일'이다.
     // meta.latest 를 쓰면 공표 전이나 주말에 축산물만 들어온 날짜가 기준이 되어,
     // 정상적으로 직전 조사일 값을 보여주는 품목까지 '하루 묵었다'고 표시된다.
     LATEST_DAY = meta.latest_full || meta.latest;
-    document.getElementById('asof').textContent =
-      `${meta.earliest} ~ ${meta.latest} · ${meta.rows.toLocaleString()}건 · 품목 ${meta.items}개`;
+    document.getElementById('asof').textContent = meta.rows
+      ? `${MARKET_NAME[mk]} · ${meta.earliest} ~ ${meta.latest} · ` +
+        `${meta.rows.toLocaleString()}건 · 품목 ${meta.items}개`
+      : `${MARKET_NAME[mk]} 자료가 아직 없습니다.`;
     showFreshness(meta);
 
-    const d = await j('/api/products');
+    const d = await api('/api/products');
+    if(mk !== MARKET) return;
     ITEM_LIST = d.items;
     ITEMS = Object.fromEntries(d.items.map(i => [i.item_code, i]));
     selItem.innerHTML = d.items.map(i =>
       `<option value="${i.item_code}">${i.item_name}` +
       `${i.kinds.length > 1 ? ` (${i.kinds.length}종)` : ''}</option>`).join('');
 
-    selItem.addEventListener('change', () => {
-      fillKinds(selItem.value);
-      showDetail(selItem.value, selKind.value);
-    });
-    selKind.addEventListener('change', () => showDetail(selItem.value, selKind.value));
-
-    if(d.items.length){
-      const first = d.items[0];
-      selItem.value = first.item_code;
-      fillKinds(first.item_code);
-      showDetail(first.item_code, selKind.value);
+    if(!d.items.length){
+      selKind.innerHTML = '<option>—</option>'; selKind.disabled = true;
+      document.getElementById('detail').innerHTML =
+        `<div class="loading">${MARKET_NAME[mk]} 자료가 없습니다.</div>`;
+      return;
     }
+    // 품종 코드는 시장마다 다를 수 있어 품목만 이어 가고, 품종은 그 시장의 기본값으로 연다.
+    const start = (keepItem && ITEMS[keepItem]) ? keepItem : d.items[0].item_code;
+    selItem.value = start;
+    fillKinds(start);
+    showDetail(start, selKind.value);
   }catch(e){
+    if(mk !== MARKET) return;
     document.getElementById('detail').innerHTML = `<div class="err">${e.message}</div>`;
   }
+}
 
-  document.querySelectorAll('#tabs .tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b === btn));
-      showMovers(btn.dataset.offset);
-    });
+function paintMarketTabs(){
+  document.querySelectorAll('#mkt .mbtn').forEach(b => {
+    const on = b.dataset.market === MARKET;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', on);
   });
-  showMovers(1);
-  showFortune();
-})();
+}
+
+function setMarket(m){
+  if(m === MARKET || !MARKET_NAME[m]) return;
+  MARKET = m;
+  try{ localStorage.setItem(MARKET_KEY, m); }catch(e){}
+  // 새로고침·링크 공유에도 같은 탭이 열리도록 주소에 남긴다 (기록은 쌓지 않는다)
+  const u = new URL(location.href);
+  if(m === 'retail') u.searchParams.delete('market'); else u.searchParams.set('market', m);
+  history.replaceState(null, '', u);
+  paintMarketTabs();
+  loadMarket(selItem.value);
+}
+
+// 이벤트는 한 번만 단다. loadMarket 이 여러 번 불려도 겹치지 않도록 여기 둔다.
+selItem.addEventListener('change', () => {
+  fillKinds(selItem.value);
+  showDetail(selItem.value, selKind.value);
+});
+selKind.addEventListener('change', () => showDetail(selItem.value, selKind.value));
+document.querySelectorAll('#tabs .tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b === btn));
+    showMovers(+btn.dataset.offset);
+  });
+});
+document.querySelectorAll('#mkt .mbtn').forEach(b =>
+  b.addEventListener('click', () => setMarket(b.dataset.market)));
+
+paintMarketTabs();
+loadMarket();
 </script>
+<script src="/static/auth.js"></script>
 </body>
 </html>

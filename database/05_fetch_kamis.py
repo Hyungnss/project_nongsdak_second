@@ -1,8 +1,8 @@
-"""KAMIS OpenAPI 로 하루치 소매 시세를 받아 CSV 와 같은 모양으로 만든다.
+"""KAMIS OpenAPI 로 하루치 소매·도매 시세를 받아 CSV 와 같은 모양으로 만든다.
 
   응답 확인:  .venv\\Scripts\\python.exe database\\05_fetch_kamis.py --probe [YYYY-MM-DD]
   하루치 수집: .venv\\Scripts\\python.exe database\\05_fetch_kamis.py [YYYY-MM-DD]
-  기본 날짜:  오늘
+  기본 날짜:  오늘   (CSV 파일로 떨구는 건 소매만 한다 — 과거 CSV 와 대조하는 용도라서)
 
 --probe 는 부류 하나(채소류)만 불러 응답 생김새를 보여준다. 코드를 믿기 전에
 실제 응답을 눈으로 확인하는 단계다(REALTIME_MIGRATION.md 3단계).
@@ -15,10 +15,12 @@
 변환 규칙(등급 '-' -> '없음', 가격 '-' -> NULL)이 한 곳에만 남는다.
 """
 
+import hashlib
 import json
+import re
 import sys
 import time
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -36,6 +38,10 @@ CATEGORIES = {
     "400": "과실류", "500": "축산물", "600": "수산물",
 }
 LIVESTOCK = "500"
+
+# p_product_cls_code -> TBL_DAILY_PRICE.MARKET_TYPE
+RETAIL, WHOLESALE = "01", "02"
+MARKETS = {RETAIL: "소매", WHOLESALE: "도매"}
 
 # CSV 가격 컬럼 -> API 필드
 PRICE_MAP = [
@@ -73,15 +79,15 @@ def build_kind_name(kind_name, unit, cat_code):
     return f"{name}({unit})"
 
 
-def call_api(cat_code, regday):
-    """한 부류의 하루치 원본 응답(JSON) 을 그대로 돌려준다."""
+def call_api(cat_code, regday, cls=RETAIL):
+    """한 부류의 하루치 원본 응답(JSON) 을 그대로 돌려준다. cls: 01 소매 / 02 도매."""
     cert_key, cert_id = config.require_kamis()
     params = {
         "action": "dailyPriceByCategoryList",
         "p_cert_key": cert_key,
         "p_cert_id": cert_id,
         "p_returntype": "json",
-        "p_product_cls_code": "01",       # 01=소매. 02 는 도매다 — 기존 43,480행은 전부 소매
+        "p_product_cls_code": cls,        # 01=소매 · 02=도매. 과거 CSV 43,480행은 전부 소매
         "p_item_category_code": cat_code,
         "p_regday": regday,
         "p_convert_kg_yn": "N",           # Y 로 하면 1kg 환산가라 과거분과 자릿수가 어긋난다
@@ -143,8 +149,41 @@ def pick(it, *names):
     return ""
 
 
-def rows_from(body, cat_code, regday):
-    """응답 하나를 CSV 모양 dict 목록으로 바꾼다."""
+# day2~day4 는 "1일전 (10/13)" 처럼 실제 날짜를 괄호에 적어 준다. 연도는 없다.
+_DAY_LABEL = re.compile(r"\((\d{1,2})/(\d{1,2})\)")
+
+
+def label_date(label, regday):
+    """'1일전 (10/13)' -> '2026-10-13'. 날짜가 없거나 이상하면 None.
+
+    연도가 없으므로 조사일의 연도를 붙이고, 그게 조사일보다 뒤면 작년으로 본다
+    (1월 초 조사의 '2주일전 (12/22)' 같은 경우).
+    """
+    m = _DAY_LABEL.search(str(label or ""))
+    if not m:
+        return None
+    base = date.fromisoformat(regday)
+    try:
+        d = date(base.year, int(m.group(1)), int(m.group(2)))
+    except ValueError:
+        return None
+    if d > base:
+        try:
+            d = date(base.year - 1, d.month, d.day)
+        except ValueError:          # 2/29
+            return None
+    # 2주일전이 두 달 넘게 멀면 연도 추정이 틀린 것이다
+    if base - d > timedelta(days=60):
+        return None
+    return d.isoformat()
+
+
+def rows_from(body, cat_code, regday, cls=RETAIL):
+    """응답 하나를 CSV 모양 dict 목록으로 바꾼다.
+
+    CSV 17컬럼 외에 '등급코드'·'1일전일자'·'1주일전일자'·'2주일전일자' 를 더 담는다.
+    CSV 로 떨굴 때는 CSV_COLUMNS 로 잘려 빠지고, 06 의 MERGE 만 이 값을 쓴다.
+    """
     rows = []
     for it in extract_items(body):
         item_code = pick(it, "item_code", "itemcode")
@@ -153,7 +192,7 @@ def rows_from(body, cat_code, regday):
         unit = str(it.get("unit", "")).strip()
         row = {
             "조사일자": regday,                       # 응답에 없다. 요청한 날짜를 채운다.
-            "구분": "소매",                            # p_product_cls_code=01
+            "구분": MARKETS[cls],                      # p_product_cls_code
             "부류명": CATEGORIES[cat_code],
             "부류코드": cat_code,
             "품목코드": item_code,
@@ -165,14 +204,18 @@ def rows_from(body, cat_code, regday):
         }
         for csv_col, api_col in PRICE_MAP:
             row[csv_col] = str(it.get(api_col, "-")).strip() or "-"
+        row["등급코드"] = pick(it, "rank_code") or None
+        row["1일전일자"] = label_date(it.get("day2"), regday)
+        row["1주일전일자"] = label_date(it.get("day3"), regday)
+        row["2주일전일자"] = label_date(it.get("day4"), regday)
         rows.append(row)
     return rows
 
 
-def fetch_category_status(cat_code, regday):
-    """(행 목록, error_code) 를 돌려준다. 06 이 수집 로그를 남길 때 쓴다."""
-    body = call_api(cat_code, regday)
-    return rows_from(body, cat_code, regday), error_code_of(body)
+def fetch_category_status(cat_code, regday, cls=RETAIL):
+    """(행 목록, error_code) 를 돌려준다."""
+    body = call_api(cat_code, regday, cls)
+    return rows_from(body, cat_code, regday, cls), error_code_of(body)
 
 
 def fetch_category(cat_code, regday):
@@ -207,6 +250,17 @@ def mask(v):
     if isinstance(v, list):
         return [mask(x) for x in v]
     return v
+
+
+def raw_text(body):
+    """TBL_API_RAW 에 넣을 원문과 그 해시. 인증키·ID 는 가린다.
+
+    응답의 condition 에 p_cert_key·p_cert_id 가 그대로 돌아온다. 그대로 저장하면
+    DB 를 읽을 수 있는 사람 누구나 인증키를 보게 된다.
+    키 순서를 고정해(sort_keys) 같은 응답이면 해시도 같게 만든다.
+    """
+    text = json.dumps(mask(body), ensure_ascii=False, sort_keys=True)
+    return text, hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def probe(regday, cat_code="200"):

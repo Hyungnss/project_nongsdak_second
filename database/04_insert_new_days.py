@@ -47,7 +47,8 @@ def existing_keys(cursor, dates):
         cursor.execute(
             f"""SELECT TO_CHAR(SURVEY_DATE, 'YYYY-MM-DD'), ITEM_CODE, KIND_CODE, RANK_NAME
                 FROM   TBL_DAILY_PRICE
-                WHERE  SURVEY_DATE IN ({placeholders})""",
+                WHERE  SURVEY_DATE IN ({placeholders})
+                  AND  MARKET_TYPE = '소매'""",
             binds,
         )
         found.update(cursor.fetchall())

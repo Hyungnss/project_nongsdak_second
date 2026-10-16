@@ -77,6 +77,9 @@ SQL Developer 등에서 `kdt_admin` 으로 접속해 `database/01_create_kamis_t
 
 파일 끝의 확인용 SELECT 로 잘 만들어졌는지 볼 수 있다.
 
+로그인 · 회원가입을 쓰려면 `database/11_create_user.sql` 도 실행한다 (회원 · 세션 테이블).
+다른 SQL 과 순서는 상관없다. 안 만들어도 시세 화면은 그대로 뜨고, 로그인만 안 된다.
+
 > **`ORA-01950: no privileges on tablespace` 가 나면** — 계정에 테이블스페이스 권한이 없다.
 > DBA 계정으로 아래를 실행한 뒤 다시 시도한다.
 > ```sql
@@ -132,12 +135,21 @@ Oracle 연결 성공 (thick 모드)
 
    `KAMIS_CERT_ID` 는 **로그인 아이디가 아니다.** KAMIS 마이페이지에 따로 나오는 ID 를 넣는다.
 
-3. 수집 이력 테이블을 만든다: `database/07_create_fetch_log.sql`
+3. 수집 이력 테이블을 만들고, 도매·원본 보관 구조를 얹는다 (**순서대로**):
+   `database/07_create_fetch_log.sql` → `database/10_add_wholesale_and_raw.sql`
 4. 빠진 날짜를 채운다. `--days N` 은 그날부터 거슬러 N일치를 함께 받는다.
 
    ```
    .venv\Scripts\python.exe database\06_upsert_daily_price.py --days 14
    ```
+
+   소매·도매를 둘 다 받는다. **도매는 CSV 가 없어 과거분도 API 로 받아야 한다** — 1년치면:
+
+   ```
+   .venv\Scripts\python.exe database\06_upsert_daily_price.py --days 410 --market wholesale
+   ```
+
+   410일 × 6부류 ≈ 2,500번 호출이라 40분쯤 걸린다. 끊겨도 다시 돌리면 이어서 메워진다(MERGE).
 
 `MERGE` 라 여러 번 돌려도 중복되지 않고 값만 최신이 된다.
 
