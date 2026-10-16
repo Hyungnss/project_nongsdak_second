@@ -58,7 +58,7 @@ Claude Code 가 자기가 띄운 백그라운드 작업(백필 · 테스트 서�
 | 수집 ERROR | 6건 (부류 3 + 요약 3) 모두 재수집으로 해결 |
 | 도매 축산물 · 자연키 중복 | 0 · 0 |
 
-백업 테이블 2개(`TBL_DAILY_PRICE_BAK_1015` · `TBL_FETCH_LOG_BAK_1015`)는 아직 남아 있다. 지울지는 DB 를 직접 확인한 뒤 정한다.
+백업 테이블 2개(`TBL_DAILY_PRICE_BAK_1015` · `TBL_FETCH_LOG_BAK_1015`)는 2026-10-16 에 지웠다. 백업에만 있던 행이 0건(시세 · 로그 모두)인 것을 확인한 뒤 `DROP TABLE` 했다 (PURGE 없이 — 휴지통에 남아 있어 `FLASHBACK TABLE ... TO BEFORE DROP` 으로 되살릴 수 있다).
 
 ---
 
