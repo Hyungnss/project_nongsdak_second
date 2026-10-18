@@ -145,7 +145,7 @@
     }
     if(mode === 'signup'){
       if(f.password.value !== f.password2.value){
-        errEl.textContent = '비밀번호 확인이 일치하지 않습니다';
+        errEl.textContent = '비밀번호 확인이 일치하지 않아요';
         return;
       }
       body.nickname = f.nickname.value.trim();

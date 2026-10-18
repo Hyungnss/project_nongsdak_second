@@ -164,7 +164,7 @@
         </div>
         <div class="cbars" role="img" aria-label="지난주 ${won(last)}, 오늘 ${won(now)}, 평년 ${won(nrm)}">
           ${bar('지난주', last, '')}${bar('오늘', now, 'now')}${bar('평년', nrm, 'nrm')}
-          <div class="cscale">막대는 0원부터 같은 비율입니다. 평년 자료가 없는 품목은 오늘 가격으로 셉니다.</div>
+          <div class="cscale">막대는 0원부터 같은 비율이에요. 평년 자료가 없는 품목은 오늘 가격으로 계산해요.</div>
         </div>
       </section>
       ${tip ? `<div class="ctip">${tip}</div>` : ''}
@@ -174,7 +174,7 @@
         <div class="clist">${items.map(rowHtml).join('')}${lost.map(lostRow).join('')}</div>
       </section>
       ${addBox()}
-      <div class="cfoot"><span>지난주 가격은 KAMIS가 함께 공표하는 1주일 전 가격입니다.</span>
+      <div class="cfoot"><span>지난주 가격은 KAMIS가 함께 공표하는 1주일 전 가격이에요.</span>
         <button type="button" class="cbtn ghost" data-act="clear">장바구니 비우기</button></div>`;
   }
 
