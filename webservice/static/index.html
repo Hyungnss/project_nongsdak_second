@@ -61,12 +61,19 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 /* 시세와 하한가·상한가를 나란히 놓는다. 좁아지면 위아래로 쌓인다.
    stretch 라서 한쪽이 길어져도 두 카드의 아래 선이 어긋나지 않는다. */
 .cols{display:grid;gap:22px;grid-template-columns:minmax(0,1fr) 340px;align-items:stretch}
-@media (max-width:1000px){.cols{grid-template-columns:1fr}}
+/* 1fr 은 최소 폭이 내용 폭이라, 차트 svg(min-width 560px) 때문에 칸이 화면보다 넓어진다.
+   minmax(0,1fr) 로 칸을 화면 안에 두고, 넘치는 차트는 .chart 안에서 가로로 스크롤된다. */
+@media (max-width:1000px){.cols{grid-template-columns:minmax(0,1fr)}}
 
 /* ── 상단 바 ── 시세 띠를 화면 전체 너비로 깔기 위한 껍데기.
    색은 본문과 같이 테마를 따른다. */
 .topbar-inner{max-width:var(--maxw);margin:0 auto;padding:26px 20px 24px;
   display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+/* 좁으면 로그인 · 테마 버튼(줄바꿈 안 됨)이 제목을 밀어내 화면 밖으로 나간다. 위로 올린다. */
+@media (max-width:560px){
+  .topbar-inner{flex-direction:column-reverse;gap:14px}
+  .topbar-inner .topright{align-self:flex-end}
+}
 
 /* 테마 전환 버튼 */
 .themebtn{font:inherit;font-size:13.5px;padding:8px 14px;border-radius:20px;cursor:pointer;
