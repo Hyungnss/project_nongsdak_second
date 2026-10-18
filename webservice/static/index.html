@@ -154,7 +154,8 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 .lcolh .sorth:hover{color:var(--ink)}
 .lcolh .sorth:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
 .lcolh .sorth.on{color:var(--ink);font-weight:700}
-.lcolh .sorth.on::after{content:" ↑"}
+.lcolh .sorth.on::after,.msort button.on::after{content:" ↑"}
+.lcolh .sorth.on.desc::after,.msort button.on.desc::after{content:" ↓"}
 /* 줄 아무 데나 눌러도 고른다. 키보드로는 품목 이름 버튼(.nmbtn)으로 고른다. */
 .lrow{cursor:pointer;border-top:1px solid var(--line);padding:8px}
 .lrow:hover,.lrow.open{background:var(--card2)}
@@ -906,7 +907,9 @@ const CAT_SHORT = {'채소류':'채소','과실류':'과일','수산물':'수산
 const CAT_ORDER = ['채소류','과실류','수산물','축산물','식량작물','특용작물'];
 let CAT = '전체';
 // 정렬 기준: day(어제) · week(1주) · normal(평년 대비). 열 머리 · 휴대폰 정렬 버튼으로 바꾼다.
-let SORT = 'normal';
+// SORT_DIR: 1 = 오름차순(많이 내린 · 싼 것부터), -1 = 내림차순(많이 오른 · 비싼 것부터).
+// 같은 열 머리를 다시 누르면 방향이 바뀐다.
+let SORT = 'normal', SORT_DIR = 1;
 
 const vsNormal = c => c.normal ? (c.price / c.normal - 1) * 100 : null;
 
@@ -972,19 +975,19 @@ function renderCats(){
       `${esc(CAT_SHORT[k] || k)}<small>${n}</small></button>`).join('');
 }
 
-const SORTS = {
-  // 평년 자료가 없는 품목은 판정을 못 하니 맨 뒤로
-  normal: (a, b) => (vsNormal(a) ?? Infinity) - (vsNormal(b) ?? Infinity),
-  week: (a, b) => (a.change_7d ?? Infinity) - (b.change_7d ?? Infinity),
-  // '어제'는 직전 조사일이다 (주말 · 공휴일이 끼면 며칠 전). 등락 요약 · 시세 띠와 같은 값
-  day: (a, b) => a.change_pct - b.change_pct,
-};
 
 // 시세판의 세 등락 칸 (어제 · 1주 · 평년 대비). 지금 정렬 기준인 칸은 굵게 보이고,
 // 그 값의 부호가 추이선 색을 정한다 (음수 파랑 · 양수 빨강).
 const SORT_VAL = {day: c => c.change_pct, week: c => c.change_7d, normal: vsNormal};
 const sortKey = () => SORT_VAL[SORT] ? SORT : 'normal';
 const sortVal = c => SORT_VAL[sortKey()](c);
+// 지금 기준 · 방향으로 비교. 값이 없는 품목(평년 자료 없음 등)은 방향과 상관없이 늘 맨 뒤로 보낸다.
+// '어제'는 직전 조사일이다 (주말 · 공휴일이 끼면 며칠 전). 등락 요약 · 시세 띠와 같은 값
+function compareRows(a, b){
+  const va = sortVal(a), vb = sortVal(b);
+  if(va == null || vb == null) return (va == null) - (vb == null);
+  return SORT_DIR * (va - vb);
+}
 function numCell(key, c){
   const v = SORT_VAL[key](c);
   const cls = v == null ? 'flat' : (dirClass(v) || 'flat');
@@ -1065,7 +1068,7 @@ const PAGE_SIZE = 10;
 let PAGE = 1;
 
 const listRows = () => BRIEF.filter(c => CAT === '전체' || c.category === CAT)
-  .sort(SORTS[sortKey()]);
+  .sort(compareRows);
 
 // 보여줄 쪽 번호. 쪽이 많으면 처음 · 끝 · 지금 쪽 앞뒤만 남기고 사이는 … 으로 줄인다.
 function pageList(cur, last){
@@ -1099,12 +1102,15 @@ function renderPager(total){
 function renderList(){
   park.appendChild(xdetail);     // innerHTML 로 지워지지 않게 먼저 빼 둔다
   const box = document.getElementById('list');
-  document.querySelectorAll('#lcolh .sorth').forEach(b => {
+  // 지금 기준인 머리에 방향(↑ 오름 · ↓ 내림)을 붙이고, 화면 낭독기에도 방향을 알린다
+  const dirName = SORT_DIR === 1 ? '오름차순' : '내림차순';
+  document.querySelectorAll('#lcolh .sorth, .msort button').forEach(b => {
     const on = b.dataset.sort === sortKey();
     b.classList.toggle('on', on);
+    b.classList.toggle('desc', on && SORT_DIR === -1);
     b.setAttribute('aria-pressed', on);
+    b.setAttribute('aria-label', `${b.textContent.trim()} 기준 정렬${on ? ` (지금 ${dirName}, 다시 누르면 반대로)` : ''}`);
   });
-  document.querySelectorAll('.msort button').forEach(b => b.setAttribute('aria-pressed', b.dataset.sort === sortKey()));
   const all = listRows();
   const last = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
   PAGE = Math.min(Math.max(1, PAGE), last);
@@ -1202,8 +1208,10 @@ document.querySelector('.msort').addEventListener('click', e => {
   if(b) setSort(b.dataset.sort);
 });
 function setSort(key){
-  if(key === SORT || !SORT_VAL[key]) return;
-  SORT = key;
+  if(!SORT_VAL[key]) return;
+  // 같은 기준을 다시 누르면 방향만 뒤집고, 다른 기준이면 오름차순부터
+  if(key === SORT) SORT_DIR = -SORT_DIR;
+  else { SORT = key; SORT_DIR = 1; }
   PAGE = 1;
   renderList();
 }
