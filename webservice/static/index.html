@@ -21,22 +21,7 @@
   --slip-up:#c02a30; --slip-down:#0b5fc4;
   --slip-border:rgba(0,0,0,.12); --slip-dash:rgba(0,0,0,.18);
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    color-scheme:dark;
-    --bg:#0b0c0d; --card:#1a1a19; --card2:#232426;
-    --ink:#fff; --ink2:#c3c2b7; --muted:#8d9299;
-    --line:#2e3033; --grid:#2c2c2a; --hair:rgba(255,255,255,.10);
-    --accent:#3987e5; --teal:#3aa79c; --amber:#d99a2b;
-    --up:#f4514f; --down:#268afe;
-    --cookie-bake:brightness(.46) saturate(.68) hue-rotate(-6deg) contrast(1.12);
-    /* 쪽지도 다크초코로. 미색 종이는 어두운 화면에서 혼자 튄다. */
-    --slip-a:#241c15; --slip-b:#191310; --slip-shadow:rgba(0,0,0,.6);
-    --slip-ink:#f3ebdf; --slip-ink2:#c3b5a2; --slip-muted:#9c8e7d;
-    --slip-up:#f4514f; --slip-down:#3b95ff;
-    --slip-border:rgba(255,255,255,.13); --slip-dash:rgba(255,255,255,.17);
-  }
-}
+/* 기본은 라이트 모드다. 기기가 다크 모드여도 따라가지 않고, 다크는 버튼으로 고를 때만 쓴다. */
 :root[data-theme="dark"]{
   color-scheme:dark;
   --bg:#0b0c0d; --card:#1a1a19; --card2:#232426;
@@ -1237,13 +1222,12 @@ function renderBoard(f){
 }
 
 // ── 테마 ─────────────────────────────────────────────────────────────
-// data-theme 이 없으면 기기 설정을 따른다. 버튼을 누른 뒤에는 그 선택을 기억한다.
+// 기본은 라이트 모드다 (기기 설정과 상관없이). 버튼으로 다크를 고르면 그 선택을 기억한다.
 const THEME_KEY = 'nongsdaq-theme';
 const themeBtn = document.getElementById('themebtn');
 
 function currentTheme(){
-  return document.documentElement.getAttribute('data-theme')
-      || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
 }
 
 function paintThemeBtn(t){
@@ -1261,12 +1245,6 @@ function setTheme(t){
 
 paintThemeBtn(currentTheme());
 themeBtn.addEventListener('click', () => setTheme(currentTheme() === 'dark' ? 'light' : 'dark'));
-// 아직 직접 고르지 않았다면 기기 설정이 바뀔 때 따라간다
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-  let saved = null;
-  try{ saved = localStorage.getItem(THEME_KEY); }catch(err){}
-  if(!saved) paintThemeBtn(e.matches ? 'dark' : 'light');
-});
 
 // ── 초기화 ───────────────────────────────────────────────────────────
 let ITEMS = {}, ITEM_LIST = [];
