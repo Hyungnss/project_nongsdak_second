@@ -909,7 +909,8 @@ function renderList(){
 
   // 검색으로 고른 품목이 목록에 없을 수 있다 (철이 지나 조사가 끊긴 품목).
   // 그 품목은 맨 위에 한 줄 따로 세워 그 아래에 펼친다.
-  if(OPEN && !all.some(c => c.item_code === OPEN.item)){
+  // 다른 분류에 있는 품목은 여기에 해당하지 않는다 — 분류를 바꾸면 펼친 품목을 닫는다.
+  if(OPEN && !BRIEF.some(c => c.item_code === OPEN.item)){
     const it = ITEMS[OPEN.item];
     if(it) html = `<button type="button" class="lrow" data-item="${it.item_code}" aria-expanded="true">
       <span class="nm">${esc(it.item_name)}<small>지금은 목록에 없는 품목 (최근 조사 없음)</small></span>
@@ -964,6 +965,7 @@ document.getElementById('cats').addEventListener('click', e => {
   if(!b || b.dataset.cat === CAT) return;
   CAT = b.dataset.cat;
   PAGE = 1;
+  closeItem();
   renderCats();
   renderList();
 });
