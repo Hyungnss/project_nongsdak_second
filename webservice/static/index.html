@@ -440,18 +440,12 @@ svg{display:block;width:100%;min-width:560px}
 .legend i{width:15px;border-top:2.5px solid currentColor;display:block}
 .legend.norm{color:var(--teal)}
 .legend.norm i{border-top-width:2px;border-top-style:dashed}
+/* 범례는 그래프 바로 아래 가운데 */
+.chart-legend{display:flex;justify-content:center;gap:16px;margin-top:6px}
 
-.chart-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:18px}
-.chart-head .t{font-size:13.5px;color:var(--ink2)}
+/* 신선도 줄의 '수집이 멈춰 있어요' 배지가 쓴다 (모양은 .fresh .badge 에서 덮어쓴다) */
 .badge{font-size:14px;font-weight:660;padding:3px 10px;border-radius:20px;
   font-family:ui-monospace,Consolas,monospace}
-.badge.up{color:var(--up);background:var(--card2)}
-.badge.down{color:var(--down);background:var(--card2)}
-.badge.flat{color:var(--muted);background:var(--card2)}
-@supports (background:color-mix(in srgb,red 10%,transparent)){
-  .badge.up{background:color-mix(in srgb,var(--up) 12%,transparent)}
-  .badge.down{background:color-mix(in srgb,var(--down) 12%,transparent)}
-}
 
 
 /* ── 포춘쿠키 ── 쿠키를 눌러 깨면 안에서 종이가 나온다 */
@@ -784,21 +778,18 @@ function chart(points, width){
         y="${(ys(points[firstN].normal) - 8).toFixed(1)}">평년</text>`
     : '';
 
-  return `<div class="chart-head">
-      <span class="t">최근 가격 추이 <b>${span}</b> (조사 ${days}일)</span>
-      <span class="badge ${dir}">${signed(periodChg)}</span>
-      <span class="t">이 기간 ${dirWord}</span>
-      ${legend}
-    </div>
-    <div class="chart"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img"
-      aria-label="최근 가격 추이, 이 기간 ${signed(periodChg)}${hasNorm ? ', 평년 가격을 점선으로 함께 표시' : ''}">
+  // 차트 위 설명 줄('최근 가격 추이 … (조사 60일) … 이 기간 올랐어요')은 두지 않는다.
+  // 같은 내용은 화면 낭독기가 읽도록 aria-label 에 남기고, 범례는 그래프 아래에 둔다.
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img"
+      aria-label="최근 가격 추이 ${span}, 조사 ${days}일, 이 기간 ${signed(periodChg)} ${dirWord}${hasNorm ? ', 평년 가격을 점선으로 함께 표시' : ''}">
     <path class="area ${dir}" d="${area}"/>${g}
     <path class="series norm" d="${normPath}"/>
     <path class="series ${dir}" d="M${line}"/>
     <circle class="dot ${dir}" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="5"/>
     <text class="lbl" x="${(lx - 10).toFixed(1)}" y="${(ly - 12).toFixed(1)}"
       text-anchor="end">${won(last.price)}</text>${normLbl}
-  </svg></div>`;
+  </svg></div>
+  ${legend ? `<div class="chart-legend">${legend}</div>` : ''}`;
 }
 
 // ── 품목 상세 ────────────────────────────────────────────────────────
