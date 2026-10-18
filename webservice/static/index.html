@@ -43,7 +43,7 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
   font-family:system-ui,-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif}
 .mono,.tick,.big,table,.pct{font-family:ui-monospace,"Cascadia Mono",Consolas,"D2Coding",monospace}
 :root{--maxw:1240px}
-.wrap{max-width:var(--maxw);margin:0 auto;padding:32px 20px 80px;
+.wrap{max-width:var(--maxw);margin:0 auto;padding:16px 20px 80px;
   display:flex;flex-direction:column;gap:22px}
 
 /* .wrap 은 세로 flex 라 자식의 최소 폭이 내용 폭을 따라간다. 상세 차트 svg(min-width 560px)가
@@ -191,11 +191,12 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 
 /* ── 상단 바 ── 시세 띠를 화면 전체 너비로 깔기 위한 껍데기.
    색은 본문과 같이 테마를 따른다. */
-.topbar-inner{max-width:var(--maxw);margin:0 auto;padding:26px 20px 24px;
+/* 아래 여백은 작게 둔다. 본문(.wrap)의 위 여백과 겹쳐 머리와 검색칸 사이가 휑하게 비었다. */
+.topbar-inner{max-width:var(--maxw);margin:0 auto;padding:22px 20px 10px;
   display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 /* 좁으면 로그인 · 테마 버튼(줄바꿈 안 됨)이 제목을 밀어내 화면 밖으로 나간다. 위로 올린다. */
 @media (max-width:560px){
-  .topbar-inner{flex-direction:column-reverse;gap:14px}
+  .topbar-inner{flex-direction:column-reverse;gap:8px;padding:12px 16px 6px}
   .topbar-inner .topright{align-self:flex-end}
 }
 
@@ -219,6 +220,23 @@ header .tagline{margin:6px 0 0;font-size:16px;color:var(--ink);font-weight:600;
   letter-spacing:-.3px}
 header p{margin:0;color:var(--ink2);font-size:14.5px}
 header .lede{margin-top:4px}
+
+/* 휴대폰(390x844)에서는 머리가 화면 절반을 넘게 차지해 첫 화면에 '지금 사기 좋아요'가
+   제목만 겨우 보였다. 글자 · 여백을 줄이고, 테마 버튼은 아이콘만, 등락 요약은 한 줄로 줄인다. */
+@media (max-width:560px){
+  header .tagline{font-size:14.5px;margin-top:4px}
+  header .lede{font-size:13.5px;margin-top:0}
+  header .mkt{margin-top:8px}
+  header .mbtn{padding:5px 16px;font-size:13.5px}
+  .themebtn .lbl{display:none}
+  .themebtn{padding:8px 11px}
+  .breadth{margin-top:6px}
+  .breadth .long{display:none}
+  .wrap{padding-top:8px;gap:16px}
+  .brief .lead .more{display:none}
+}
+.breadth .short{display:none}
+@media (max-width:560px){ .breadth .short{display:inline} }
 
 /* 소매 · 도매 전환. 화면 전체가 이 값을 따르므로 제목 바로 아래, 가장 먼저 눈에 띄는 곳에 둔다.
    한 덩어리 버튼(세그먼트)이라 '둘 중 하나'라는 게 모양으로 드러난다. */
@@ -522,7 +540,7 @@ try{
        기준은 평년 대비다. 어제보다 3% 내린 것보다 평년보다 38% 싼 것이 장 볼 때 더 쓸모 있다. -->
   <section class="brief" aria-labelledby="h-good">
     <h2 id="h-good">지금 사기 좋아요</h2>
-    <p class="lead">평년 같은 때보다 많이 싼 품목이에요. 누르면 아래 목록에서 자세히 보여드려요.</p>
+    <p class="lead">평년 같은 때보다 많이 싼 품목이에요.<span class="more"> 누르면 아래 목록에서 자세히 보여드려요.</span></p>
     <div class="bcards" id="good"><div class="loading">불러오는 중…</div></div>
     <div class="dear" id="dear"></div>
   </section>
@@ -1269,8 +1287,10 @@ function renderBoard(f){
     `<span class="u">▲ <b>${f.up_count}</b></span>` +
     `<span class="d">▼ <b>${f.down_count}</b></span>` +
     `<span class="f">― <b>${f.flat_count}</b></span>` +
-    `<span class="sep">|</span>` +
-    `<span class="f">품목 ${f.count}개 · 직전 조사일 대비</span>`;
+    `<span class="sep long">|</span>` +
+    `<span class="f long">품목 ${f.count}개 · 직전 조사일 대비</span>` +
+    // 휴대폰에서는 위 두 칸 대신 짧은 꼬리표 하나만 보인다 (같은 줄에 들어가도록)
+    `<span class="f short">어제 대비</span>`;
 
   const t = document.getElementById('ticker');
   // 띠의 등락은 평년이 아니라 '직전 조사일 대비'다 (아래 등락 요약과 같은 change_pct).
@@ -1313,6 +1333,8 @@ function paintThemeBtn(t){
   const dark = t === 'dark';
   themeBtn.querySelector('.ico').textContent = dark ? '☀️' : '🌙';
   themeBtn.querySelector('.lbl').textContent = dark ? '라이트 모드' : '다크 모드';
+  // 휴대폰에서는 글자를 숨기고 아이콘만 보이므로 이름을 따로 붙인다
+  themeBtn.setAttribute('aria-label', dark ? '라이트 모드로 바꾸기' : '다크 모드로 바꾸기');
   themeBtn.setAttribute('aria-pressed', dark);
 }
 
