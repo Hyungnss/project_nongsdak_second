@@ -186,10 +186,10 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 .themebtn .ico{font-size:15px;line-height:1}
 
 /* 로고 이미지 (아이콘 + '농스닥' 가로형). 글자가 그림 안에 있으므로 h1 은 alt 로 이름을 읽게 한다.
-   원본(292x105)을 반쯤으로 줄여 쓴다 — 고해상도 화면에서도 2배 안쪽이라 흐려지지 않는다. */
+   원본(292x105)보다 작게 쓰므로 흐려지지 않는다. 56px 는 작다고 해서 72px 로 키웠다. */
 header h1{margin:0;line-height:0}
-header h1.logo img{display:block;height:56px;width:auto}
-@media (max-width:560px){ header h1.logo img{height:46px} }
+header h1.logo img{display:block;height:72px;width:auto}
+@media (max-width:560px){ header h1.logo img{height:58px} }
 /* '닥' 글자가 진한 남색이라 어두운 바탕에서는 안 보인다. 다크 모드에서만 밝은 바탕을 깐다. */
 :root[data-theme="dark"] header h1.logo img{background:#f4f5f7;border-radius:12px;padding:6px 10px;
   box-sizing:content-box}
