@@ -123,9 +123,9 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 /* 줄 하나 = 품목 하나. 열 머리와 같은 격자를 써서 숫자가 세로로 맞는다.
    맨 오른쪽 칸은 장바구니 담기 버튼. 도매에서는 담지 않으므로 그 칸을 뺀다 (.nocart). */
 .lcolh,.lrow{display:grid;gap:12px;align-items:center;
-  grid-template-columns:minmax(0,1.6fr) minmax(96px,auto) minmax(0,1.3fr) 96px 70px 64px}
+  grid-template-columns:minmax(0,1.6fr) minmax(96px,auto) minmax(0,1.3fr) 96px 84px 64px}
 @media (min-width:621px){
-  .nocart .lcolh,.nocart .lrow{grid-template-columns:minmax(0,1.6fr) minmax(96px,auto) minmax(0,1.3fr) 96px 70px}
+  .nocart .lcolh,.nocart .lrow{grid-template-columns:minmax(0,1.6fr) minmax(96px,auto) minmax(0,1.3fr) 96px 84px}
 }
 .nocart .lcolh span:nth-child(6){display:none}
 .lcolh{padding:0 8px 6px;font-size:11.5px;color:var(--muted);letter-spacing:.02em}
@@ -159,6 +159,7 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 .lrow .wk{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
   font-size:13px;font-weight:650;white-space:nowrap}
 .wk.up{color:var(--up)} .wk.down{color:var(--down)} .wk.flat{color:var(--muted)}
+.wk.nrm{color:var(--ink2);font-weight:500}   /* 평년 가격 — 등락이 아니라 값이라 색을 넣지 않는다 */
 .lrow .spark{width:96px;height:24px}
 /* 휴대폰에서는 품목 · 판정 · 가격만 남긴다. 추이와 1주 변화는 펼치면 나온다.
    장바구니 칸은 가격 아래 둘째 줄로 내린다. */
@@ -574,7 +575,7 @@ try{
         </select></label>
     </div>
     <div class="lcolh" aria-hidden="true">
-      <span>품목</span><span>오늘 가격</span><span>평년 대비</span><span>최근 추이</span><span>1주 변화</span><span>장바구니</span>
+      <span>품목</span><span>오늘 가격</span><span>평년 대비</span><span>최근 추이</span><span id="sortcolh">평년 가격</span><span>장바구니</span>
     </div>
     <div id="list"><div class="loading">불러오는 중…</div></div>
     <nav class="pager" id="pager" aria-label="모든 품목 페이지" hidden></nav>
@@ -928,6 +929,18 @@ const SORTS = {
   day: (a, b) => a.change_pct - b.change_pct,
 };
 
+// 다섯째 칸은 정렬 기준을 따라간다. 무엇으로 줄을 세웠는지 그 값을 바로 옆에서 볼 수 있게.
+// '평년보다 저렴한 순'일 때 평년 대비 % 는 바로 앞 판정 배지에 이미 있으므로 평년 가격을 보여준다.
+const SORT_COL = {
+  normal: {label: '평년 가격', cell: c => c.normal == null ? ['flat', '—'] : ['nrm', won(c.normal)]},
+  week:   {label: '1주 변화',  cell: c => pctCell(c.change_7d)},
+  day:    {label: '어제 대비', cell: c => pctCell(c.change_pct)},
+};
+function pctCell(v){
+  return v == null ? ['flat', '—'] : [dirClass(v) || 'flat', signed(v)];
+}
+const sortCol = () => SORT_COL[sortSel.value] || SORT_COL.normal;
+
 // 장바구니 담기 버튼 (장바구니 안에 + 가 든 아이콘). 이미 담긴 품목인지는 cart.js 가
 // 들고 있는 장바구니에서 읽어 칠해 보여준다 (로그인 전에는 늘 빈 상태).
 // 장바구니는 소매가로 합계를 내므로 도매 목록에는 그리지 않는다.
@@ -948,14 +961,13 @@ function cartCtlHtml(c){
 
 function rowHtml(c){
   const open = OPEN && OPEN.item === c.item_code;
-  const wk = c.change_7d;
-  const wcls = wk == null ? 'flat' : (dirClass(wk) || 'flat');
+  const [wcls, wtxt] = sortCol().cell(c);
   return `<div class="lrow${open ? ' open' : ''}" ${keyAttrs(c)}>
     <button type="button" class="nmbtn" aria-expanded="${open}">
       <span class="nm">${esc(c.item_name)}<small>${esc(c.kind_name)} · ${esc(c.rank_name)}</small></span></button>
     <span class="pr">${won(c.price)}<small>${esc(c.unit)}</small></span>
     ${pill(c)}${spark(c, 96, 24)}
-    <span class="wk ${wcls}">${wk == null ? '—' : signed(wk)}</span>
+    <span class="wk ${wcls}">${wtxt}</span>
     ${cartCtlHtml(c)}</div>`;
 }
 
@@ -1016,6 +1028,7 @@ function renderPager(total){
 function renderList(){
   park.appendChild(xdetail);     // innerHTML 로 지워지지 않게 먼저 빼 둔다
   const box = document.getElementById('list');
+  document.getElementById('sortcolh').textContent = sortCol().label;
   const all = listRows();
   const last = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
   PAGE = Math.min(Math.max(1, PAGE), last);
