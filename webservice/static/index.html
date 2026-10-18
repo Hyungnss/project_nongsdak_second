@@ -555,9 +555,9 @@ try{
     <div class="dear" id="dear"></div>
   </section>
 
-  <section class="card" id="allcard" aria-labelledby="h-all">
+  <!-- 제목은 화면에 두지 않는다. 화면 낭독기는 aria-label 로 이 영역 이름을 읽는다. -->
+  <section class="card" id="allcard" aria-label="모든 품목">
     <div class="lhead">
-      <h2 id="h-all">모든 품목</h2>
       <label class="fld sortfld"><span>정렬</span>
         <select id="sort">
           <option value="normal">평년보다 저렴한 순</option>
@@ -1101,7 +1101,7 @@ document.getElementById('pager').addEventListener('click', e => {
   PAGE = +b.dataset.page;
   renderList();
   // 아래쪽 페이지 버튼을 눌렀으면 목록 머리로 올려 새 쪽의 첫 줄부터 보이게 한다
-  const head = document.getElementById('h-all');
+  const head = document.getElementById('allcard');
   if(head.getBoundingClientRect().top < 0) head.scrollIntoView({behavior: 'smooth', block: 'start'});
 });
 
