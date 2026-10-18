@@ -436,7 +436,7 @@ try{
   </section>
 
   <footer>
-    자료: KAMIS 농산물유통정보 <span id="srcmkt">소매</span> 조사 · Oracle <code>TBL_DAILY_PRICE</code><br>
+    자료: KAMIS 농산물유통정보 <span id="srcmkt">소매</span> 조사<br>
     비교 시점은 저장된 값이 아니라 실제 조사 이력에서 가장 가까운 날을 찾아 계산합니다.
   </footer>
 </div>
@@ -1228,10 +1228,11 @@ async function loadMarket(keepItem){
     // meta.latest 를 쓰면 공표 전이나 주말에 축산물만 들어온 날짜가 기준이 되어,
     // 정상적으로 직전 조사일 값을 보여주는 품목까지 '하루 묵었다'고 표시된다.
     LATEST_DAY = meta.latest_full || meta.latest;
-    document.getElementById('asof').textContent = meta.rows
-      ? `${MARKET_NAME[mk]} · ${meta.earliest} ~ ${meta.latest} · ` +
-        `${meta.rows.toLocaleString()}건 · 품목 ${meta.items}개`
-      : `${MARKET_NAME[mk]} 자료가 아직 없습니다.`;
+    // 조사일은 바로 아래 신선도 줄(#fresh)에 있다. 여기는 자료가 없을 때만 알린다.
+    // 저장 건수·전체 기간은 장 보는 사람에게 쓸모가 없어 보이지 않는다.
+    const asof = document.getElementById('asof');
+    asof.hidden = !!meta.rows;
+    asof.textContent = meta.rows ? '' : `${MARKET_NAME[mk]} 자료가 아직 없습니다.`;
     showFreshness(meta);
 
     const d = await api('/api/products');
