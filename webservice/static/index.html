@@ -225,9 +225,8 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
    차트는 chart() 가 이 칸 너비(약 360px) 그대로의 판으로 그린다. */
 .bd-side .xdetail{border-top:0;padding:0}
 .bd-side .today .big{font-size:34px}
-.bd-side .cmp{grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}
-.bd-side .c{padding:10px 11px}
-.bd-side .c .v{font-size:17px}
+.bd-side .c{padding:8px 9px}
+.bd-side .c .v{font-size:15px}
 .kindfld{align-self:flex-start;max-width:100%}
 .kindfld[hidden]{display:none}
 
@@ -404,16 +403,18 @@ select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--ac
 .today .big{font-size:42px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
 .today .unit{font-size:14px;color:var(--ink2)}
 
-.cmp{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));margin-top:16px}
-.c{border:1px solid var(--hair);border-radius:10px;padding:12px 13px;background:var(--card2)}
-.c .l{font-size:12.5px;color:var(--muted)}
-.c .v{font-size:20px;font-weight:660;letter-spacing:-.4px;
-  font-family:ui-monospace,Consolas,monospace;margin-top:2px}
-.c .p{font-size:12.5px;color:var(--ink2);margin-top:2px;
-  font-family:ui-monospace,Consolas,monospace}
-.c .note{font-size:11.5px;color:var(--amber);margin-top:3px}
+/* 비교 — 어제 · 1주 · 평년 · 1년 전을 한 줄 네 칸에 % 만. 칸 사이는 1px 선으로 나눈다 */
+.cmp{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin-top:16px;
+  background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.c{background:var(--card);padding:9px 11px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.c[title]{cursor:help}
+.c .l{font-size:12px;color:var(--muted)}
+.c .v{font-size:16px;font-weight:700;letter-spacing:-.3px;
+  font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
 .c.up .v{color:var(--up)} .c.down .v{color:var(--down)}
-.c.na .v{color:var(--muted);font-size:15px}
+.c.flat .v,.c.na .v{color:var(--muted)}
+/* 휴대폰은 네 칸이 약 75px 씩이라 숫자를 조금 줄인다 */
+@media (max-width:620px){ .c{padding:8px 8px} .c .v{font-size:14px} }
 
 .chart{overflow-x:auto;margin-top:18px}
 svg{display:block;width:100%;min-width:560px}
@@ -827,34 +828,26 @@ async function showDetail(item, kind, rank){
     const d = await api('/api/detail', q);
     if(m !== MARKET) return;    // 기다리는 사이 탭을 바꿨으면 늦게 온 응답은 버린다
 
-    // 화면에 보일 비교 시점. 2주일 전은 1주일 전 · 1개월 전 사이라 더해 주는 정보가 적어 뺀다.
-    // (API 는 그대로 2주일 전도 돌려준다 — 화면에서만 거른다)
-    const HIDE_COMPARE = [14];
-    const cards = d.compares.filter(c => !HIDE_COMPARE.includes(c.target_offset)).map(c => {
-      if(!c.available){
-        return `<div class="c na"><div class="l">${c.label}</div>
-                <div class="v">자료 없음</div></div>`;
-      }
-      const cls = dirClass(c.change_pct);
-      const note = c.exact ? '' :
-        `<div class="note">실제 ${c.days_ago}일 전 (${c.date.slice(5).replace('-','/')})</div>`;
-      return `<div class="c ${cls}">
-        <div class="l">${c.label}</div>
-        <div class="v">${signed(c.change_pct)}</div>
-        <div class="p">${won(c.price)}</div>${note}</div>`;
-    }).join('');
-
+    // 비교는 어제 · 1주 · 평년 · 1년 전 네 칸에 % 만 한 줄로 보여준다 (시세판의 간략 보기).
+    // 비교 가격과 '실제 8일 전' 같은 보조 정보는 칸에 올리면(title) 나온다.
+    // 2주일 전 · 1개월 전은 화면에 두지 않는다 (API 는 그대로 돌려준다).
+    const at = off => d.compares.find(c => c.target_offset === off);
+    const vs = base => base ? (d.price - base) / base * 100 : null;
+    const day = at(1), week = at(7);
+    const cell = (label, pct, tip) => {
+      const cls = pct == null ? 'na' : (dirClass(pct) || 'flat');
+      return `<div class="c ${cls}"${tip ? ` title="${esc(tip)}"` : ''}>
+        <span class="l">${label}</span><b class="v">${pct == null ? '—' : signed(pct)}</b></div>`;
+    };
+    const tipOf = c => !c || !c.available ? '' :
+      `${c.date} ${won(c.price)}` + (c.exact ? '' : ` (실제 ${c.days_ago}일 전 값)`);
+    const cards = [
+      cell('어제', day && day.available ? day.change_pct : null, tipOf(day)),
+      cell('1주', week && week.available ? week.change_pct : null, tipOf(week)),
+      cell('평년', vs(d.normal), d.normal != null ? `평년 ${won(d.normal)}` : ''),
+      cell('1년 전', vs(d.year_ago), d.year_ago != null ? `1년 전 ${won(d.year_ago)}` : ''),
+    ].join('');
     const extra = [];
-    if(d.year_ago != null){
-      const p = (d.price - d.year_ago) / d.year_ago * 100;
-      extra.push(`<div class="c ${dirClass(p)}"><div class="l">1년 전</div>
-        <div class="v">${signed(p)}</div><div class="p">${won(d.year_ago)}</div></div>`);
-    }
-    if(d.normal != null){
-      const p = (d.price - d.normal) / d.normal * 100;
-      extra.push(`<div class="c ${dirClass(p)}"><div class="l">평년</div>
-        <div class="v">${signed(p)}</div><div class="p">${won(d.normal)}</div></div>`);
-    }
 
     // 마지막 조사가 한참 전이면 큰 숫자를 '오늘 가격'으로 읽지 않도록 먼저 알린다.
     // 기준은 '대부분의 품목에 값이 있는 최신 조사일'(LATEST_DAY)이다.
