@@ -267,17 +267,14 @@ header .lede{margin-top:4px}
 @media (max-width:560px){
   header .tagline{font-size:14.5px;margin-top:4px}
   header .lede{font-size:13.5px;margin-top:0}
-  header .mkt{margin-top:8px}
-  header .mbtn{padding:5px 16px;font-size:13.5px}
+  .mktrow{margin-top:10px;gap:12px}
+  header .mbtn{padding:5px 14px;font-size:13.5px}
   .themebtn .lbl{display:none}
   .themebtn{padding:8px 11px}
-  .breadth{margin-top:6px}
-  .breadth .long{display:none}
+  .breadth .blab{font-size:12px;gap:2px 10px}
   .wrap{padding-top:8px;gap:16px}
   .brief .lead .more{display:none}
 }
-.breadth .short{display:none}
-@media (max-width:560px){ .breadth .short{display:inline} }
 
 /* 소매 · 도매 전환. 화면 전체가 이 값을 따르므로 제목 바로 아래, 가장 먼저 눈에 띄는 곳에 둔다.
    한 덩어리 버튼(세그먼트)이라 '둘 중 하나'라는 게 모양으로 드러난다. */
@@ -297,18 +294,20 @@ header .lede{margin-top:4px}
 /* 도매는 단위를 가격만큼 크게 — '14,600원' 을 한 포기 값으로 읽지 않도록 */
 .today .unit.wh{font-size:16px;font-weight:700;color:var(--teal)}
 
-/* 오늘 몇 개가 오르고 내렸는지 — 증권 시세판의 '등락 종목 수'에 해당한다 */
-.breadth{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px;
-  font-size:13.5px;font-family:ui-monospace,Consolas,monospace}
-.breadth b{font-weight:700}
-.breadth .u{color:var(--up)} .breadth .d{color:var(--down)} .breadth .f{color:var(--muted)}
-.breadth .sep{color:var(--line)}
-/* 오름 · 내림 · 보합 비율 막대 (시세판). 숫자 앞에 두어 한눈에 시장 분위기를 본다 */
-.breadth .bbar{display:inline-flex;width:120px;height:8px;border-radius:4px;overflow:hidden;gap:2px;
-  background:var(--bg);flex:none}
+/* 시세판 머리 — 오늘 몇 개가 오르고 내렸는지(증권 시세판의 '등락 종목 수')를 넓은 막대로,
+   그 아래에 숫자와 조사일을 적고, 오른쪽에 소매 · 도매 전환을 둔다. */
+header{flex:1 1 auto;min-width:0}
+.mktrow{display:flex;align-items:center;gap:12px 20px;margin-top:14px;width:min(720px,100%)}
+.mktrow .mkt{margin-top:0;flex:none}
+.breadth{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:7px}
+.breadth .bbar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;background:var(--card)}
 .breadth .bbar i{display:block;height:100%}
 .breadth .bbar .u{background:var(--up)} .breadth .bbar .d{background:var(--down)}
 .breadth .bbar .f{background:var(--line)}
+.breadth .blab{display:flex;gap:4px 14px;flex-wrap:wrap;font-size:12.5px;
+  font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
+.breadth .blab b{font-weight:700}
+.breadth .u{color:var(--up)} .breadth .d{color:var(--down)} .breadth .f{color:var(--muted)}
 
 /* 시세 띠 — 오늘 조사된 품목이 흘러간다. 손을 올리면 멈춘다.
    화면 전체 너비로 깔려고 .wrap 바깥, 문서 맨 위에 둔다.
@@ -546,13 +545,16 @@ try{
       <h1 class="logo"><img src="/static/logo.png" alt="농스닥" width="292" height="105"></h1>
       <p class="tagline">오늘의 장바구니 시세</p>
       <p class="lede">당신의 지갑을 지켜드려요.</p>
-      <div class="mkt" id="mkt" role="tablist" aria-label="소매 · 도매 선택">
-        <button class="mbtn on" type="button" role="tab" aria-selected="true" data-market="retail">소매</button>
-        <button class="mbtn" type="button" role="tab" aria-selected="false" data-market="wholesale">도매</button>
+      <!-- 시세판 머리: 왼쪽에 오름 · 내림 · 보합 비율 막대와 숫자, 오른쪽에 소매 · 도매 -->
+      <div class="mktrow">
+        <div class="breadth" id="breadth"></div>
+        <div class="mkt" id="mkt" role="tablist" aria-label="소매 · 도매 선택">
+          <button class="mbtn on" type="button" role="tab" aria-selected="true" data-market="retail">소매</button>
+          <button class="mbtn" type="button" role="tab" aria-selected="false" data-market="wholesale">도매</button>
+        </div>
       </div>
       <div class="asof" id="asof">불러오는 중…</div>
       <div class="fresh" id="fresh" hidden></div>
-      <div class="breadth" id="breadth"></div>
     </header>
 
     <div class="topright">
@@ -1429,18 +1431,19 @@ const TICKER_PX_PER_SEC = 50;
 function mark(pct){ return pct > 0 ? '▲' : (pct < 0 ? '▼' : '―'); }
 
 function renderBoard(f){
+  // 막대 아래에 숫자와 조사일. 조사일은 '대부분의 품목에 값이 있는 최신일'(LATEST_DAY)이다.
+  // 오름 · 내림 · 보합은 직전 조사일 대비다 (막대에 올리면 설명이 나온다).
   const tot = f.up_count + f.down_count + f.flat_count;
+  const day = LATEST_DAY ? `${+LATEST_DAY.slice(5, 7)}/${+LATEST_DAY.slice(8, 10)} 조사` : '';
+  const desc = `직전 조사일보다 오른 품목 ${f.up_count}개, 내린 품목 ${f.down_count}개, 그대로 ${f.flat_count}개`;
   document.getElementById('breadth').innerHTML =
-    (tot ? `<span class="bbar" role="img" aria-label="오른 품목 ${f.up_count}개, 내린 품목 ${f.down_count}개, 그대로 ${f.flat_count}개">` +
+    (tot ? `<div class="bbar" role="img" aria-label="${desc}" title="${desc}">` +
       `<i class="u" style="flex:${f.up_count}"></i><i class="d" style="flex:${f.down_count}"></i>` +
-      `<i class="f" style="flex:${f.flat_count}"></i></span>` : '') +
-    `<span class="u">▲ <b>${f.up_count}</b></span>` +
-    `<span class="d">▼ <b>${f.down_count}</b></span>` +
-    `<span class="f">― <b>${f.flat_count}</b></span>` +
-    `<span class="sep long">|</span>` +
-    `<span class="f long">품목 ${f.count}개 · 직전 조사일 대비</span>` +
-    // 휴대폰에서는 위 두 칸 대신 짧은 꼬리표 하나만 보인다 (같은 줄에 들어가도록)
-    `<span class="f short">어제 대비</span>`;
+      `<i class="f" style="flex:${f.flat_count}"></i></div>` : '') +
+    `<div class="blab"><span class="u">▲ 오름 <b>${f.up_count}</b></span>` +
+    `<span class="d">▼ 내림 <b>${f.down_count}</b></span>` +
+    `<span class="f">― 보합 <b>${f.flat_count}</b></span>` +
+    (day ? `<span class="f">${day}</span>` : '') + `</div>`;
 
   const t = document.getElementById('ticker');
   // 띠의 등락은 평년이 아니라 '직전 조사일 대비'다 (아래 등락 요약과 같은 change_pct).
@@ -1663,19 +1666,17 @@ function showFreshness(meta){
 
   el.hidden = false;
   el.classList.toggle('stale', u.stale);
-  // 조사일은 DB 의 최신값을 쓴다. 수집 로그의 survey_date 는 '마지막으로 요청한
-  // 날짜'라서, 빠진 날을 나중에 메우면 날짜가 뒤로 가 버린다.
-  // 조사일은 '대부분의 품목에 값이 있는 최신일'을 적는다. meta.latest 는 공표 전이나
-  // 주말에 축산물만 들어온 날짜라, 그걸 적으면 화면 대부분과 어긋난다.
+  // 조사일은 바로 위 등락 막대 아래(renderBoard)에 적으므로 여기서는 언제 받아 왔는지만 적는다.
+  // 정확한 조사일 · 수집 시각은 이 줄에 올리면(title) 나온다.
   const parts = [
     '<span class="dot" aria-hidden="true"></span>',
-    `<span class="txt">조사일 ${meta.latest_full || meta.latest} · ${agoText(u.age_minutes)} 자동 갱신</span>`,
+    `<span class="txt">${agoText(u.age_minutes)} 자동 갱신</span>`,
   ];
   if(u.stale){
     parts.push('<span class="badge">자동 수집이 24시간 넘게 멈춰 있어요</span>');
   }
   el.innerHTML = parts.join('');
-  el.title = `마지막 수집 ${u.at.replace('T', ' ')} · 요청 조사일 ${u.survey_date} (${u.status})`;
+  el.title = `조사일 ${meta.latest_full || meta.latest} · 마지막 수집 ${u.at.replace('T', ' ')} · 요청 조사일 ${u.survey_date} (${u.status})`;
 }
 
 // 화면을 오래 켜 두면 '3분 전'이 굳고, 오후 수집이 반영된 것도 모른다.
