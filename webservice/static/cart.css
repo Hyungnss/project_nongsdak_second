@@ -112,6 +112,8 @@
 .addcart{font:inherit;font-size:14px;font-weight:600;padding:9px 16px;border-radius:999px;cursor:pointer;
   border:1px solid var(--ink);background:var(--card);color:var(--ink);display:inline-flex;align-items:center;gap:6px}
 .addcart:hover{background:var(--ink);color:var(--card)}
+/* 목록의 담기 버튼과 같은 아이콘 (index.html 의 ADD_ICON). 전역 svg 규칙을 덮어 크기를 고정한다. */
+.addcart svg{display:block;width:18px;height:18px;min-width:0;flex:none}
 .addcart:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .addrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
 .addrow .hint{font-size:12.5px;color:var(--muted)}

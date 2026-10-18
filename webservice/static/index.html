@@ -746,7 +746,7 @@ function addCartRow(d, m){
   }
   return `<div class="addrow"><button type="button" class="addcart" data-item="${d.item_code}"
       data-kind="${d.kind_code}" data-rank="${esc(d.rank_name)}" data-name="${esc(d.item_name)}">
-      <span aria-hidden="true">＋</span> 장바구니에 담기</button></div>`;
+      ${ADD_ICON} 장바구니에 담기</button></div>`;
 }
 
 let LAST_DETAIL = null;   // 화면 폭이 휴대폰 기준을 넘나들면 같은 품목으로 다시 그린다
