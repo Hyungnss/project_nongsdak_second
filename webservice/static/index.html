@@ -154,6 +154,26 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 }
 .lempty{padding:14px 8px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
 
+/* 페이지 이동 — 지금 몇 번째를 보는지 숫자로 함께 적는다 */
+.pager{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;
+  border-top:1px solid var(--line);padding-top:14px}
+.pager[hidden]{display:none}
+.pager .range{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pager .pages{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.pager button{font:inherit;font-size:13.5px;min-width:36px;height:36px;padding:0 10px;cursor:pointer;
+  border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:8px;
+  font-variant-numeric:tabular-nums}
+.pager button:hover:not(:disabled){border-color:var(--muted);color:var(--ink)}
+.pager button[aria-current="page"]{background:var(--ink);color:var(--card);border-color:var(--ink);font-weight:650}
+.pager button:disabled{opacity:.4;cursor:default}
+.pager button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pager .gap{color:var(--muted);padding:0 2px}
+/* 휴대폰에서는 '이전 · 다음' 글자를 빼고 화살표만 남겨 한 줄에 들어가게 한다 */
+@media (max-width:620px){
+  .pager button{min-width:32px;height:34px;padding:0 6px}
+  .pager .t{display:none}
+}
+
 /* 펼친 상세 */
 .xdetail{border-top:1px solid var(--line);padding:16px 8px 22px;display:flex;flex-direction:column;gap:14px}
 .kindfld{align-self:flex-start;max-width:100%}
@@ -501,6 +521,7 @@ try{
       <span>품목</span><span>오늘 가격</span><span>평년 대비</span><span>최근 추이</span><span>1주 변화</span>
     </div>
     <div id="list"><div class="loading">불러오는 중…</div></div>
+    <nav class="pager" id="pager" aria-label="모든 품목 페이지" hidden></nav>
   </section>
 
   <!-- 펼친 품목의 상세. 목록을 다시 그릴 때 지워지지 않도록 평소엔 여기 두고,
@@ -840,16 +861,55 @@ let OPEN = null;    // {item, kind, rank}
 const park = document.getElementById('park');
 const xdetail = document.getElementById('xdetail');
 
+// 한 페이지에 보여줄 품목 수. 91개를 한 번에 펼치면 휴대폰에서 스크롤이 끝없이 길어진다.
+const PAGE_SIZE = 10;
+let PAGE = 1;
+
+const listRows = () => BRIEF.filter(c => CAT === '전체' || c.category === CAT)
+  .sort(SORTS[sortSel.value] || SORTS.normal);
+
+// 보여줄 쪽 번호. 쪽이 많으면 처음 · 끝 · 지금 쪽 앞뒤만 남기고 사이는 … 으로 줄인다.
+function pageList(cur, last){
+  if(last <= 7) return Array.from({length: last}, (_, i) => i + 1);
+  const keep = new Set([1, last, cur - 1, cur, cur + 1]);
+  if(cur <= 3) [2, 3, 4].forEach(n => keep.add(n));
+  if(cur >= last - 2) [last - 3, last - 2, last - 1].forEach(n => keep.add(n));
+  const out = [];
+  [...keep].filter(n => n >= 1 && n <= last).sort((a, b) => a - b).forEach((n, i, a) => {
+    if(i && n - a[i - 1] > 1) out.push(null);
+    out.push(n);
+  });
+  return out;
+}
+
+function renderPager(total){
+  const nav = document.getElementById('pager');
+  const last = Math.ceil(total / PAGE_SIZE);
+  if(last <= 1){ nav.hidden = true; nav.innerHTML = ''; return; }
+  const from = (PAGE - 1) * PAGE_SIZE + 1, to = Math.min(total, PAGE * PAGE_SIZE);
+  nav.innerHTML = `<span class="range">${total}개 중 ${from}–${to}</span>
+    <div class="pages">
+      <button type="button" data-page="${PAGE - 1}" ${PAGE === 1 ? 'disabled' : ''} aria-label="이전 페이지">‹<span class="t"> 이전</span></button>
+      ${pageList(PAGE, last).map(n => n == null ? '<span class="gap" aria-hidden="true">…</span>'
+        : `<button type="button" data-page="${n}" aria-label="${n}페이지"${n === PAGE ? ' aria-current="page"' : ''}>${n}</button>`).join('')}
+      <button type="button" data-page="${PAGE + 1}" ${PAGE === last ? 'disabled' : ''} aria-label="다음 페이지"><span class="t">다음 </span>›</button>
+    </div>`;
+  nav.hidden = false;
+}
+
 function renderList(){
   park.appendChild(xdetail);     // innerHTML 로 지워지지 않게 먼저 빼 둔다
   const box = document.getElementById('list');
-  let rows = BRIEF.filter(c => CAT === '전체' || c.category === CAT)
-    .sort(SORTS[sortSel.value] || SORTS.normal);
+  const all = listRows();
+  const last = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+  PAGE = Math.min(Math.max(1, PAGE), last);
+  const rows = all.slice((PAGE - 1) * PAGE_SIZE, PAGE * PAGE_SIZE);
   let html = rows.map(rowHtml).join('');
+  renderPager(all.length);
 
   // 검색으로 고른 품목이 목록에 없을 수 있다 (철이 지나 조사가 끊긴 품목).
   // 그 품목은 맨 위에 한 줄 따로 세워 그 아래에 펼친다.
-  if(OPEN && !rows.some(c => c.item_code === OPEN.item)){
+  if(OPEN && !all.some(c => c.item_code === OPEN.item)){
     const it = ITEMS[OPEN.item];
     if(it) html = `<button type="button" class="lrow" data-item="${it.item_code}" aria-expanded="true">
       <span class="nm">${esc(it.item_name)}<small>지금은 목록에 없는 품목 (최근 조사 없음)</small></span>
@@ -877,6 +937,9 @@ function openItem(itemCode, kindCode, rankName){
   // 고른 품목이 지금 분류에 없으면 전체로 넓혀서 보여준다
   const inBrief = BRIEF.find(c => c.item_code === itemCode);
   if(CAT !== '전체' && inBrief && inBrief.category !== CAT){ CAT = '전체'; renderCats(); }
+  // 그 품목이 있는 쪽으로 넘어간다 (카드 · 검색 · 포춘쿠키는 어느 쪽에 있든 고를 수 있다)
+  const idx = listRows().findIndex(c => c.item_code === itemCode);
+  if(idx >= 0) PAGE = Math.floor(idx / PAGE_SIZE) + 1;
   OPEN = {item: itemCode};
   renderList();
   fillKinds(itemCode, kindCode);
@@ -900,10 +963,22 @@ document.getElementById('cats').addEventListener('click', e => {
   const b = e.target.closest('.chip');
   if(!b || b.dataset.cat === CAT) return;
   CAT = b.dataset.cat;
+  PAGE = 1;
   renderCats();
   renderList();
 });
-sortSel.addEventListener('change', renderList);
+sortSel.addEventListener('change', () => { PAGE = 1; renderList(); });
+document.getElementById('pager').addEventListener('click', e => {
+  const b = e.target.closest('button[data-page]');
+  if(!b || b.disabled) return;
+  // 다른 쪽으로 넘어가면 펼쳐 둔 품목은 그 쪽에 없으니 닫는다
+  closeItem();
+  PAGE = +b.dataset.page;
+  renderList();
+  // 아래쪽 페이지 버튼을 눌렀으면 목록 머리로 올려 새 쪽의 첫 줄부터 보이게 한다
+  const head = document.getElementById('h-all');
+  if(head.getBoundingClientRect().top < 0) head.scrollIntoView({behavior: 'smooth', block: 'start'});
+});
 
 // ── 포춘쿠키 ─────────────────────────────────────────────────────────
 // 후보를 한 번만 받아 두고 뽑기는 화면에서 한다. '다시 뽑기'마다 서버를
@@ -1369,8 +1444,9 @@ async function loadMarket(keepItem){
   document.getElementById('srcmkt').textContent = MARKET_NAME[mk];
   document.getElementById('mktnote').hidden = mk !== 'wholesale';
   closeItem();
+  PAGE = 1;
   searchReset();
-  const loading = '<div class="loading">불러오는 중…</div>';
+  const loading ='<div class="loading">불러오는 중…</div>';
   ['good', 'list', 'fortune'].forEach(id => document.getElementById(id).innerHTML = loading);
   document.getElementById('dear').innerHTML = '';
 
