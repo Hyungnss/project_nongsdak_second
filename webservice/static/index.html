@@ -1054,8 +1054,8 @@ function openFirst(){
   if(first) openItem(first.item_code, first.kind_code, first.rank_name, {scroll: false});
 }
 
-// 한 페이지에 보여줄 품목 수. 91개를 한 번에 펼치면 휴대폰에서 스크롤이 끝없이 길어진다.
-const PAGE_SIZE = 10;
+// 한 페이지에 보여줄 품목 수. 시세표는 줄이 촘촘해 30개씩 본다 (91개면 4쪽).
+const PAGE_SIZE = 30;
 let PAGE = 1;
 
 const listRows = () => BRIEF.filter(c => CAT === '전체' || c.category === CAT)
