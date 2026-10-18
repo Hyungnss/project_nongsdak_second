@@ -92,13 +92,14 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
   .pill.up{background:color-mix(in srgb,var(--up) 12%,transparent)}
 }
 
-/* 작은 추이선 — 끝점을 찍어 '지금'이 어디인지 보이게 한다 */
+/* 작은 추이선 — 모양만 보여주는 회색 선. 끝점을 찍어 '지금'이 어디인지 보이게 한다.
+   색을 넣지 않는 이유: 같은 줄의 판정 배지가 이미 파랑(평년보다 싸요) · 빨강(비싸요)을 쓴다.
+   추이선까지 40일 등락으로 빨강 · 파랑을 칠하면, 꽃게처럼 '평년보다 싼데 최근엔 오른' 품목에서
+   파랑 배지 옆에 빨강 선이 붙어 두 색이 서로 다른 말을 했다. */
 .spark{display:block;overflow:visible;min-width:0}
-.spark .sl{fill:none;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
-.spark .sa{stroke:none;opacity:.12}
-.spark.up .sl{stroke:var(--up)} .spark.up .sa,.spark.up .se{fill:var(--up)}
-.spark.down .sl{stroke:var(--down)} .spark.down .sa,.spark.down .se{fill:var(--down)}
-.spark.flat .sl{stroke:var(--muted)} .spark.flat .sa,.spark.flat .se{fill:var(--muted)}
+.spark .sl{fill:none;stroke:var(--ink2);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+.spark .sa{stroke:none;fill:var(--muted);opacity:.14}
+.spark .se{fill:var(--ink)}
 .nospark{font-size:12px;color:var(--muted)}
 
 /* ── 모든 품목 ── */
@@ -858,16 +859,14 @@ function verdict(c){
 }
 const pill = c => { const v = verdict(c); return `<span class="pill ${v.c}">${v.t}</span>`; };
 
-// 작은 추이선. 처음과 끝을 비교해 색을 정한다 (큰 차트와 같은 규칙).
+// 작은 추이선. 색은 칠하지 않는다 (판정 배지와 색이 엇갈리지 않도록 · 위 .spark 설명 참고).
 function spark(s, w, h){
   if(!s || s.length < 3) return '<span class="nospark">추이 없음</span>';
   const mn = Math.min(...s), mx = Math.max(...s), r = mx - mn || 1;
   const pts = s.map((v, k) => [2 + k / (s.length - 1) * (w - 4), h - 3 - (v - mn) / r * (h - 6)]);
   const line = pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
   const [ex, ey] = pts[pts.length - 1];
-  const chg = (s[s.length - 1] - s[0]) / s[0] * 100;
-  const cls = chg > 0.5 ? 'up' : (chg < -0.5 ? 'down' : 'flat');
-  return `<svg class="spark ${cls}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">` +
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">` +
     `<polygon class="sa" points="2,${h} ${line} ${w - 2},${h}"/><polyline class="sl" points="${line}"/>` +
     `<circle class="se" cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="2.6"/></svg>`;
 }
