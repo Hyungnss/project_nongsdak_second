@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>농스닥 — 오늘의 장바구니 시세</title>
-<link rel="icon" type="image/png" href="/static/logo.png">
+<!-- 탭 아이콘은 가로형 로고 대신 왼쪽 아이콘 부분만 정사각형으로 잘라 쓴다 -->
+<link rel="icon" type="image/png" href="/static/favicon.png">
 <link rel="stylesheet" href="/static/auth.css">
 <link rel="stylesheet" href="/static/cart.css">
 <style>
@@ -184,11 +185,14 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 .themebtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .themebtn .ico{font-size:15px;line-height:1}
 
-/* 로고 이미지. 글자 '농스닥'이 그림 안에 있으므로 h1 은 alt 로 이름을 읽게 한다.
-   원본(195x184)을 줄여 쓴다 — 고해상도 화면에서도 2배 안쪽이라 흐려지지 않는다. */
+/* 로고 이미지 (아이콘 + '농스닥' 가로형). 글자가 그림 안에 있으므로 h1 은 alt 로 이름을 읽게 한다.
+   원본(292x105)을 반쯤으로 줄여 쓴다 — 고해상도 화면에서도 2배 안쪽이라 흐려지지 않는다. */
 header h1{margin:0;line-height:0}
-header h1.logo img{display:block;height:96px;width:auto}
-@media (max-width:560px){ header h1.logo img{height:76px} }
+header h1.logo img{display:block;height:56px;width:auto}
+@media (max-width:560px){ header h1.logo img{height:46px} }
+/* '닥' 글자가 진한 남색이라 어두운 바탕에서는 안 보인다. 다크 모드에서만 밝은 바탕을 깐다. */
+:root[data-theme="dark"] header h1.logo img{background:#f4f5f7;border-radius:12px;padding:6px 10px;
+  box-sizing:content-box}
 header .tagline{margin:6px 0 0;font-size:16px;color:var(--ink);font-weight:600;
   letter-spacing:-.3px}
 header p{margin:0;color:var(--ink2);font-size:14.5px}
@@ -447,7 +451,7 @@ try{
 
   <div class="topbar-inner">
     <header>
-      <h1 class="logo"><img src="/static/logo.png" alt="농스닥" width="195" height="184"></h1>
+      <h1 class="logo"><img src="/static/logo.png" alt="농스닥" width="292" height="105"></h1>
       <p class="tagline">오늘의 장바구니 시세</p>
       <p class="lede">당신의 지갑을 지켜드려요.</p>
       <div class="mkt" id="mkt" role="tablist" aria-label="소매 · 도매 선택">
