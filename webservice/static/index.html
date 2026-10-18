@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>농스닥 — 오늘의 장바구니 시세</title>
 <link rel="stylesheet" href="/static/auth.css">
+<link rel="stylesheet" href="/static/cart.css">
 <style>
 :root{
   color-scheme:light;
@@ -472,6 +473,13 @@ try{
     </header>
 
     <div class="topright">
+      <!-- 장바구니. 로그인한 사람에게만 보인다 (/static/cart.js 가 켜고 끈다) -->
+      <button class="authbtn cartbtn" type="button" id="cartbtn" hidden>
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linejoin="round"><path d="M2 5.5h12l-1.3 7.2a1.5 1.5 0 0 1-1.5 1.3H4.8a1.5 1.5 0 0 1-1.5-1.3z"/>
+          <path d="M5.5 5.5 8 2l2.5 3.5" stroke-linecap="round"/></svg>
+        장바구니<b class="n" hidden>0</b>
+      </button>
       <!-- 로그인 · 회원가입 버튼. 내용은 /static/auth.js 가 그린다 -->
       <div class="authbox" id="authbox"></div>
       <button class="themebtn" type="button" id="themebtn" aria-pressed="false">
@@ -682,6 +690,17 @@ function chart(points){
 }
 
 // ── 품목 상세 ────────────────────────────────────────────────────────
+// 상세 맨 위의 '장바구니에 담기'. 장바구니는 소매가로 합계를 내므로 도매에서는 담지 않는다.
+// 누르면 cart.js 가 로그인부터 확인한다 (로그인 안 했으면 로그인 창이 먼저 뜬다).
+function addCartRow(d, m){
+  if(m !== 'retail'){
+    return `<div class="addrow"><span class="hint">도매가는 상자 단위라 장바구니에 담지 않아요. 소매로 바꾸면 담을 수 있어요.</span></div>`;
+  }
+  return `<div class="addrow"><button type="button" class="addcart" data-item="${d.item_code}"
+      data-kind="${d.kind_code}" data-rank="${esc(d.rank_name)}" data-name="${esc(d.item_name)}">
+      <span aria-hidden="true">＋</span> 장바구니에 담기</button></div>`;
+}
+
 async function showDetail(item, kind, rank){
   const box = document.getElementById('detail');
   box.innerHTML = '<div class="loading">불러오는 중…</div>';
@@ -747,6 +766,7 @@ async function showDetail(item, kind, rank){
           <div class="unit${m === 'wholesale' ? ' wh' : ''}">${esc(d.unit)} 기준</div>
         </div>
       </div>
+      ${addCartRow(d, m)}
       <div class="cmp">${cards}${extra.join('')}</div>
       ${chart(d.chart)}`;
 
@@ -1507,6 +1527,12 @@ function setMarket(m){
 
 // 이벤트는 한 번만 단다. loadMarket 이 여러 번 불려도 겹치지 않도록 여기 둔다.
 selKind.addEventListener('change', () => { if(OPEN) showDetail(OPEN.item, selKind.value); });
+document.getElementById('detail').addEventListener('click', e => {
+  const b = e.target.closest('.addcart');
+  if(b && window.nongsdaqCart){
+    nongsdaqCart.add(b.dataset.item, b.dataset.kind, b.dataset.rank, b.dataset.name);
+  }
+});
 document.querySelectorAll('#mkt .mbtn').forEach(b =>
   b.addEventListener('click', () => setMarket(b.dataset.market)));
 
@@ -1514,5 +1540,7 @@ paintMarketTabs();
 loadMarket();
 </script>
 <script src="/static/auth.js"></script>
+<!-- 장바구니는 auth.js 의 window.nongsdaqAuth 를 쓰므로 그 다음에 불러온다 -->
+<script src="/static/cart.js"></script>
 </body>
 </html>
