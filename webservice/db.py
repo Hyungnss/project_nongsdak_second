@@ -430,7 +430,7 @@ def _recent_by_product(depth=40, market=RETAIL):
     return _query("""
         SELECT * FROM (
             SELECT ITEM_CODE, ITEM_NAME, KIND_CODE, KIND_NAME, RANK_NAME, UNIT,
-                   CATEGORY_NAME, SURVEY_DATE, PRICE_TODAY,
+                   CATEGORY_NAME, SURVEY_DATE, PRICE_TODAY, PRICE_1Y, PRICE_NORMAL,
                    ROW_NUMBER() OVER (
                        PARTITION BY ITEM_CODE, KIND_CODE, RANK_NAME
                        ORDER BY SURVEY_DATE DESC
@@ -441,7 +441,7 @@ def _recent_by_product(depth=40, market=RETAIL):
     """, {"depth": depth, "m": market})
 
 
-def _compare_all(offset=1, max_stale=3, market=RETAIL):
+def _compare_all(offset=1, max_stale=3, market=RETAIL, rows=None):
     """모든 품목의 '지금 가격 vs offset 일 전 가격'을 구한다. 품목당 대표 등급 하나.
 
     offset=1 이면 '직전 조사일 대비', 그 외에는 '해당 일수에 가장 가까운 조사일 대비'.
@@ -453,8 +453,12 @@ def _compare_all(offset=1, max_stale=3, market=RETAIL):
 
     급등락(get_movers)과 포춘쿠키(get_fortune)가 같은 규칙을 쓰도록 여기 한 곳에 모아 둔다.
     두 곳에 따로 적어두면 나중에 한쪽만 고쳐져 두 화면이 다른 말을 하게 된다.
+
+    rows: 이미 받아 둔 _recent_by_product 결과. 장보기 브리핑처럼 여러 offset 을
+      한 번에 계산할 때 같은 조회를 되풀이하지 않으려고 받는다.
     """
-    rows = _recent_by_product(market=market)
+    if rows is None:
+        rows = _recent_by_product(market=market)
     if not rows:
         return []
     by_product = {}
@@ -551,6 +555,60 @@ def get_fortune(offset=1, max_stale=3, market=RETAIL):
         "prev_from": lo,
         "prev_to": hi,
         "items": sorted(picked, key=lambda c: c["change_pct"]),
+    }
+
+
+# ── 장보기 브리핑 ───────────────────────────────────────────────────────
+def get_briefing(max_stale=3, market=RETAIL):
+    """첫 화면용 — 지금 조사되는 품목 전부를 평년가·1주 변화·최근 추이와 함께.
+
+    장 보는 사람에게는 '어제보다 3% 내렸다'보다 '평년보다 38% 싸다'가 더 쓸모 있다.
+    평년가는 지금까지 상세(get_detail)에만 있어서, 목록에 판정을 붙이려면 품목마다
+    상세를 따로 불러야 했다. 여기서 한 번에 돌려준다.
+
+    품목 선정은 포춘쿠키·급등락과 같은 _compare_all(1) 이다. 한 화면 안에서
+    '오른 품목 29개'와 목록의 품목 수가 서로 다른 말을 하지 않도록 같은 집합을 쓴다.
+    평년가·1년전가는 최신 행에 저장된 값을 그대로 쓴다 (get_detail 과 같다).
+    """
+    rows = _recent_by_product(market=market)
+    day = _compare_all(1, max_stale, market, rows=rows)
+    week = {(c["item_code"], c["kind_code"], c["rank_name"]): c["change_pct"]
+            for c in _compare_all(7, max_stale, market, rows=rows)}
+
+    series = {}
+    for r in rows:
+        series.setdefault((r["item_code"], r["kind_code"], r["rank_name"]), []).append(r)
+
+    def num(v):
+        return None if v is None else float(v)
+
+    items = []
+    for c in day:
+        key = (c["item_code"], c["kind_code"], c["rank_name"])
+        s = sorted(series[key], key=lambda r: r["survey_date"])
+        last = s[-1]
+        items.append({
+            **c,
+            "change_7d": week.get(key),
+            "normal": num(last["price_normal"]),
+            "year_ago": num(last["price_1y"]),
+            # 최근 조사 최대 40번의 가격 (오래된 것부터). 목록의 작은 추이선용이다.
+            "spark": [float(r["price_today"]) for r in s],
+            "spark_from": s[0]["survey_date"].date().isoformat(),
+        })
+
+    lo, hi = _prev_range(day)
+    up = sum(1 for c in day if c["change_pct"] > 0)
+    down = sum(1 for c in day if c["change_pct"] < 0)
+    return {
+        "market": market,
+        "count": len(items),
+        "up_count": up,
+        "down_count": down,
+        "flat_count": len(items) - up - down,
+        "prev_from": lo,
+        "prev_to": hi,
+        "items": sorted(items, key=lambda c: c["item_name"]),
     }
 
 

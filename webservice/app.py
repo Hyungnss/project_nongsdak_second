@@ -120,6 +120,12 @@ def fortune(
     return db.get_fortune(offset=offset, market=db.MARKETS[market])
 
 
+@app.get("/api/briefing")
+def briefing(market: Market = MARKET_Q):
+    """장보기 브리핑 — 지금 조사되는 품목 전부를 평년가 · 1주 변화 · 최근 추이와 함께."""
+    return db.get_briefing(market=db.MARKETS[market])
+
+
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "index.html")
