@@ -85,7 +85,7 @@ def _owned(conn, cart_no, user_no):
         cur.execute("SELECT 1 FROM TBL_CART_ITEM WHERE CART_NO = :c AND USER_NO = :u",
                     {"c": cart_no, "u": user_no})
         if cur.fetchone() is None:
-            raise HTTPException(404, "장바구니에 없는 품목입니다")
+            raise HTTPException(404, "장바구니에 없는 품목이에요")
 
 
 @router.get("")
@@ -101,10 +101,10 @@ def _check(products, body):
     """담을 수 있는 품종 · 등급인지 보고, 실제로 쓸 등급을 돌려준다."""
     it = products.get(body.item_code)
     if not it or not any(k["kind_code"] == body.kind_code for k in it["kinds"]):
-        raise HTTPException(404, "없는 품목입니다")
+        raise HTTPException(404, "없는 품목이에요")
     rank = db._resolve_rank(body.item_code, body.kind_code, body.rank_name, MARKET)
     if rank is None or not db._series(body.item_code, body.kind_code, rank, limit=1, market=MARKET):
-        raise HTTPException(404, "그 등급은 소매 가격 자료가 없습니다")
+        raise HTTPException(404, "그 등급은 소매 가격 자료가 없어요")
     return rank
 
 

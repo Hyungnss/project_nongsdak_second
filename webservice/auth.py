@@ -132,7 +132,7 @@ def current_user(request: Request):
 def require_user(user: dict | None = Depends(current_user)):
     """로그인이 꼭 필요한 API 용. 안 했으면 401."""
     if user is None:
-        raise HTTPException(401, "로그인이 필요합니다")
+        raise HTTPException(401, "로그인이 필요해요")
     return user
 
 
@@ -154,11 +154,11 @@ def signup(body: SignupIn, request: Request, response: Response):
     login_id = body.login_id.strip().lower()
     nickname = body.nickname.strip()
     if not LOGIN_ID_RE.match(login_id):
-        raise HTTPException(400, "아이디는 영문 소문자·숫자·_ 로 4~20자여야 합니다")
+        raise HTTPException(400, "아이디는 영문 소문자·숫자·_ 로 4~20자여야 해요")
     if not PASSWORD_MIN <= len(body.password) <= PASSWORD_MAX:
-        raise HTTPException(400, f"비밀번호는 {PASSWORD_MIN}~{PASSWORD_MAX}자여야 합니다")
+        raise HTTPException(400, f"비밀번호는 {PASSWORD_MIN}~{PASSWORD_MAX}자여야 해요")
     if not NICKNAME_MIN <= len(nickname) <= NICKNAME_MAX:
-        raise HTTPException(400, f"닉네임은 {NICKNAME_MIN}~{NICKNAME_MAX}자여야 합니다")
+        raise HTTPException(400, f"닉네임은 {NICKNAME_MIN}~{NICKNAME_MAX}자여야 해요")
 
     pw_hash = hash_password(body.password)
     with db._init_pool().acquire() as conn:
@@ -174,7 +174,7 @@ def signup(body: SignupIn, request: Request, response: Response):
         except oracledb.IntegrityError:
             # 중복 확인을 먼저 SELECT 로 하면 동시에 가입할 때 둘 다 통과한다.
             # 유니크 제약에 맡기고 여기서 받는다.
-            raise HTTPException(409, "이미 사용 중인 아이디입니다")
+            raise HTTPException(409, "이미 사용 중인 아이디예요")
         token = _create_session(conn, user_no)
         conn.commit()
 
@@ -193,7 +193,7 @@ def login(body: LoginIn, request: Request, response: Response):
     ok = verify_password(body.password, u["password_hash"] if u else _DUMMY_HASH)
     if not (u and ok):
         # 아이디가 틀렸는지 비밀번호가 틀렸는지는 알려주지 않는다
-        raise HTTPException(401, "아이디 또는 비밀번호가 올바르지 않습니다")
+        raise HTTPException(401, "아이디 또는 비밀번호가 올바르지 않아요")
 
     with db._init_pool().acquire() as conn:
         token = _create_session(conn, u["user_no"])
