@@ -778,7 +778,10 @@ async function showDetail(item, kind, rank){
     const d = await api('/api/detail', q);
     if(m !== MARKET) return;    // 기다리는 사이 탭을 바꿨으면 늦게 온 응답은 버린다
 
-    const cards = d.compares.map(c => {
+    // 화면에 보일 비교 시점. 2주일 전은 1주일 전 · 1개월 전 사이라 더해 주는 정보가 적어 뺀다.
+    // (API 는 그대로 2주일 전도 돌려준다 — 화면에서만 거른다)
+    const HIDE_COMPARE = [14];
+    const cards = d.compares.filter(c => !HIDE_COMPARE.includes(c.target_offset)).map(c => {
       if(!c.available){
         return `<div class="c na"><div class="l">${c.label}</div>
                 <div class="v">자료 없음</div></div>`;
