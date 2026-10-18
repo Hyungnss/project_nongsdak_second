@@ -92,12 +92,12 @@ def detail(
     if kind is None:
         items = {i["item_code"]: i for i in db.list_products(mkt)}
         if item not in items:
-            raise HTTPException(404, f"없는 품목코드입니다: {item}")
+            raise HTTPException(404, f"없는 품목코드예요: {item}")
         kind = items[item]["default_kind"]
 
     d = db.get_detail(item, kind, rank, chart_days=days, market=mkt)
     if d is None:
-        raise HTTPException(404, f"가격 자료가 없습니다: {item}/{kind}")
+        raise HTTPException(404, f"가격 자료가 없어요: {item}/{kind}")
     return d
 
 
@@ -109,7 +109,7 @@ def movers(
 ):
     """많이 오른/내린 품목. 품목당 대표 등급 하나만 집계한다."""
     if offset not in (1, 7, 14, 30):
-        raise HTTPException(400, "offset 은 1, 7, 14, 30 중 하나여야 합니다")
+        raise HTTPException(400, "offset 은 1, 7, 14, 30 중 하나여야 해요")
     return db.get_movers(offset=offset, limit=limit, market=db.MARKETS[market])
 
 
@@ -120,7 +120,7 @@ def fortune(
 ):
     """포춘쿠키 후보 — 비교 가능한 품목 전부. 화면에서 하나를 무작위로 뽑는다."""
     if offset not in (1, 7, 14, 30):
-        raise HTTPException(400, "offset 은 1, 7, 14, 30 중 하나여야 합니다")
+        raise HTTPException(400, "offset 은 1, 7, 14, 30 중 하나여야 해요")
     return db.get_fortune(offset=offset, market=db.MARKETS[market])
 
 

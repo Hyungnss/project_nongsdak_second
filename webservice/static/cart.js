@@ -63,6 +63,8 @@
     badge.textContent = n;
     badge.hidden = !n;
     btn.setAttribute('aria-label', n ? `장바구니 ${n}가지 담김` : '장바구니');
+    // 장바구니가 바뀔 때마다 알린다. 메인 화면 목록의 +/− 와 수량이 이걸 듣고 다시 그린다.
+    window.dispatchEvent(new CustomEvent('nongsdaq-cart'));
   }
 
   // ── 패널 ────────────────────────────────────────────────────────────
@@ -164,7 +166,7 @@
         </div>
         <div class="cbars" role="img" aria-label="지난주 ${won(last)}, 오늘 ${won(now)}, 평년 ${won(nrm)}">
           ${bar('지난주', last, '')}${bar('오늘', now, 'now')}${bar('평년', nrm, 'nrm')}
-          <div class="cscale">막대는 0원부터 같은 비율입니다. 평년 자료가 없는 품목은 오늘 가격으로 셉니다.</div>
+          <div class="cscale">막대는 0원부터 같은 비율이에요. 평년 자료가 없는 품목은 오늘 가격으로 계산해요.</div>
         </div>
       </section>
       ${tip ? `<div class="ctip">${tip}</div>` : ''}
@@ -174,7 +176,7 @@
         <div class="clist">${items.map(rowHtml).join('')}${lost.map(lostRow).join('')}</div>
       </section>
       ${addBox()}
-      <div class="cfoot"><span>지난주 가격은 KAMIS가 함께 공표하는 1주일 전 가격입니다.</span>
+      <div class="cfoot"><span>지난주 가격은 KAMIS가 함께 공표하는 1주일 전 가격이에요.</span>
         <button type="button" class="cbtn ghost" data-act="clear">장바구니 비우기</button></div>`;
   }
 
@@ -290,18 +292,26 @@
     if(e.target.closest('[data-open]')){ toast.hidden = true; open(); }
   });
 
+  // 담긴 줄 찾기. 등급을 주면 등급까지 맞춘다 (같은 품종의 다른 등급은 다른 줄이다).
+  function lineOf(item, kind, rank){
+    if(!cart) return null;
+    return cart.items.find(i => i.item_code === item && i.kind_code === kind &&
+                                (!rank || i.rank_name === rank)) || null;
+  }
+
   async function add(item, kind, rank, name){
     const user = await auth.require();
     if(!user) return;
     try{
       cart = await call('POST', '', {item_code: item, kind_code: kind, rank_name: rank || null});
       paintBadge();
-      const line = cart.items.find(i => i.item_code === item && i.kind_code === kind);
+      if(dlg.open) render();
+      const line = lineOf(item, kind, rank);
       say(`${name || '품목'}을(를) 담았어요${line && line.qty > 1 ? ` · 지금 ${line.qty}개` : ''}`, true);
     }catch(e){
       say(e.message, false);
     }
   }
 
-  window.nongsdaqCart = {open, add};
+  window.nongsdaqCart = {open, add, lineOf};
 })();
