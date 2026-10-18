@@ -93,9 +93,9 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 }
 
 /* 작은 추이선 — 끝점을 찍어 '지금'이 어디인지 보이게 한다.
-   색은 같은 줄 판정 배지와 같은 기준(평년 대비 ±10%)을 따른다: 싸면 파랑, 비싸면 빨강, 그 밖은 회색.
-   40일 등락으로 칠하면 꽃게처럼 '평년보다 싼데 최근엔 오른' 품목에서 파랑 배지 옆에
-   빨강 선이 붙어 두 색이 서로 다른 말을 했다. */
+   색은 지금 고른 정렬 기준값의 부호를 따른다: 내렸으면(−) 파랑, 올랐으면(+) 빨강, 0 이면 회색.
+   목록 다섯째 칸에 보이는 그 숫자와 같은 값이라, 숫자와 선의 색이 늘 같은 말을 한다.
+   (위쪽 '지금 사기 좋아요' 카드는 평년 대비 영역이라 평년 대비 부호를 쓴다.) */
 .spark{display:block;overflow:visible;min-width:0}
 .spark .sl{fill:none;stroke:var(--muted);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
 .spark .sa{stroke:none;fill:var(--muted);opacity:.14}
@@ -869,15 +869,16 @@ function verdict(c){
 }
 const pill = c => { const v = verdict(c); return `<span class="pill ${v.c}">${v.t}</span>`; };
 
-// 작은 추이선. 색은 그 품목의 판정(verdict)과 같다 — 평년보다 싸면 파랑, 비싸면 빨강.
-function spark(c, w, h){
+// 작은 추이선. v 는 색을 정할 기준값(정렬 기준의 등락 · 평년 대비 %) — 음수 파랑, 양수 빨강, 0 회색.
+function spark(c, w, h, v){
   const s = c.spark;
+  const tone = v == null || v === 0 ? '' : (v < 0 ? 'down' : 'up');
   if(!s || s.length < 3) return '<span class="nospark">추이 없음</span>';
   const mn = Math.min(...s), mx = Math.max(...s), r = mx - mn || 1;
   const pts = s.map((v, k) => [2 + k / (s.length - 1) * (w - 4), h - 3 - (v - mn) / r * (h - 6)]);
   const line = pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
   const [ex, ey] = pts[pts.length - 1];
-  return `<svg class="spark ${verdict(c).c}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">` +
+  return `<svg class="spark ${tone}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">` +
     `<polygon class="sa" points="2,${h} ${line} ${w - 2},${h}"/><polyline class="sl" points="${line}"/>` +
     `<circle class="se" cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="2.6"/></svg>`;
 }
@@ -897,7 +898,7 @@ function renderBrief(){
         <span class="nm">${esc(c.item_name)}</span>
         <span class="kd">${esc(c.kind_name)} · ${esc(c.rank_name)}</span>
         <span class="pr">${won(c.price)}<small>${esc(c.unit)}</small></span>
-        ${pill(c)}${spark(c, 160, 30)}</button>`).join('')
+        ${pill(c)}${spark(c, 160, 30, vsNormal(c))}</button>`).join('')
     : `<div class="bnone">오늘은 평년보다 크게 싼 품목이 없어요. 아래 목록에서 평년 수준인 품목을 확인해 보세요.</div>`;
 
   document.getElementById('dear').innerHTML = dear.length
@@ -931,10 +932,12 @@ const SORTS = {
 
 // 다섯째 칸은 정렬 기준을 따라간다. 무엇으로 줄을 세웠는지 그 값을 바로 옆에서 볼 수 있게.
 // '평년보다 저렴한 순'일 때 평년 대비 % 는 바로 앞 판정 배지에 이미 있으므로 평년 가격을 보여준다.
+// val 은 그 기준의 등락 값 — 추이선 색을 정한다 (음수 파랑 · 양수 빨강).
 const SORT_COL = {
-  normal: {label: '평년 가격', cell: c => c.normal == null ? ['flat', '—'] : ['nrm', won(c.normal)]},
-  week:   {label: '1주 변화',  cell: c => pctCell(c.change_7d)},
-  day:    {label: '어제 대비', cell: c => pctCell(c.change_pct)},
+  normal: {label: '평년 가격', val: vsNormal,
+           cell: c => c.normal == null ? ['flat', '—'] : ['nrm', won(c.normal)]},
+  week:   {label: '1주 변화',  val: c => c.change_7d,  cell: c => pctCell(c.change_7d)},
+  day:    {label: '어제 대비', val: c => c.change_pct, cell: c => pctCell(c.change_pct)},
 };
 function pctCell(v){
   return v == null ? ['flat', '—'] : [dirClass(v) || 'flat', signed(v)];
@@ -966,7 +969,7 @@ function rowHtml(c){
     <button type="button" class="nmbtn" aria-expanded="${open}">
       <span class="nm">${esc(c.item_name)}<small>${esc(c.kind_name)} · ${esc(c.rank_name)}</small></span></button>
     <span class="pr">${won(c.price)}<small>${esc(c.unit)}</small></span>
-    ${pill(c)}${spark(c, 96, 24)}
+    ${pill(c)}${spark(c, 96, 24, sortCol().val(c))}
     <span class="wk ${wcls}">${wtxt}</span>
     ${cartCtlHtml(c)}</div>`;
 }
