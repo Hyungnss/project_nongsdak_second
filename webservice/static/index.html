@@ -174,12 +174,12 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 }
 .lempty{padding:14px 8px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
 
-/* 페이지 이동 — 지금 몇 번째를 보는지 숫자로 함께 적는다 */
-.pager{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;
+/* 페이지 이동 — 가운데 정렬. 쪽 버튼 위에 지금 몇 번째를 보는지 숫자로 적는다 */
+.pager{display:flex;flex-direction:column;align-items:center;gap:8px;
   border-top:1px solid var(--line);padding-top:14px}
 .pager[hidden]{display:none}
 .pager .range{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
-.pager .pages{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.pager .pages{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
 .pager button{font:inherit;font-size:13.5px;min-width:36px;height:36px;padding:0 10px;cursor:pointer;
   border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:8px;
   font-variant-numeric:tabular-nums}
