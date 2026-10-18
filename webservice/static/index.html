@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>농스닥 — 오늘의 장바구니 시세</title>
+<link rel="icon" type="image/png" href="/static/logo.png">
 <link rel="stylesheet" href="/static/auth.css">
 <link rel="stylesheet" href="/static/cart.css">
 <style>
@@ -183,14 +184,11 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 .themebtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .themebtn .ico{font-size:15px;line-height:1}
 
-/* 이름이 '농스닥'(농산물 + 코스닥)이라 시세판 느낌을 살짝 준다.
-   상승 빨강 / 하락 파랑은 차트에서 이미 쓰는 규칙이라 그대로 가져왔다. */
-header h1{margin:0;font-size:38px;letter-spacing:-1.5px;line-height:1.15;
-  display:flex;align-items:center;gap:9px}
-header h1 .tick{font-size:20px;letter-spacing:0;font-weight:700;
-  display:inline-flex;align-items:center;gap:2px}
-header h1 .tick .u{color:var(--up)}
-header h1 .tick .d{color:var(--down)}
+/* 로고 이미지. 글자 '농스닥'이 그림 안에 있으므로 h1 은 alt 로 이름을 읽게 한다.
+   원본(195x184)을 줄여 쓴다 — 고해상도 화면에서도 2배 안쪽이라 흐려지지 않는다. */
+header h1{margin:0;line-height:0}
+header h1.logo img{display:block;height:96px;width:auto}
+@media (max-width:560px){ header h1.logo img{height:76px} }
 header .tagline{margin:6px 0 0;font-size:16px;color:var(--ink);font-weight:600;
   letter-spacing:-.3px}
 header p{margin:0;color:var(--ink2);font-size:14.5px}
@@ -449,7 +447,7 @@ try{
 
   <div class="topbar-inner">
     <header>
-      <h1>농스닥<span class="tick" aria-hidden="true"><span class="u">▲</span><span class="d">▼</span></span></h1>
+      <h1 class="logo"><img src="/static/logo.png" alt="농스닥" width="195" height="184"></h1>
       <p class="tagline">오늘의 장바구니 시세</p>
       <p class="lede">당신의 지갑을 지켜드립니다.</p>
       <div class="mkt" id="mkt" role="tablist" aria-label="소매 · 도매 선택">
