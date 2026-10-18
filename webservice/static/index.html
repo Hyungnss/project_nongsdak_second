@@ -1446,8 +1446,11 @@ function renderResults(q){
     // 이미 초성으로 쳤는데 안 나온 사람에게는 도움이 안 되니 그때는 뺀다.
     const tip = isCho(norm(q)) ? ''
       : `<div class="rtip">초성으로도 찾을 수 있어요 — <b>ㅂㅊ</b> → 배추</div>`;
+    // 받침에 맞춰 이/가 를 붙인다 ('배추'가 · '양파'가 · 'ㅂㅊ'이). 조사 계산은 cart.js 의 josa 를 쓴다.
+    const w = q.trim();
+    const ga = window.nongsdaqCart ? nongsdaqCart.josa(w, '이', '가').slice(w.length) : '이(가)';
     rBox.innerHTML =
-      `<div class="rnote">'${esc(q.trim())}' 이(가) 든 품목이 없어요.</div>${tip}`;
+      `<div class="rnote">'${esc(w)}'${ga} 든 품목이 없어요.</div>${tip}`;
   }else{
     // 철 지나 조사가 끊긴 품종이 섞여 있다. 그 값은 오늘 시세가 아니니 미리 알려준다.
     rBox.innerHTML = hits.slice(0, MAX_HITS).map((h, i) => {
