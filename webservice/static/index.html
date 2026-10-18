@@ -225,8 +225,8 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
    차트는 chart() 가 이 칸 너비(약 360px) 그대로의 판으로 그린다. */
 .bd-side .xdetail{border-top:0;padding:0}
 .bd-side .today .big{font-size:34px}
-.bd-side .c{padding:8px 9px}
-.bd-side .c .v{font-size:15px}
+.bd-side .c{padding:7px 6px}
+.bd-side .c .v{font-size:13px;letter-spacing:-.5px}
 .kindfld{align-self:flex-start;max-width:100%}
 .kindfld[hidden]{display:none}
 
@@ -403,7 +403,7 @@ select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--ac
 .today .unit{font-size:14px;color:var(--ink2)}
 
 /* 비교 — 어제 · 1주 · 평년 · 1년 전을 한 줄 네 칸에 % 만. 칸 사이는 1px 선으로 나눈다 */
-.cmp{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin-top:16px;
+.cmp{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;margin-top:16px;
   background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .c{background:var(--card);padding:9px 11px;display:flex;flex-direction:column;gap:2px;min-width:0}
 .c[title]{cursor:help}
@@ -413,7 +413,8 @@ select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--ac
 .c.up .v{color:var(--up)} .c.down .v{color:var(--down)}
 .c.flat .v,.c.na .v{color:var(--muted)}
 /* 휴대폰은 네 칸이 약 75px 씩이라 숫자를 조금 줄인다 */
-@media (max-width:620px){ .c{padding:8px 8px} .c .v{font-size:14px} }
+/* 휴대폰 · 오른쪽 상세 칸은 다섯 칸이 60~70px 씩이라 숫자 · 여백을 줄인다 */
+@media (max-width:620px){ .c{padding:7px 6px} .c .l{font-size:11px} .c .v{font-size:12.5px;letter-spacing:-.5px} }
 
 .chart{overflow-x:auto;margin-top:18px}
 svg{display:block;width:100%;min-width:560px}
@@ -830,12 +831,12 @@ async function showDetail(item, kind, rank){
     const d = await api('/api/detail', q);
     if(m !== MARKET) return;    // 기다리는 사이 탭을 바꿨으면 늦게 온 응답은 버린다
 
-    // 비교는 어제 · 1주 · 평년 · 1년 전 네 칸에 % 만 한 줄로 보여준다 (시세판의 간략 보기).
+    // 비교는 어제 · 1주 · 1개월 · 평년 · 1년 전 다섯 칸에 % 만 한 줄로 보여준다 (시세판의 간략 보기).
     // 비교 가격과 '실제 8일 전' 같은 보조 정보는 칸에 올리면(title) 나온다.
-    // 2주일 전 · 1개월 전은 화면에 두지 않는다 (API 는 그대로 돌려준다).
+    // 2주일 전은 화면에 두지 않는다 (API 는 그대로 돌려준다).
     const at = off => d.compares.find(c => c.target_offset === off);
     const vs = base => base ? (d.price - base) / base * 100 : null;
-    const day = at(1), week = at(7);
+    const day = at(1), week = at(7), month = at(30);
     const cell = (label, pct, tip) => {
       const cls = pct == null ? 'na' : (dirClass(pct) || 'flat');
       return `<div class="c ${cls}"${tip ? ` title="${esc(tip)}"` : ''}>
@@ -846,6 +847,7 @@ async function showDetail(item, kind, rank){
     const cards = [
       cell('어제', day && day.available ? day.change_pct : null, tipOf(day)),
       cell('1주', week && week.available ? week.change_pct : null, tipOf(week)),
+      cell('1개월', month && month.available ? month.change_pct : null, tipOf(month)),
       cell('평년', vs(d.normal), d.normal != null ? `평년 ${won(d.normal)}` : ''),
       cell('1년 전', vs(d.year_ago), d.year_ago != null ? `1년 전 ${won(d.year_ago)}` : ''),
     ].join('');
