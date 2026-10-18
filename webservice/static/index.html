@@ -146,11 +146,11 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 }
 .nocart .lcolh > :nth-child(7){display:none}
 .lcolh{padding:0 8px 6px;font-size:11.5px;color:var(--muted);letter-spacing:.02em}
-.lcolh > :nth-child(n+2):nth-child(-n+5){text-align:right}
-.lcolh > :nth-child(7){text-align:center}
+/* 표의 모든 칸(머리 · 품목 · 가격 · 등락 · 추이 · 담기)은 가운데 정렬 */
+.lcolh > *{text-align:center}
 /* 어제 · 1주 · 평년 대비 머리는 누르면 그 기준으로 정렬된다 (정렬 상자와 같이 움직인다) */
 .lcolh .sorth{font:inherit;font-size:11.5px;color:inherit;background:none;border:0;padding:2px 0;
-  cursor:pointer;text-align:right;letter-spacing:inherit;white-space:nowrap}
+  cursor:pointer;text-align:center;letter-spacing:inherit;white-space:nowrap}
 .lcolh .sorth:hover{color:var(--ink)}
 .lcolh .sorth:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
 .lcolh .sorth.on{color:var(--ink);font-weight:700}
@@ -160,7 +160,7 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 .lrow{cursor:pointer;border-top:1px solid var(--line);padding:8px}
 .lrow:hover,.lrow.open{background:var(--card2)}
 .lrow.open{box-shadow:inset 3px 0 0 var(--ink)}
-.lrow .nmbtn{font:inherit;color:inherit;text-align:left;background:none;border:0;padding:0;
+.lrow .nmbtn{font:inherit;color:inherit;text-align:center;background:none;border:0;padding:0;
   cursor:pointer;min-width:0;border-radius:4px}
 .lrow .nmbtn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .lrow .nm{font-size:14px;font-weight:650;min-width:0;display:block}
@@ -177,16 +177,16 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 .addbtn svg{display:block;width:19px;height:19px;min-width:0}
 .addbtn.has{background:var(--ink);border-color:var(--ink);color:var(--card)}
 .addbtn.has:hover:not(:disabled){background:var(--ink);opacity:.85}
-.lrow .pr{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+.lrow .pr{text-align:center;font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
   font-weight:650;white-space:nowrap;font-size:13.5px}
 .lrow .pr small{display:block;font-family:system-ui,"Malgun Gothic",sans-serif;font-size:11px;
   font-weight:400;color:var(--muted)}
 /* 등락 숫자 칸 (어제 · 1주 · 평년 대비). 지금 정렬 기준인 칸은 굵게 */
-.lrow .num{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+.lrow .num{text-align:center;font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
   font-size:13px;font-weight:500;white-space:nowrap}
 .lrow .num.on{font-weight:700}
 .num.up{color:var(--up)} .num.down{color:var(--down)} .num.flat{color:var(--muted)}
-.lrow .spark{width:84px;height:22px}
+.lrow .spark{width:84px;height:22px;justify-self:center}
 /* 휴대폰에서는 품목 · 지금 정렬 기준 숫자 · 가격만 남긴다. 나머지는 고르면 상세에 나온다.
    장바구니 칸은 가격 아래 둘째 줄로 내린다. */
 @media (max-width:620px){
@@ -196,7 +196,7 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
   .lrow .nmbtn{grid-column:1;grid-row:1/3}
   .lrow .num.on,.lcolh .sorth.on{grid-column:2;grid-row:1}
   .lrow .pr,.lcolh > :nth-child(2){grid-column:3;grid-row:1}
-  .lrow .addbtn{grid-column:2/4;grid-row:2;justify-self:end}
+  .lrow .addbtn{grid-column:2/4;grid-row:2;justify-self:center}
 }
 .lempty{padding:14px 8px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
 
