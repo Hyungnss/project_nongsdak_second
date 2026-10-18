@@ -20,6 +20,18 @@
   const won = n => num(n) + '원';
   const signed = n => (n > 0 ? '+' : '') + n.toFixed(1) + '%';
   const dir = n => n == null || Math.abs(n) < 0.05 ? 'flat' : (n > 0 ? 'up' : 'down');
+  // 조사 붙이기: josa('오이', '을', '를') -> '오이를', josa('배추', '은', '는') -> '배추는'.
+  // 끝의 '(국산)' 같은 괄호는 건너뛰고 그 앞 글자의 받침을 본다.
+  // 받침을 알 수 없는 글자(영문 등)는 '을(를)'처럼 둘 다 적는다.
+  function josa(word, withB, withoutB){
+    const w = String(word).replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const ch = w.slice(-1), c = ch.charCodeAt(0);
+    let b = null;
+    if(c >= 0xAC00 && c <= 0xD7A3) b = (c - 0xAC00) % 28 !== 0;
+    else if(c >= 0x3131 && c <= 0x314E) b = true;           // ㄱ~ㅎ 자음 (기역 · 니은 … 모두 받침 있음)
+    else if(/[0-9]/.test(ch)) b = '013678'.includes(ch);    // 영 일 삼 육 칠 팔
+    return word + (b === null ? `${withB}(${withoutB})` : (b ? withB : withoutB));
+  }
 
   // 평년 대비 이만큼 넘게 벌어져야 '사기 좋은 때 / 기다려 보기'라고 말한다 (첫 화면과 같은 기준)
   const VERDICT_PCT = 10;
@@ -149,10 +161,10 @@
     const best = judged[0], worst = judged[judged.length - 1];
     let tip = '';
     if(best && vsNormal(best) <= -VERDICT_PCT){
-      tip += `<b class="g">${esc(best.item_name)}</b>은(는) 평년보다 ${Math.round(-vsNormal(best))}% 싸서 지금 사 두기 좋아요. `;
+      tip += `<b class="g">${esc(josa(best.item_name, '은', '는'))}</b> 평년보다 ${Math.round(-vsNormal(best))}% 싸서 지금 사 두기 좋아요. `;
     }
     if(worst && worst !== best && vsNormal(worst) >= VERDICT_PCT){
-      tip += `<b class="r">${esc(worst.item_name)}</b>은(는) 평년보다 ${Math.round(vsNormal(worst))}% 비싸요.`;
+      tip += `<b class="r">${esc(josa(worst.item_name, '은', '는'))}</b> 평년보다 ${Math.round(vsNormal(worst))}% 비싸요.`;
     }
 
     const date = items.map(i => i.date).filter(Boolean).sort().pop();
@@ -307,11 +319,11 @@
       paintBadge();
       if(dlg.open) render();
       const line = lineOf(item, kind, rank);
-      say(`${name || '품목'}을(를) 담았어요${line && line.qty > 1 ? ` · 지금 ${line.qty}개` : ''}`, true);
+      say(`${josa(name || '품목', '을', '를')} 담았어요${line && line.qty > 1 ? ` · 지금 ${line.qty}개` : ''}`, true);
     }catch(e){
       say(e.message, false);
     }
   }
 
-  window.nongsdaqCart = {open, add, lineOf};
+  window.nongsdaqCart = {open, add, lineOf, josa};
 })();
