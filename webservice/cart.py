@@ -93,44 +93,69 @@ def get_cart(user: dict = Depends(auth.require_user)):
     return _priced(user["user_no"])
 
 
-@router.post("")
-def add(body: AddIn, user: dict = Depends(auth.require_user)):
-    """담기. 이미 담긴 품종 · 등급이면 수량을 더한다 (최대 99)."""
-    products = {i["item_code"]: i for i in db.list_products(MARKET)}
+class BulkIn(BaseModel):
+    items: list[AddIn] = Field(..., min_length=1, max_length=MAX_LINES)
+
+
+def _check(products, body):
+    """담을 수 있는 품종 · 등급인지 보고, 실제로 쓸 등급을 돌려준다."""
     it = products.get(body.item_code)
     if not it or not any(k["kind_code"] == body.kind_code for k in it["kinds"]):
         raise HTTPException(404, "없는 품목입니다")
     rank = db._resolve_rank(body.item_code, body.kind_code, body.rank_name, MARKET)
     if rank is None or not db._series(body.item_code, body.kind_code, rank, limit=1, market=MARKET):
         raise HTTPException(404, "그 등급은 소매 가격 자료가 없습니다")
+    return rank
 
-    uno = user["user_no"]
+
+def _add_lines(uno, lines):
+    """(item, kind, rank, qty) 들을 한 트랜잭션으로 담는다. 하나라도 못 담으면 전부 되돌린다."""
     with db._init_pool().acquire() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM TBL_CART_ITEM WHERE USER_NO = :u", {"u": uno})
-            (n,) = cur.fetchone()
-            cur.execute("""
-                SELECT 1 FROM TBL_CART_ITEM
-                WHERE  USER_NO = :u AND ITEM_CODE = :i AND KIND_CODE = :k AND RANK_NAME = :r
-            """, {"u": uno, "i": body.item_code, "k": body.kind_code, "r": rank})
-            exists = cur.fetchone() is not None
-            if not exists and n >= MAX_LINES:
-                raise HTTPException(400, f"장바구니에는 {MAX_LINES}가지까지 담을 수 있어요")
-            # 같은 품목을 두 번 눌러도 줄이 늘지 않도록 MERGE 로 한 번에 처리한다
-            cur.execute("""
-                MERGE INTO TBL_CART_ITEM t
-                USING (SELECT :u AS USER_NO, :i AS ITEM_CODE, :k AS KIND_CODE, :r AS RANK_NAME
-                       FROM dual) s
-                ON (t.USER_NO = s.USER_NO AND t.ITEM_CODE = s.ITEM_CODE
-                    AND t.KIND_CODE = s.KIND_CODE AND t.RANK_NAME = s.RANK_NAME)
-                WHEN MATCHED THEN UPDATE SET t.QTY = LEAST(:qmax, t.QTY + :q)
-                WHEN NOT MATCHED THEN
-                    INSERT (CART_NO, USER_NO, ITEM_CODE, KIND_CODE, RANK_NAME, QTY)
-                    VALUES (SEQ_CART_ITEM.NEXTVAL, s.USER_NO, s.ITEM_CODE, s.KIND_CODE, s.RANK_NAME, :q)
-            """, {"u": uno, "i": body.item_code, "k": body.kind_code, "r": rank,
-                  "q": body.qty, "qmax": QTY_MAX})
+            for item, kind, rank, qty in lines:
+                cur.execute("SELECT COUNT(*) FROM TBL_CART_ITEM WHERE USER_NO = :u", {"u": uno})
+                (n,) = cur.fetchone()
+                cur.execute("""
+                    SELECT 1 FROM TBL_CART_ITEM
+                    WHERE  USER_NO = :u AND ITEM_CODE = :i AND KIND_CODE = :k AND RANK_NAME = :r
+                """, {"u": uno, "i": item, "k": kind, "r": rank})
+                if cur.fetchone() is None and n >= MAX_LINES:
+                    raise HTTPException(400, f"장바구니에는 {MAX_LINES}가지까지 담을 수 있어요")
+                # 같은 품목을 두 번 눌러도 줄이 늘지 않도록 MERGE 로 한 번에 처리한다
+                cur.execute("""
+                    MERGE INTO TBL_CART_ITEM t
+                    USING (SELECT :u AS USER_NO, :i AS ITEM_CODE, :k AS KIND_CODE, :r AS RANK_NAME
+                           FROM dual) s
+                    ON (t.USER_NO = s.USER_NO AND t.ITEM_CODE = s.ITEM_CODE
+                        AND t.KIND_CODE = s.KIND_CODE AND t.RANK_NAME = s.RANK_NAME)
+                    WHEN MATCHED THEN UPDATE SET t.QTY = LEAST(:qmax, t.QTY + :q)
+                    WHEN NOT MATCHED THEN
+                        INSERT (CART_NO, USER_NO, ITEM_CODE, KIND_CODE, RANK_NAME, QTY)
+                        VALUES (SEQ_CART_ITEM.NEXTVAL, s.USER_NO, s.ITEM_CODE, s.KIND_CODE,
+                                s.RANK_NAME, :q)
+                """, {"u": uno, "i": item, "k": kind, "r": rank, "q": qty, "qmax": QTY_MAX})
         conn.commit()
-    return _priced(uno)
+
+
+@router.post("")
+def add(body: AddIn, user: dict = Depends(auth.require_user)):
+    """담기. 이미 담긴 품종 · 등급이면 수량을 더한다 (최대 99)."""
+    products = {i["item_code"]: i for i in db.list_products(MARKET)}
+    rank = _check(products, body)
+    _add_lines(user["user_no"], [(body.item_code, body.kind_code, rank, body.qty)])
+    return _priced(user["user_no"])
+
+
+@router.post("/bulk")
+def add_bulk(body: BulkIn, user: dict = Depends(auth.require_user)):
+    """묶음 담기 (예: 김장 장바구니 8품목). 한 번 호출 · 한 트랜잭션.
+
+    하나씩 부르면 호출마다 최신가를 다시 계산해 몇 초가 걸린다.
+    """
+    products = {i["item_code"]: i for i in db.list_products(MARKET)}
+    lines = [(b.item_code, b.kind_code, _check(products, b), b.qty) for b in body.items]
+    _add_lines(user["user_no"], lines)
+    return _priced(user["user_no"])
 
 
 @router.patch("/{cart_no}")
