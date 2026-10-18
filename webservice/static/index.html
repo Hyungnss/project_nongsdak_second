@@ -112,65 +112,91 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 /* 칩과 정렬 상자의 높이를 34px 로 맞춘다 (전에는 칩 35px · 정렬 41px 에 '정렬' 글자가 위에 얹혀 더 높았다) */
 .chip{font:inherit;font-size:13.5px;flex:none;cursor:pointer;height:34px;padding:0 14px;border-radius:20px;
   border:1px solid var(--line);background:var(--card2);color:var(--ink2);display:inline-flex;align-items:center}
-/* .fld(아래쪽에 선언, 세로 쌓기)를 이기도록 .fld.sortfld 로 쓴다 */
-.fld.sortfld{flex-direction:row;align-items:center;gap:8px;flex:none}
-.sortfld span{white-space:nowrap}
-.sortfld select{height:34px;min-width:0;padding:0 30px 0 14px;border-radius:20px;font-size:13.5px}
+/* 휴대폰 전용 정렬 (어제 · 1주 · 평년). 칩과 같은 34px 높이의 한 덩어리 버튼 */
+.msort{display:none;padding:2px;border-radius:999px;background:var(--card2);border:1px solid var(--line);flex:none}
+.msort button{font:inherit;font-size:13px;height:28px;padding:0 12px;border:0;border-radius:999px;
+  background:transparent;color:var(--ink2);cursor:pointer}
+.msort button[aria-pressed="true"]{background:var(--ink);color:var(--card);font-weight:650}
+.msort button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media (max-width:620px){ .msort{display:inline-flex} }
 .chip small{font-size:11.5px;margin-left:4px;opacity:.75;font-family:ui-monospace,Consolas,monospace}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--card);border-color:var(--ink)}
 .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
+/* ── 시세판 (개편 시안 B) ──
+   한 줄에 품목 · 현재가 · 어제 · 1주 · 평년 대비 · 최근 추이 · 담기를 숫자로 다 보여준다.
+   데스크톱(1000px 이상)은 표 오른쪽에 고른 품목의 상세를 붙박이로 두고,
+   그보다 좁으면 지금처럼 고른 줄 바로 아래에 펼친다. */
+.bd-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}
+.bd-side{display:none}
+@media (min-width:1000px){
+  .bd-grid{grid-template-columns:minmax(0,1fr) 380px}
+  .bd-side{display:block;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto;
+    border-left:1px solid var(--line);padding-left:20px}
+}
+.sideempty{color:var(--muted);font-size:14px;padding:24px 4px}
+.sideempty[hidden]{display:none}
+
 /* 줄 하나 = 품목 하나. 열 머리와 같은 격자를 써서 숫자가 세로로 맞는다.
    맨 오른쪽 칸은 장바구니 담기 버튼. 도매에서는 담지 않으므로 그 칸을 뺀다 (.nocart). */
-.lcolh,.lrow{display:grid;gap:12px;align-items:center;
-  grid-template-columns:minmax(0,1.6fr) minmax(96px,auto) minmax(0,1.3fr) 96px 84px 64px}
+.lcolh,.lrow{display:grid;gap:10px;align-items:center;
+  grid-template-columns:minmax(0,1.5fr) 92px 66px 66px 74px 84px 44px}
 @media (min-width:621px){
-  .nocart .lcolh,.nocart .lrow{grid-template-columns:minmax(0,1.6fr) minmax(96px,auto) minmax(0,1.3fr) 96px 84px}
+  .nocart .lcolh,.nocart .lrow{grid-template-columns:minmax(0,1.5fr) 92px 66px 66px 74px 84px}
 }
-.nocart .lcolh span:nth-child(6){display:none}
+.nocart .lcolh > :nth-child(7){display:none}
 .lcolh{padding:0 8px 6px;font-size:11.5px;color:var(--muted);letter-spacing:.02em}
-.lcolh span:nth-child(2),.lcolh span:nth-child(5){text-align:right}
-.lcolh span:nth-child(6){text-align:center}
-/* 줄 아무 데나 눌러도 펼쳐진다. 키보드로는 품목 이름 버튼(.nmbtn)으로 펼친다. */
-.lrow{cursor:pointer;border-top:1px solid var(--line);padding:11px 8px}
+/* 표의 모든 칸(머리 · 품목 · 가격 · 등락 · 추이 · 담기)은 가운데 정렬 */
+.lcolh > *{text-align:center}
+/* 어제 · 1주 · 평년 대비 머리는 누르면 그 기준으로 정렬된다 (정렬 상자와 같이 움직인다) */
+.lcolh .sorth{font:inherit;font-size:11.5px;color:inherit;background:none;border:0;padding:2px 0;
+  cursor:pointer;text-align:center;letter-spacing:inherit;white-space:nowrap}
+.lcolh .sorth:hover{color:var(--ink)}
+.lcolh .sorth:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.lcolh .sorth.on{color:var(--ink);font-weight:700}
+.lcolh .sorth.on::after,.msort button.on::after{content:" ↑"}
+.lcolh .sorth.on.desc::after,.msort button.on.desc::after{content:" ↓"}
+/* 줄 아무 데나 눌러도 고른다. 키보드로는 품목 이름 버튼(.nmbtn)으로 고른다. */
+.lrow{cursor:pointer;border-top:1px solid var(--line);padding:8px}
 .lrow:hover,.lrow.open{background:var(--card2)}
-.lrow .nmbtn{font:inherit;color:inherit;text-align:left;background:none;border:0;padding:0;
+.lrow.open{box-shadow:inset 3px 0 0 var(--ink)}
+.lrow .nmbtn{font:inherit;color:inherit;text-align:center;background:none;border:0;padding:0;
   cursor:pointer;min-width:0;border-radius:4px}
 .lrow .nmbtn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-.lrow .nm{font-size:14.5px;font-weight:650;min-width:0;display:block}
-.lrow .nm small{display:block;font-weight:400;font-size:12px;color:var(--muted);
+.lrow .nm{font-size:14px;font-weight:650;min-width:0;display:block}
+.lrow .nm small{display:block;font-weight:400;font-size:11.5px;color:var(--muted);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 장바구니 담기 — 장바구니 안에 + 가 든 아이콘 버튼. 이미 담긴 품목은 칠해서 보여준다.
    수량 조절과 빼기는 장바구니 패널에서 한다. */
-.addbtn{justify-self:center;display:inline-grid;place-items:center;width:38px;height:38px;padding:0;
-  border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer}
+.addbtn{justify-self:center;display:inline-grid;place-items:center;width:34px;height:34px;padding:0;
+  border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer}
 .addbtn:hover:not(:disabled){border-color:var(--ink);background:var(--card2)}
 .addbtn:disabled{opacity:.45;cursor:default}
 .addbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* index.html 은 차트용으로 모든 svg 에 width:100% · min-width:560px 를 건다. 아이콘은 크기를 고정한다. */
-.addbtn svg{display:block;width:20px;height:20px;min-width:0}
+.addbtn svg{display:block;width:19px;height:19px;min-width:0}
 .addbtn.has{background:var(--ink);border-color:var(--ink);color:var(--card)}
 .addbtn.has:hover:not(:disabled){background:var(--ink);opacity:.85}
-.lrow .pr{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
-  font-weight:650;white-space:nowrap}
-.lrow .pr small{display:block;font-family:system-ui,"Malgun Gothic",sans-serif;font-size:11.5px;
+.lrow .pr{text-align:center;font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-weight:650;white-space:nowrap;font-size:13.5px}
+.lrow .pr small{display:block;font-family:system-ui,"Malgun Gothic",sans-serif;font-size:11px;
   font-weight:400;color:var(--muted)}
-.lrow .pill{justify-self:start}
-.lrow .wk{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
-  font-size:13px;font-weight:650;white-space:nowrap}
-.wk.up{color:var(--up)} .wk.down{color:var(--down)} .wk.flat{color:var(--muted)}
-.wk.nrm{color:var(--ink2);font-weight:500}   /* 평년 가격 — 등락이 아니라 값이라 색을 넣지 않는다 */
-.lrow .spark{width:96px;height:24px}
-/* 휴대폰에서는 품목 · 판정 · 가격만 남긴다. 추이와 1주 변화는 펼치면 나온다.
+/* 등락 숫자 칸 (어제 · 1주 · 평년 대비). 지금 정렬 기준인 칸은 굵게 */
+.lrow .num{text-align:center;font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-size:13px;font-weight:500;white-space:nowrap}
+.lrow .num.on{font-weight:700}
+.num.up{color:var(--up)} .num.down{color:var(--down)} .num.flat{color:var(--muted)}
+.lrow .spark{width:84px;height:22px;justify-self:center}
+/* 휴대폰에서는 품목 · 지금 정렬 기준 숫자 · 가격만 남긴다. 나머지는 고르면 상세에 나온다.
    장바구니 칸은 가격 아래 둘째 줄로 내린다. */
 @media (max-width:620px){
-  .lcolh,.lrow{grid-template-columns:minmax(0,1fr) auto auto;gap:6px 10px}
-  .lrow .spark,.lrow .wk,.lcolh span:nth-child(4),.lcolh span:nth-child(5),
-  .lcolh span:nth-child(6){display:none}
+  .lcolh,.lrow{grid-template-columns:minmax(0,1fr) auto auto;gap:6px 12px}
+  .lrow .spark,.lrow .num:not(.on),.lcolh > :nth-child(6),.lcolh > :nth-child(7),
+  .lcolh .sorth:not(.on){display:none}
   .lrow .nmbtn{grid-column:1;grid-row:1/3}
-  .lrow .pill,.lcolh span:nth-child(3){grid-column:2;grid-row:1}
-  .lrow .pr,.lcolh span:nth-child(2){grid-column:3;grid-row:1}
-  .lrow .addbtn{grid-column:2/4;grid-row:2;justify-self:end;width:34px;height:34px}
+  .lrow .num.on,.lcolh .sorth.on{grid-column:2;grid-row:1}
+  .lrow .pr,.lcolh > :nth-child(2){grid-column:3;grid-row:1}
+  .lrow .addbtn{grid-column:2/4;grid-row:2;justify-self:center}
 }
 .lempty{padding:14px 8px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
 
@@ -196,6 +222,12 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 
 /* 펼친 상세 */
 .xdetail{border-top:1px solid var(--line);padding:16px 8px 22px;display:flex;flex-direction:column;gap:14px}
+/* 오른쪽 붙박이 칸(380px)에 놓일 때 — 좁은 칸에 맞게 줄인다.
+   차트는 chart() 가 이 칸 너비(약 360px) 그대로의 판으로 그린다. */
+.bd-side .xdetail{border-top:0;padding:0}
+.bd-side .today .big{font-size:34px}
+.bd-side .c{padding:7px 6px}
+.bd-side .c .v{font-size:13px;letter-spacing:-.5px}
 .kindfld{align-self:flex-start;max-width:100%}
 .kindfld[hidden]{display:none}
 
@@ -236,17 +268,14 @@ header .lede{margin-top:4px}
 @media (max-width:560px){
   header .tagline{font-size:14.5px;margin-top:4px}
   header .lede{font-size:13.5px;margin-top:0}
-  header .mkt{margin-top:8px}
-  header .mbtn{padding:5px 16px;font-size:13.5px}
+  .mktrow{margin-top:10px;gap:12px}
+  header .mbtn{padding:5px 14px;font-size:13.5px}
   .themebtn .lbl{display:none}
   .themebtn{padding:8px 11px}
-  .breadth{margin-top:6px}
-  .breadth .long{display:none}
+  .breadth .blab{font-size:12px;gap:2px 10px}
   .wrap{padding-top:8px;gap:16px}
   .brief .lead .more{display:none}
 }
-.breadth .short{display:none}
-@media (max-width:560px){ .breadth .short{display:inline} }
 
 /* 소매 · 도매 전환. 화면 전체가 이 값을 따르므로 제목 바로 아래, 가장 먼저 눈에 띄는 곳에 둔다.
    한 덩어리 버튼(세그먼트)이라 '둘 중 하나'라는 게 모양으로 드러난다. */
@@ -266,12 +295,20 @@ header .lede{margin-top:4px}
 /* 도매는 단위를 가격만큼 크게 — '14,600원' 을 한 포기 값으로 읽지 않도록 */
 .today .unit.wh{font-size:16px;font-weight:700;color:var(--teal)}
 
-/* 오늘 몇 개가 오르고 내렸는지 — 증권 시세판의 '등락 종목 수'에 해당한다 */
-.breadth{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px;
-  font-size:13.5px;font-family:ui-monospace,Consolas,monospace}
-.breadth b{font-weight:700}
+/* 시세판 머리 — 오늘 몇 개가 오르고 내렸는지(증권 시세판의 '등락 종목 수')를 넓은 막대로,
+   그 아래에 숫자와 조사일을 적고, 오른쪽에 소매 · 도매 전환을 둔다. */
+header{flex:1 1 auto;min-width:0}
+.mktrow{display:flex;align-items:center;gap:12px 20px;margin-top:14px;width:min(720px,100%)}
+.mktrow .mkt{margin-top:0;flex:none}
+.breadth{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:7px}
+.breadth .bbar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;background:var(--card)}
+.breadth .bbar i{display:block;height:100%}
+.breadth .bbar .u{background:var(--up)} .breadth .bbar .d{background:var(--down)}
+.breadth .bbar .f{background:var(--line)}
+.breadth .blab{display:flex;gap:4px 14px;flex-wrap:wrap;font-size:12.5px;
+  font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
+.breadth .blab b{font-weight:700}
 .breadth .u{color:var(--up)} .breadth .d{color:var(--down)} .breadth .f{color:var(--muted)}
-.breadth .sep{color:var(--line)}
 
 /* 시세 띠 — 오늘 조사된 품목이 흘러간다. 손을 올리면 멈춘다.
    화면 전체 너비로 깔려고 .wrap 바깥, 문서 맨 위에 둔다.
@@ -366,28 +403,27 @@ select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--ac
 .today .big{font-size:42px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
 .today .unit{font-size:14px;color:var(--ink2)}
 
-.cmp{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));margin-top:16px}
-.c{border:1px solid var(--hair);border-radius:10px;padding:12px 13px;background:var(--card2)}
-.c .l{font-size:12.5px;color:var(--muted)}
-.c .v{font-size:20px;font-weight:660;letter-spacing:-.4px;
-  font-family:ui-monospace,Consolas,monospace;margin-top:2px}
-.c .p{font-size:12.5px;color:var(--ink2);margin-top:2px;
-  font-family:ui-monospace,Consolas,monospace}
-.c .note{font-size:11.5px;color:var(--amber);margin-top:3px}
+/* 비교 — 어제 · 1주 · 평년 · 1년 전을 한 줄 네 칸에 % 만. 칸 사이는 1px 선으로 나눈다 */
+.cmp{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;margin-top:16px;
+  background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.c{background:var(--card);padding:9px 11px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.c[title]{cursor:help}
+.c .l{font-size:12px;color:var(--muted)}
+.c .v{font-size:16px;font-weight:700;letter-spacing:-.3px;
+  font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
 .c.up .v{color:var(--up)} .c.down .v{color:var(--down)}
-.c.na .v{color:var(--muted);font-size:15px}
+.c.flat .v,.c.na .v{color:var(--muted)}
+/* 휴대폰은 네 칸이 약 75px 씩이라 숫자를 조금 줄인다 */
+/* 휴대폰 · 오른쪽 상세 칸은 다섯 칸이 60~70px 씩이라 숫자 · 여백을 줄인다 */
+@media (max-width:620px){ .c{padding:7px 6px} .c .l{font-size:11px} .c .v{font-size:12.5px;letter-spacing:-.5px} }
 
 .chart{overflow-x:auto;margin-top:18px}
 svg{display:block;width:100%;min-width:560px}
-/* 휴대폰은 칸 너비에 맞춘 판(360)으로 그리므로 옆으로 밀지 않고 칸 안에 들어가게 한다.
-   판이 칸보다 조금 크게 줄어드는 만큼 글자를 키워 실제 9~10px 로 보이게 한다. */
-@media (max-width:620px){
-  .chart svg{min-width:0}
-  .chart .tick{font-size:13px}
-  .chart .lbl{font-size:14px}
-}
+/* 상세 차트는 칸 너비 그대로의 판으로 그린다(chart()). 늘이거나 줄이지 않으므로 글자가 늘 제 크기다.
+   칸보다 커질 일은 없지만, 혹시 커지면 줄여서라도 칸 안에 넣는다. */
+.chart svg{min-width:0;max-width:100%;height:auto}
 .grid-l{stroke:var(--grid);stroke-width:1}
-.tick{font-size:10px;fill:var(--muted)}
+.tick{font-size:11px;fill:var(--muted)}   /* 상세 차트는 1 단위 = 1px 이라 실제 11px */
 /* 주식 차트처럼 방향에 따라 색이 바뀐다 — 오르면 빨강, 내리면 파랑 */
 .series{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .area{stroke:none;fill-opacity:.10}
@@ -397,25 +433,19 @@ svg{display:block;width:100%;min-width:560px}
 .series.flat{stroke:var(--muted)} .area.flat{fill:var(--muted)} .dot.flat{fill:var(--muted)}
 /* 평년선은 비교용 배경이라 점선에 가늘게 — 실제 가격선을 가리지 않게 한다 */
 .series.norm{stroke:var(--teal);stroke-width:1.6;stroke-dasharray:5 4;opacity:.9}
-.lbl{font-size:11px;fill:var(--ink2)}
+.lbl{font-size:12px;fill:var(--ink2)}
 .lbl.norm{fill:var(--teal)}
 
 .legend{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink2)}
 .legend i{width:15px;border-top:2.5px solid currentColor;display:block}
 .legend.norm{color:var(--teal)}
 .legend.norm i{border-top-width:2px;border-top-style:dashed}
+/* 범례는 그래프 바로 아래 가운데 */
+.chart-legend{display:flex;justify-content:center;gap:16px;margin-top:6px}
 
-.chart-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:18px}
-.chart-head .t{font-size:13.5px;color:var(--ink2)}
+/* 신선도 줄의 '수집이 멈춰 있어요' 배지가 쓴다 (모양은 .fresh .badge 에서 덮어쓴다) */
 .badge{font-size:14px;font-weight:660;padding:3px 10px;border-radius:20px;
   font-family:ui-monospace,Consolas,monospace}
-.badge.up{color:var(--up);background:var(--card2)}
-.badge.down{color:var(--down);background:var(--card2)}
-.badge.flat{color:var(--muted);background:var(--card2)}
-@supports (background:color-mix(in srgb,red 10%,transparent)){
-  .badge.up{background:color-mix(in srgb,var(--up) 12%,transparent)}
-  .badge.down{background:color-mix(in srgb,var(--down) 12%,transparent)}
-}
 
 
 /* ── 포춘쿠키 ── 쿠키를 눌러 깨면 안에서 종이가 나온다 */
@@ -511,13 +541,16 @@ try{
       <h1 class="logo"><img src="/static/logo.png" alt="농스닥" width="292" height="105"></h1>
       <p class="tagline">오늘의 장바구니 시세</p>
       <p class="lede">당신의 지갑을 지켜드려요.</p>
-      <div class="mkt" id="mkt" role="tablist" aria-label="소매 · 도매 선택">
-        <button class="mbtn on" type="button" role="tab" aria-selected="true" data-market="retail">소매</button>
-        <button class="mbtn" type="button" role="tab" aria-selected="false" data-market="wholesale">도매</button>
+      <!-- 시세판 머리: 왼쪽에 오름 · 내림 · 보합 비율 막대와 숫자, 오른쪽에 소매 · 도매 -->
+      <div class="mktrow">
+        <div class="breadth" id="breadth"></div>
+        <div class="mkt" id="mkt" role="tablist" aria-label="소매 · 도매 선택">
+          <button class="mbtn on" type="button" role="tab" aria-selected="true" data-market="retail">소매</button>
+          <button class="mbtn" type="button" role="tab" aria-selected="false" data-market="wholesale">도매</button>
+        </div>
       </div>
       <div class="asof" id="asof">불러오는 중…</div>
       <div class="fresh" id="fresh" hidden></div>
-      <div class="breadth" id="breadth"></div>
     </header>
 
     <div class="topright">
@@ -564,25 +597,37 @@ try{
 
   <!-- 제목은 화면에 두지 않는다. 화면 낭독기는 aria-label 로 이 영역 이름을 읽는다. -->
   <section class="card" id="allcard" aria-label="모든 품목">
-    <!-- 분류 칩과 정렬을 한 줄에 놓는다. 둘 다 같은 높이(34px) · 같은 둥근 모양이다. -->
     <div class="lhead">
       <div class="chips" id="cats" role="group" aria-label="분류"></div>
-      <label class="fld sortfld"><span>정렬</span>
-        <select id="sort">
-          <option value="normal">평년보다 저렴한 순</option>
-          <option value="week">일주일 동안 많이 내린 순</option>
-          <option value="day">어제보다 저렴한 순</option>
-        </select></label>
+      <!-- 휴대폰 전용 정렬. 휴대폰 표에는 정렬 기준 칸 하나만 보여서 열 머리로는 기준을 바꿀 수 없다 -->
+      <div class="msort" role="group" aria-label="정렬 기준">
+        <button type="button" data-sort="day">어제</button>
+        <button type="button" data-sort="week">1주</button>
+        <button type="button" data-sort="normal">평년</button>
+      </div>
     </div>
-    <div class="lcolh" aria-hidden="true">
-      <span>품목</span><span>오늘 가격</span><span>평년 대비</span><span>최근 추이</span><span id="sortcolh">평년 가격</span><span>장바구니</span>
+    <div class="bd-grid">
+      <div class="bd-main">
+        <!-- 열 머리. 어제 · 1주 · 평년 대비를 누르면 그 기준으로 낮은 값(많이 내린 · 싼 것)부터 정렬한다 -->
+        <div class="lcolh" id="lcolh">
+          <span>품목</span><span>현재가</span>
+          <button type="button" class="sorth" data-sort="day">어제</button>
+          <button type="button" class="sorth" data-sort="week">1주</button>
+          <button type="button" class="sorth" data-sort="normal">평년 대비</button>
+          <span>최근 추이</span><span>담기</span>
+        </div>
+        <div id="list"><div class="loading">불러오는 중…</div></div>
+        <nav class="pager" id="pager" aria-label="모든 품목 페이지" hidden></nav>
+      </div>
+      <!-- 데스크톱에서만 보이는 붙박이 상세 칸. 고른 품목의 상세(#xdetail)가 여기로 옮겨 온다 -->
+      <aside class="bd-side" id="side" aria-label="고른 품목">
+        <p class="sideempty" id="sideempty">표에서 품목을 고르면 여기에 자세히 보여드려요.</p>
+      </aside>
     </div>
-    <div id="list"><div class="loading">불러오는 중…</div></div>
-    <nav class="pager" id="pager" aria-label="모든 품목 페이지" hidden></nav>
   </section>
 
-  <!-- 펼친 품목의 상세. 목록을 다시 그릴 때 지워지지 않도록 평소엔 여기 두고,
-       품목을 누르면 그 줄 바로 아래로 옮겨 붙인다. -->
+  <!-- 고른 품목의 상세. 목록을 다시 그릴 때 지워지지 않도록 평소엔 여기 두고,
+       품목을 누르면 데스크톱은 오른쪽 칸(#side)으로, 좁은 화면은 그 줄 바로 아래로 옮겨 붙인다. -->
   <div id="park" hidden>
     <div class="xdetail" id="xdetail">
       <label class="fld kindfld" id="kindfld"><span>품종</span><select id="selKind" disabled><option>—</option></select></label>
@@ -652,10 +697,13 @@ const api = (path, params = {}) =>
   j(path + '?' + new URLSearchParams({...params, market: MARKET}));
 
 // ── 최근 가격 추이 차트 ──────────────────────────────────────────────
-// 휴대폰 폭. 차트를 휴대폰용 판으로 그릴지 정한다 (목록 · 머리의 620px 기준과 같다).
+// 휴대폰 폭 (목록 · 머리의 620px 기준과 같다). 이 기준을 넘나들면 차트를 다시 그린다.
 const PHONE_Q = matchMedia('(max-width:620px)');
 
-function chart(points){
+// width: 차트가 들어갈 칸의 실제 너비(px). 그 너비 그대로 판을 잡아 1 단위 = 화면 1px 이 되게 한다.
+//   고정 판(1000 등)을 칸에 맞춰 줄이면 칸이 좁을수록 글자가 작아졌다
+//   (휴대폰 · 오른쪽 상세 칸 · 태블릿에서 눈금이 3~7px 로 읽을 수 없었다).
+function chart(points, width){
   if(!points || points.length < 2) return '<p class="loading">추이를 그릴 자료가 부족해요.</p>';
 
   // 구간 시작 대비 끝을 보고 색을 정한다. 눈에 보이는 선의 방향과 색이 일치해야
@@ -665,13 +713,13 @@ function chart(points){
   const dir = periodChg > 0.5 ? 'up' : (periodChg < -0.5 ? 'down' : 'flat');
   const dirWord = dir === 'up' ? '올랐어요' : (dir === 'down' ? '내렸어요' : '거의 그대로예요');
 
-  // svg 는 칸 너비에 맞춰 늘어나므로 높이는 W:H 비율로 정해진다.
-  // 860x420 이던 때는 넓은 화면에서 500px 넘게 커져 한눈에 안 들어왔다.
-  // 가로로 길게 잡아 데스크톱(약 1,100px 칸)에서 330px 안팎이 되게 한다.
-  // 휴대폰(칸 약 300px)에서 1000 짜리 판을 줄이면 글자가 3분의 1로 작아져 읽을 수 없다.
-  // 그래서 휴대폰은 칸 너비에 가까운 판(360)으로 따로 그린다.
-  const phone = PHONE_Q.matches;
-  const [W, H, L, R, T, B] = phone ? [360, 250, 50, 12, 14, 218] : [1000, 300, 60, 16, 16, 264];
+  // 판 너비 = 칸 너비. 높이는 좁은 칸 250px, 넓은 칸 300px 로 고정한다
+  // (860x420 비율로 늘리던 때는 넓은 화면에서 540px 까지 커졌다).
+  // 칸이 아직 화면에 없어 너비를 못 재면(0) 데스크톱 기준 1000 으로 그린다.
+  const W = Math.round(Math.min(Math.max(width || 1000, 280), 1200));
+  const phone = W < 520;     // 좁은 판: 눈금선 3개, 왼쪽 여백 조금 좁게
+  const [H, L, R, T] = phone ? [250, 50, 12, 14] : [300, 60, 16, 16];
+  const B = H - (phone ? 32 : 36);
   const vs = points.map(p => p.price);
   // 평년선도 눈금 안에 들어와야 한다. 실제 가격만으로 세로 범위를 잡으면
   // 평년가가 위아래로 잘려 나간다.
@@ -730,21 +778,18 @@ function chart(points){
         y="${(ys(points[firstN].normal) - 8).toFixed(1)}">평년</text>`
     : '';
 
-  return `<div class="chart-head">
-      <span class="t">최근 가격 추이 <b>${span}</b> (조사 ${days}일)</span>
-      <span class="badge ${dir}">${signed(periodChg)}</span>
-      <span class="t">이 기간 ${dirWord}</span>
-      ${legend}
-    </div>
-    <div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img"
-      aria-label="최근 가격 추이, 이 기간 ${signed(periodChg)}${hasNorm ? ', 평년 가격을 점선으로 함께 표시' : ''}">
+  // 차트 위 설명 줄('최근 가격 추이 … (조사 60일) … 이 기간 올랐어요')은 두지 않는다.
+  // 같은 내용은 화면 낭독기가 읽도록 aria-label 에 남기고, 범례는 그래프 아래에 둔다.
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img"
+      aria-label="최근 가격 추이 ${span}, 조사 ${days}일, 이 기간 ${signed(periodChg)} ${dirWord}${hasNorm ? ', 평년 가격을 점선으로 함께 표시' : ''}">
     <path class="area ${dir}" d="${area}"/>${g}
     <path class="series norm" d="${normPath}"/>
     <path class="series ${dir}" d="M${line}"/>
     <circle class="dot ${dir}" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="5"/>
     <text class="lbl" x="${(lx - 10).toFixed(1)}" y="${(ly - 12).toFixed(1)}"
       text-anchor="end">${won(last.price)}</text>${normLbl}
-  </svg></div>`;
+  </svg></div>
+  ${legend ? `<div class="chart-legend">${legend}</div>` : ''}`;
 }
 
 // ── 품목 상세 ────────────────────────────────────────────────────────
@@ -778,34 +823,27 @@ async function showDetail(item, kind, rank){
     const d = await api('/api/detail', q);
     if(m !== MARKET) return;    // 기다리는 사이 탭을 바꿨으면 늦게 온 응답은 버린다
 
-    // 화면에 보일 비교 시점. 2주일 전은 1주일 전 · 1개월 전 사이라 더해 주는 정보가 적어 뺀다.
-    // (API 는 그대로 2주일 전도 돌려준다 — 화면에서만 거른다)
-    const HIDE_COMPARE = [14];
-    const cards = d.compares.filter(c => !HIDE_COMPARE.includes(c.target_offset)).map(c => {
-      if(!c.available){
-        return `<div class="c na"><div class="l">${c.label}</div>
-                <div class="v">자료 없음</div></div>`;
-      }
-      const cls = dirClass(c.change_pct);
-      const note = c.exact ? '' :
-        `<div class="note">실제 ${c.days_ago}일 전 (${c.date.slice(5).replace('-','/')})</div>`;
-      return `<div class="c ${cls}">
-        <div class="l">${c.label}</div>
-        <div class="v">${signed(c.change_pct)}</div>
-        <div class="p">${won(c.price)}</div>${note}</div>`;
-    }).join('');
-
+    // 비교는 어제 · 1주 · 1개월 · 평년 · 1년 전 다섯 칸에 % 만 한 줄로 보여준다 (시세판의 간략 보기).
+    // 비교 가격과 '실제 8일 전' 같은 보조 정보는 칸에 올리면(title) 나온다.
+    // 2주일 전은 화면에 두지 않는다 (API 는 그대로 돌려준다).
+    const at = off => d.compares.find(c => c.target_offset === off);
+    const vs = base => base ? (d.price - base) / base * 100 : null;
+    const day = at(1), week = at(7), month = at(30);
+    const cell = (label, pct, tip) => {
+      const cls = pct == null ? 'na' : (dirClass(pct) || 'flat');
+      return `<div class="c ${cls}"${tip ? ` title="${esc(tip)}"` : ''}>
+        <span class="l">${label}</span><b class="v">${pct == null ? '—' : signed(pct)}</b></div>`;
+    };
+    const tipOf = c => !c || !c.available ? '' :
+      `${c.date} ${won(c.price)}` + (c.exact ? '' : ` (실제 ${c.days_ago}일 전 값)`);
+    const cards = [
+      cell('어제', day && day.available ? day.change_pct : null, tipOf(day)),
+      cell('1주', week && week.available ? week.change_pct : null, tipOf(week)),
+      cell('1개월', month && month.available ? month.change_pct : null, tipOf(month)),
+      cell('평년', vs(d.normal), d.normal != null ? `평년 ${won(d.normal)}` : ''),
+      cell('1년 전', vs(d.year_ago), d.year_ago != null ? `1년 전 ${won(d.year_ago)}` : ''),
+    ].join('');
     const extra = [];
-    if(d.year_ago != null){
-      const p = (d.price - d.year_ago) / d.year_ago * 100;
-      extra.push(`<div class="c ${dirClass(p)}"><div class="l">1년 전</div>
-        <div class="v">${signed(p)}</div><div class="p">${won(d.year_ago)}</div></div>`);
-    }
-    if(d.normal != null){
-      const p = (d.price - d.normal) / d.normal * 100;
-      extra.push(`<div class="c ${dirClass(p)}"><div class="l">평년</div>
-        <div class="v">${signed(p)}</div><div class="p">${won(d.normal)}</div></div>`);
-    }
 
     // 마지막 조사가 한참 전이면 큰 숫자를 '오늘 가격'으로 읽지 않도록 먼저 알린다.
     // 기준은 '대부분의 품목에 값이 있는 최신 조사일'(LATEST_DAY)이다.
@@ -835,7 +873,7 @@ async function showDetail(item, kind, rank){
       </div>
       ${addCartRow(d, m)}
       <div class="cmp">${cards}${extra.join('')}</div>
-      ${chart(d.chart)}`;
+      ${chart(d.chart, box.clientWidth)}`;
 
     // 품종 칸에 적힌 등급이 실제로 쓰인 등급과 다를 수 있다(급등락에서 넘어온 경우).
     // 화면이 거짓말하지 않도록 실제 값으로 맞춘다.
@@ -859,7 +897,10 @@ const CAT_SHORT = {'채소류':'채소','과실류':'과일','수산물':'수산
                    '식량작물':'곡물','특용작물':'특용'};
 const CAT_ORDER = ['채소류','과실류','수산물','축산물','식량작물','특용작물'];
 let CAT = '전체';
-const sortSel = document.getElementById('sort');
+// 정렬 기준: day(어제) · week(1주) · normal(평년 대비). 열 머리 · 휴대폰 정렬 버튼으로 바꾼다.
+// SORT_DIR: 1 = 오름차순(많이 내린 · 싼 것부터), -1 = 내림차순(많이 오른 · 비싼 것부터).
+// 같은 열 머리를 다시 누르면 방향이 바뀐다.
+let SORT = 'normal', SORT_DIR = 1;
 
 const vsNormal = c => c.normal ? (c.price / c.normal - 1) * 100 : null;
 
@@ -925,27 +966,24 @@ function renderCats(){
       `${esc(CAT_SHORT[k] || k)}<small>${n}</small></button>`).join('');
 }
 
-const SORTS = {
-  // 평년 자료가 없는 품목은 판정을 못 하니 맨 뒤로
-  normal: (a, b) => (vsNormal(a) ?? Infinity) - (vsNormal(b) ?? Infinity),
-  week: (a, b) => (a.change_7d ?? Infinity) - (b.change_7d ?? Infinity),
-  // '어제'는 직전 조사일이다 (주말 · 공휴일이 끼면 며칠 전). 등락 요약 · 시세 띠와 같은 값
-  day: (a, b) => a.change_pct - b.change_pct,
-};
 
-// 다섯째 칸은 정렬 기준을 따라간다. 무엇으로 줄을 세웠는지 그 값을 바로 옆에서 볼 수 있게.
-// '평년보다 저렴한 순'일 때 평년 대비 % 는 바로 앞 판정 배지에 이미 있으므로 평년 가격을 보여준다.
-// val 은 그 기준의 등락 값 — 추이선 색을 정한다 (음수 파랑 · 양수 빨강).
-const SORT_COL = {
-  normal: {label: '평년 가격', val: vsNormal,
-           cell: c => c.normal == null ? ['flat', '—'] : ['nrm', won(c.normal)]},
-  week:   {label: '1주 변화',  val: c => c.change_7d,  cell: c => pctCell(c.change_7d)},
-  day:    {label: '어제 대비', val: c => c.change_pct, cell: c => pctCell(c.change_pct)},
-};
-function pctCell(v){
-  return v == null ? ['flat', '—'] : [dirClass(v) || 'flat', signed(v)];
+// 시세판의 세 등락 칸 (어제 · 1주 · 평년 대비). 지금 정렬 기준인 칸은 굵게 보이고,
+// 그 값의 부호가 추이선 색을 정한다 (음수 파랑 · 양수 빨강).
+const SORT_VAL = {day: c => c.change_pct, week: c => c.change_7d, normal: vsNormal};
+const sortKey = () => SORT_VAL[SORT] ? SORT : 'normal';
+const sortVal = c => SORT_VAL[sortKey()](c);
+// 지금 기준 · 방향으로 비교. 값이 없는 품목(평년 자료 없음 등)은 방향과 상관없이 늘 맨 뒤로 보낸다.
+// '어제'는 직전 조사일이다 (주말 · 공휴일이 끼면 며칠 전). 등락 요약 · 시세 띠와 같은 값
+function compareRows(a, b){
+  const va = sortVal(a), vb = sortVal(b);
+  if(va == null || vb == null) return (va == null) - (vb == null);
+  return SORT_DIR * (va - vb);
 }
-const sortCol = () => SORT_COL[sortSel.value] || SORT_COL.normal;
+function numCell(key, c){
+  const v = SORT_VAL[key](c);
+  const cls = v == null ? 'flat' : (dirClass(v) || 'flat');
+  return `<span class="num ${cls}${key === sortKey() ? ' on' : ''}">${v == null ? '—' : signed(v)}</span>`;
+}
 
 // 장바구니 담기 버튼 (장바구니 안에 + 가 든 아이콘). 이미 담긴 품목인지는 cart.js 가
 // 들고 있는 장바구니에서 읽어 칠해 보여준다 (로그인 전에는 늘 빈 상태).
@@ -967,13 +1005,12 @@ function cartCtlHtml(c){
 
 function rowHtml(c){
   const open = OPEN && OPEN.item === c.item_code;
-  const [wcls, wtxt] = sortCol().cell(c);
   return `<div class="lrow${open ? ' open' : ''}" ${keyAttrs(c)}>
     <button type="button" class="nmbtn" aria-expanded="${open}">
       <span class="nm">${esc(c.item_name)}<small>${esc(c.kind_name)} · ${esc(c.rank_name)}</small></span></button>
     <span class="pr">${won(c.price)}<small>${esc(c.unit)}</small></span>
-    ${pill(c)}${spark(c, 96, 24, sortCol().val(c))}
-    <span class="wk ${wcls}">${wtxt}</span>
+    ${numCell('day', c)}${numCell('week', c)}${numCell('normal', c)}
+    ${spark(c, 84, 22, sortVal(c))}
     ${cartCtlHtml(c)}</div>`;
 }
 
@@ -994,13 +1031,35 @@ window.addEventListener('nongsdaq-cart', paintCartCtls);
 let OPEN = null;    // {item, kind, rank}
 const park = document.getElementById('park');
 const xdetail = document.getElementById('xdetail');
+// 1000px 이상이면 상세를 표 오른쪽 붙박이 칸에 둔다 (시세판). 그보다 좁으면 줄 아래에 펼친다.
+const BOARD_Q = matchMedia('(min-width:1000px)');
+const side = document.getElementById('side');
+const sideEmpty = document.getElementById('sideempty');
 
-// 한 페이지에 보여줄 품목 수. 91개를 한 번에 펼치면 휴대폰에서 스크롤이 끝없이 길어진다.
-const PAGE_SIZE = 10;
+// 상세를 지금 화면 폭에 맞는 자리에 놓는다
+function placeDetail(){
+  if(!OPEN){ park.appendChild(xdetail); sideEmpty.hidden = false; return; }
+  if(BOARD_Q.matches){
+    side.appendChild(xdetail);
+  }else{
+    const row = document.querySelector(`#list .lrow[data-item="${OPEN.item}"]`);
+    if(row) row.after(xdetail); else park.appendChild(xdetail);
+  }
+  sideEmpty.hidden = side.contains(xdetail);
+}
+
+// 데스크톱에서 아무것도 안 골랐을 때는 표 맨 위 품목을 보여준다 (오른쪽 칸이 비지 않게)
+function openFirst(){
+  const first = listRows()[0];
+  if(first) openItem(first.item_code, first.kind_code, first.rank_name, {scroll: false});
+}
+
+// 한 페이지에 보여줄 품목 수. 시세표는 줄이 촘촘해 30개씩 본다 (91개면 4쪽).
+const PAGE_SIZE = 30;
 let PAGE = 1;
 
 const listRows = () => BRIEF.filter(c => CAT === '전체' || c.category === CAT)
-  .sort(SORTS[sortSel.value] || SORTS.normal);
+  .sort(compareRows);
 
 // 보여줄 쪽 번호. 쪽이 많으면 처음 · 끝 · 지금 쪽 앞뒤만 남기고 사이는 … 으로 줄인다.
 function pageList(cur, last){
@@ -1034,7 +1093,15 @@ function renderPager(total){
 function renderList(){
   park.appendChild(xdetail);     // innerHTML 로 지워지지 않게 먼저 빼 둔다
   const box = document.getElementById('list');
-  document.getElementById('sortcolh').textContent = sortCol().label;
+  // 지금 기준인 머리에 방향(↑ 오름 · ↓ 내림)을 붙이고, 화면 낭독기에도 방향을 알린다
+  const dirName = SORT_DIR === 1 ? '오름차순' : '내림차순';
+  document.querySelectorAll('#lcolh .sorth, .msort button').forEach(b => {
+    const on = b.dataset.sort === sortKey();
+    b.classList.toggle('on', on);
+    b.classList.toggle('desc', on && SORT_DIR === -1);
+    b.setAttribute('aria-pressed', on);
+    b.setAttribute('aria-label', `${b.textContent.trim()} 기준 정렬${on ? ` (지금 ${dirName}, 다시 누르면 반대로)` : ''}`);
+  });
   const all = listRows();
   const last = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
   PAGE = Math.min(Math.max(1, PAGE), last);
@@ -1045,7 +1112,8 @@ function renderList(){
   // 검색으로 고른 품목이 목록에 없을 수 있다 (철이 지나 조사가 끊긴 품목).
   // 그 품목은 맨 위에 한 줄 따로 세워 그 아래에 펼친다.
   // 다른 분류에 있는 품목은 여기에 해당하지 않는다 — 분류를 바꾸면 펼친 품목을 닫는다.
-  if(OPEN && !BRIEF.some(c => c.item_code === OPEN.item)){
+  // 데스크톱은 오른쪽 칸에 보여주므로 이런 줄을 따로 세우지 않는다.
+  if(OPEN && !BOARD_Q.matches && !BRIEF.some(c => c.item_code === OPEN.item)){
     const it = ITEMS[OPEN.item];
     if(it) html = `<div class="lrow open" data-item="${it.item_code}">
       <button type="button" class="nmbtn" aria-expanded="true">
@@ -1054,16 +1122,12 @@ function renderList(){
   }
   document.getElementById('allcard').classList.toggle('nocart', MARKET !== 'retail');
   box.innerHTML = html || '<div class="lempty">이 분류에는 지금 조사되는 품목이 없어요.</div>';
-
-  if(OPEN){
-    const row = box.querySelector(`.lrow[data-item="${OPEN.item}"]`);
-    if(row) row.after(xdetail);
-  }
+  placeDetail();
 }
 
 function closeItem(){
   OPEN = null;
-  park.appendChild(xdetail);
+  placeDetail();
   document.querySelectorAll('#list .lrow.open').forEach(r => {
     r.classList.remove('open');
     r.querySelector('.nmbtn').setAttribute('aria-expanded', 'false');
@@ -1072,7 +1136,7 @@ function closeItem(){
 
 // 카드 · 목록 · 검색 · 포춘쿠키에서 품목을 고르면 모두 이 길로 온다.
 // rankName 을 받으면 그 등급 그대로 보여준다 — 누른 줄의 값과 달라지지 않도록.
-function openItem(itemCode, kindCode, rankName){
+function openItem(itemCode, kindCode, rankName, {scroll = true} = {}){
   if(!ITEMS[itemCode]) return;
   // 고른 품목이 지금 분류에 없으면 전체로 넓혀서 보여준다
   const inBrief = BRIEF.find(c => c.item_code === itemCode);
@@ -1085,9 +1149,25 @@ function openItem(itemCode, kindCode, rankName){
   fillKinds(itemCode, kindCode);
   document.getElementById('kindfld').hidden = ITEMS[itemCode].kinds.length <= 1;
   showDetail(itemCode, selKind.value, rankName);
-  const row = document.querySelector(`#list .lrow[data-item="${itemCode}"]`);
-  if(row) row.scrollIntoView({behavior: 'smooth', block: 'start'});
+  if(!scroll) return;
+  if(BOARD_Q.matches){
+    // 데스크톱: 상세는 표 오른쪽에 붙어 있다. 위쪽 카드 · 검색에서 골랐으면 표가 보이게 내려 준다
+    const card = document.getElementById('allcard');
+    const top = card.getBoundingClientRect().top;
+    if(top > innerHeight * 0.6 || top < -card.offsetHeight + 200) card.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }else{
+    const row = document.querySelector(`#list .lrow[data-item="${itemCode}"]`);
+    if(row) row.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }
 }
+
+// 화면 폭이 1000px 를 넘나들면 상세 자리를 옮기고, 차트도 그 자리 폭에 맞춰 다시 그린다
+BOARD_Q.addEventListener('change', () => {
+  if(!BRIEF.length) return;
+  if(!OPEN && BOARD_Q.matches){ openFirst(); return; }
+  renderList();
+  if(OPEN && LAST_DETAIL) showDetail(LAST_DETAIL.item, LAST_DETAIL.kind, LAST_DETAIL.rank);
+});
 
 document.getElementById('list').addEventListener('click', async e => {
   const row = e.target.closest('.lrow');
@@ -1102,9 +1182,30 @@ document.getElementById('list').addEventListener('click', async e => {
     paintCartCtls();        // 실패했거나 로그인 창을 닫은 경우에도 버튼을 되살린다
     return;
   }
-  if(OPEN && OPEN.item === row.dataset.item){ closeItem(); return; }
-  openItem(row.dataset.item, row.dataset.kind, row.dataset.rank);
+  if(OPEN && OPEN.item === row.dataset.item){
+    // 좁은 화면은 다시 누르면 접는다. 데스크톱은 오른쪽 칸에 계속 보여준다.
+    if(!BOARD_Q.matches) closeItem();
+    return;
+  }
+  openItem(row.dataset.item, row.dataset.kind, row.dataset.rank, {scroll: !BOARD_Q.matches});
 });
+// 열 머리(어제 · 1주 · 평년 대비) · 휴대폰 정렬 버튼을 누르면 그 기준으로 정렬한다
+document.getElementById('lcolh').addEventListener('click', e => {
+  const b = e.target.closest('.sorth');
+  if(b) setSort(b.dataset.sort);
+});
+document.querySelector('.msort').addEventListener('click', e => {
+  const b = e.target.closest('button[data-sort]');
+  if(b) setSort(b.dataset.sort);
+});
+function setSort(key){
+  if(!SORT_VAL[key]) return;
+  // 같은 기준을 다시 누르면 방향만 뒤집고, 다른 기준이면 오름차순부터
+  if(key === SORT) SORT_DIR = -SORT_DIR;
+  else { SORT = key; SORT_DIR = 1; }
+  PAGE = 1;
+  renderList();
+}
 ['good', 'dear'].forEach(id => document.getElementById(id).addEventListener('click', e => {
   const b = e.target.closest('button[data-item]');
   if(b) openItem(b.dataset.item, b.dataset.kind, b.dataset.rank);
@@ -1114,16 +1215,15 @@ document.getElementById('cats').addEventListener('click', e => {
   if(!b || b.dataset.cat === CAT) return;
   CAT = b.dataset.cat;
   PAGE = 1;
-  closeItem();
+  if(!BOARD_Q.matches) closeItem();    // 데스크톱은 오른쪽 칸의 상세를 그대로 둔다
   renderCats();
   renderList();
 });
-sortSel.addEventListener('change', () => { PAGE = 1; renderList(); });
 document.getElementById('pager').addEventListener('click', e => {
   const b = e.target.closest('button[data-page]');
   if(!b || b.disabled) return;
-  // 다른 쪽으로 넘어가면 펼쳐 둔 품목은 그 쪽에 없으니 닫는다
-  closeItem();
+  // 좁은 화면은 펼쳐 둔 품목이 다른 쪽에 없으니 닫는다. 데스크톱은 오른쪽 칸에 그대로 둔다
+  if(!BOARD_Q.matches) closeItem();
   PAGE = +b.dataset.page;
   renderList();
   // 아래쪽 페이지 버튼을 눌렀으면 목록 머리로 올려 새 쪽의 첫 줄부터 보이게 한다
@@ -1332,14 +1432,19 @@ const TICKER_PX_PER_SEC = 50;
 function mark(pct){ return pct > 0 ? '▲' : (pct < 0 ? '▼' : '―'); }
 
 function renderBoard(f){
+  // 막대 아래에 숫자와 조사일. 조사일은 '대부분의 품목에 값이 있는 최신일'(LATEST_DAY)이다.
+  // 오름 · 내림 · 보합은 직전 조사일 대비다 (막대에 올리면 설명이 나온다).
+  const tot = f.up_count + f.down_count + f.flat_count;
+  const day = LATEST_DAY ? `${+LATEST_DAY.slice(5, 7)}/${+LATEST_DAY.slice(8, 10)} 조사` : '';
+  const desc = `직전 조사일보다 오른 품목 ${f.up_count}개, 내린 품목 ${f.down_count}개, 그대로 ${f.flat_count}개`;
   document.getElementById('breadth').innerHTML =
-    `<span class="u">▲ <b>${f.up_count}</b></span>` +
-    `<span class="d">▼ <b>${f.down_count}</b></span>` +
-    `<span class="f">― <b>${f.flat_count}</b></span>` +
-    `<span class="sep long">|</span>` +
-    `<span class="f long">품목 ${f.count}개 · 직전 조사일 대비</span>` +
-    // 휴대폰에서는 위 두 칸 대신 짧은 꼬리표 하나만 보인다 (같은 줄에 들어가도록)
-    `<span class="f short">어제 대비</span>`;
+    (tot ? `<div class="bbar" role="img" aria-label="${desc}" title="${desc}">` +
+      `<i class="u" style="flex:${f.up_count}"></i><i class="d" style="flex:${f.down_count}"></i>` +
+      `<i class="f" style="flex:${f.flat_count}"></i></div>` : '') +
+    `<div class="blab"><span class="u">▲ 오름 <b>${f.up_count}</b></span>` +
+    `<span class="d">▼ 내림 <b>${f.down_count}</b></span>` +
+    `<span class="f">― 보합 <b>${f.flat_count}</b></span>` +
+    (day ? `<span class="f">${day}</span>` : '') + `</div>`;
 
   const t = document.getElementById('ticker');
   // 띠의 등락은 평년이 아니라 '직전 조사일 대비'다 (아래 등락 요약과 같은 change_pct).
@@ -1562,19 +1667,17 @@ function showFreshness(meta){
 
   el.hidden = false;
   el.classList.toggle('stale', u.stale);
-  // 조사일은 DB 의 최신값을 쓴다. 수집 로그의 survey_date 는 '마지막으로 요청한
-  // 날짜'라서, 빠진 날을 나중에 메우면 날짜가 뒤로 가 버린다.
-  // 조사일은 '대부분의 품목에 값이 있는 최신일'을 적는다. meta.latest 는 공표 전이나
-  // 주말에 축산물만 들어온 날짜라, 그걸 적으면 화면 대부분과 어긋난다.
+  // 조사일은 바로 위 등락 막대 아래(renderBoard)에 적으므로 여기서는 언제 받아 왔는지만 적는다.
+  // 정확한 조사일 · 수집 시각은 이 줄에 올리면(title) 나온다.
   const parts = [
     '<span class="dot" aria-hidden="true"></span>',
-    `<span class="txt">조사일 ${meta.latest_full || meta.latest} · ${agoText(u.age_minutes)} 자동 갱신</span>`,
+    `<span class="txt">${agoText(u.age_minutes)} 자동 갱신</span>`,
   ];
   if(u.stale){
     parts.push('<span class="badge">자동 수집이 24시간 넘게 멈춰 있어요</span>');
   }
   el.innerHTML = parts.join('');
-  el.title = `마지막 수집 ${u.at.replace('T', ' ')} · 요청 조사일 ${u.survey_date} (${u.status})`;
+  el.title = `조사일 ${meta.latest_full || meta.latest} · 마지막 수집 ${u.at.replace('T', ' ')} · 요청 조사일 ${u.survey_date} (${u.status})`;
 }
 
 // 화면을 오래 켜 두면 '3분 전'이 굳고, 오후 수집이 반영된 것도 모른다.
@@ -1627,7 +1730,8 @@ async function loadMarket(keepItem){
     cookieStage();
     renderBrief();
     // 품종 코드는 시장마다 다를 수 있어 품목만 이어 가고, 품종은 그 시장의 기본값으로 연다.
-    if(keepItem && ITEMS[keepItem]) openItem(keepItem);
+    if(keepItem && ITEMS[keepItem]) openItem(keepItem, null, null, {scroll: false});
+    else if(BOARD_Q.matches) openFirst();
   }catch(e){
     if(mk !== MARKET) return;
     document.getElementById('ticker').hidden = true;
