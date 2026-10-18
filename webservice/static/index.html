@@ -534,9 +534,9 @@ try{
       <h2 id="h-all">모든 품목</h2>
       <label class="fld sortfld"><span>정렬</span>
         <select id="sort">
-          <option value="normal">평년보다 싼 순</option>
-          <option value="week">1주 동안 많이 내린 순</option>
-          <option value="name">이름순</option>
+          <option value="normal">평년보다 저렴한 순</option>
+          <option value="week">일주일 동안 많이 내린 순</option>
+          <option value="day">어제보다 저렴한 순</option>
         </select></label>
     </div>
     <div class="chips" id="cats" role="group" aria-label="분류"></div>
@@ -878,7 +878,8 @@ const SORTS = {
   // 평년 자료가 없는 품목은 판정을 못 하니 맨 뒤로
   normal: (a, b) => (vsNormal(a) ?? Infinity) - (vsNormal(b) ?? Infinity),
   week: (a, b) => (a.change_7d ?? Infinity) - (b.change_7d ?? Infinity),
-  name: (a, b) => a.item_name.localeCompare(b.item_name, 'ko'),
+  // '어제'는 직전 조사일이다 (주말 · 공휴일이 끼면 며칠 전). 등락 요약 · 시세 띠와 같은 값
+  day: (a, b) => a.change_pct - b.change_pct,
 };
 
 // 장바구니 칸. 수량은 cart.js 가 들고 있는 장바구니에서 읽는다 (로그인 전에는 0).
