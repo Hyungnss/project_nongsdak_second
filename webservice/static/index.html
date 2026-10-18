@@ -1195,6 +1195,20 @@ setInterval(async () => {
   }catch(e){}
 }, 60000);
 
+// 처음 열 때 보여줄 품목. 목록은 가나다순이라 맨 앞(가리비)을 고르면 철 지난 품목의
+// '164일 전 가격' 경고로 화면이 시작된다. 많이 찾는 품목 중 최근 조사된 것을 먼저 고르고,
+// 없으면 최근 조사된 첫 품목, 그것도 없으면 맨 앞 품목으로 물러선다.
+const DEFAULT_ITEM_NAMES = ['배추', '무', '양파', '사과'];
+const FRESH_DAYS = 3;
+function defaultItem(items){
+  const fresh = items.filter(i => i.days_stale <= FRESH_DAYS);
+  for(const name of DEFAULT_ITEM_NAMES){
+    const hit = fresh.find(i => i.item_name === name);
+    if(hit) return hit.item_code;
+  }
+  return (fresh[0] || items[0]).item_code;
+}
+
 // 시장 하나를 통째로 그린다. 처음 열 때와 소매·도매 탭을 바꿀 때 모두 이 길로 온다.
 // keepItem: 보던 품목이 새 시장에도 있으면 그대로 보여준다 (배추를 보다 도매로 넘기면 도매 배추).
 async function loadMarket(keepItem){
@@ -1235,7 +1249,7 @@ async function loadMarket(keepItem){
       return;
     }
     // 품종 코드는 시장마다 다를 수 있어 품목만 이어 가고, 품종은 그 시장의 기본값으로 연다.
-    const start = (keepItem && ITEMS[keepItem]) ? keepItem : d.items[0].item_code;
+    const start = (keepItem && ITEMS[keepItem]) ? keepItem : defaultItem(d.items);
     selItem.value = start;
     fillKinds(start);
     showDetail(start, selKind.value);
