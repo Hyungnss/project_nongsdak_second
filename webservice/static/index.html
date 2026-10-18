@@ -111,19 +111,39 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--card);border-color:var(--ink)}
 .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-/* 줄 하나 = 품목 하나. 열 머리와 같은 격자를 써서 숫자가 세로로 맞는다. */
+/* 줄 하나 = 품목 하나. 열 머리와 같은 격자를 써서 숫자가 세로로 맞는다.
+   맨 오른쪽 칸은 장바구니 담기(− 수량 +). 도매에서는 담지 않으므로 그 칸을 뺀다 (.nocart). */
 .lcolh,.lrow{display:grid;gap:12px;align-items:center;
-  grid-template-columns:minmax(0,1.6fr) minmax(96px,auto) minmax(0,1.3fr) 96px 70px}
+  grid-template-columns:minmax(0,1.6fr) minmax(96px,auto) minmax(0,1.3fr) 96px 70px 100px}
+@media (min-width:621px){
+  .nocart .lcolh,.nocart .lrow{grid-template-columns:minmax(0,1.6fr) minmax(96px,auto) minmax(0,1.3fr) 96px 70px}
+}
+.nocart .lcolh span:nth-child(6){display:none}
 .lcolh{padding:0 8px 6px;font-size:11.5px;color:var(--muted);letter-spacing:.02em}
 .lcolh span:nth-child(2),.lcolh span:nth-child(5){text-align:right}
-.lrow{font:inherit;color:inherit;width:100%;text-align:left;cursor:pointer;background:none;
-  border:0;border-top:1px solid var(--line);padding:11px 8px;border-radius:0}
-.lrow:hover{background:var(--card2)}
-.lrow:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-.lrow[aria-expanded="true"]{background:var(--card2)}
-.lrow .nm{font-size:14.5px;font-weight:650;min-width:0}
+.lcolh span:nth-child(6){text-align:center}
+/* 줄 아무 데나 눌러도 펼쳐진다. 키보드로는 품목 이름 버튼(.nmbtn)으로 펼친다. */
+.lrow{cursor:pointer;border-top:1px solid var(--line);padding:11px 8px}
+.lrow:hover,.lrow.open{background:var(--card2)}
+.lrow .nmbtn{font:inherit;color:inherit;text-align:left;background:none;border:0;padding:0;
+  cursor:pointer;min-width:0;border-radius:4px}
+.lrow .nmbtn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.lrow .nm{font-size:14.5px;font-weight:650;min-width:0;display:block}
 .lrow .nm small{display:block;font-weight:400;font-size:12px;color:var(--muted);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 장바구니 담기 — − 수량 + */
+.cartctl{display:inline-flex;align-items:center;justify-self:center;border:1px solid var(--line);
+  border-radius:8px;background:var(--card);overflow:hidden;cursor:default}
+.cartctl button{font:inherit;font-size:16px;line-height:1;width:30px;height:30px;border:0;
+  background:none;color:var(--ink2);cursor:pointer}
+.cartctl button:hover:not(:disabled){background:var(--card2);color:var(--ink)}
+.cartctl button:disabled{opacity:.3;cursor:default}
+.cartctl button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.cartctl .inc{color:var(--ink);font-weight:700}
+.cartctl output{min-width:24px;text-align:center;font-family:ui-monospace,Consolas,monospace;
+  font-size:13px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.cartctl.has{border-color:var(--ink)}
+.cartctl.has output{color:var(--ink);font-weight:700}
 .lrow .pr{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
   font-weight:650;white-space:nowrap}
 .lrow .pr small{display:block;font-family:system-ui,"Malgun Gothic",sans-serif;font-size:11.5px;
@@ -133,12 +153,16 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
   font-size:13px;font-weight:650;white-space:nowrap}
 .wk.up{color:var(--up)} .wk.down{color:var(--down)} .wk.flat{color:var(--muted)}
 .lrow .spark{width:96px;height:24px}
-/* 휴대폰에서는 품목 · 판정 · 가격만 남긴다. 추이와 1주 변화는 펼치면 나온다. */
+/* 휴대폰에서는 품목 · 판정 · 가격만 남긴다. 추이와 1주 변화는 펼치면 나온다.
+   장바구니 칸은 가격 아래 둘째 줄로 내린다. */
 @media (max-width:620px){
-  .lcolh,.lrow{grid-template-columns:minmax(0,1fr) auto auto;gap:10px}
-  .lrow .spark,.lrow .wk,.lcolh span:nth-child(4),.lcolh span:nth-child(5){display:none}
+  .lcolh,.lrow{grid-template-columns:minmax(0,1fr) auto auto;gap:6px 10px}
+  .lrow .spark,.lrow .wk,.lcolh span:nth-child(4),.lcolh span:nth-child(5),
+  .lcolh span:nth-child(6){display:none}
+  .lrow .nmbtn{grid-column:1;grid-row:1/3}
   .lrow .pill,.lcolh span:nth-child(3){grid-column:2;grid-row:1}
   .lrow .pr,.lcolh span:nth-child(2){grid-column:3;grid-row:1}
+  .lrow .cartctl{grid-column:2/4;grid-row:2;justify-self:end}
 }
 .lempty{padding:14px 8px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
 
@@ -505,7 +529,7 @@ try{
     <div class="dear" id="dear"></div>
   </section>
 
-  <section class="card" aria-labelledby="h-all">
+  <section class="card" id="allcard" aria-labelledby="h-all">
     <div class="lhead">
       <h2 id="h-all">모든 품목</h2>
       <label class="fld sortfld"><span>정렬</span>
@@ -517,7 +541,7 @@ try{
     </div>
     <div class="chips" id="cats" role="group" aria-label="분류"></div>
     <div class="lcolh" aria-hidden="true">
-      <span>품목</span><span>오늘 가격</span><span>평년 대비</span><span>최근 추이</span><span>1주 변화</span>
+      <span>품목</span><span>오늘 가격</span><span>평년 대비</span><span>최근 추이</span><span>1주 변화</span><span>장바구니</span>
     </div>
     <div id="list"><div class="loading">불러오는 중…</div></div>
     <nav class="pager" id="pager" aria-label="모든 품목 페이지" hidden></nav>
@@ -857,16 +881,44 @@ const SORTS = {
   name: (a, b) => a.item_name.localeCompare(b.item_name, 'ko'),
 };
 
+// 장바구니 칸. 수량은 cart.js 가 들고 있는 장바구니에서 읽는다 (로그인 전에는 0).
+// 장바구니는 소매가로 합계를 내므로 도매 목록에는 그리지 않는다.
+function cartCtlHtml(c){
+  if(MARKET !== 'retail') return '';
+  const line = window.nongsdaqCart && nongsdaqCart.lineOf(c.item_code, c.kind_code, c.rank_name);
+  const q = line ? line.qty : 0;
+  const nm = esc(c.item_name);
+  return `<span class="cartctl${q ? ' has' : ''}" role="group" aria-label="${nm} 장바구니">
+    <button type="button" class="dec" aria-label="${nm} 하나 빼기"${q ? '' : ' disabled'}>−</button>
+    <output aria-label="장바구니에 담긴 수량">${q}</output>
+    <button type="button" class="inc" aria-label="${nm} 장바구니에 담기"${q >= 99 ? ' disabled' : ''}>+</button></span>`;
+}
+
 function rowHtml(c){
   const open = OPEN && OPEN.item === c.item_code;
   const wk = c.change_7d;
   const wcls = wk == null ? 'flat' : (dirClass(wk) || 'flat');
-  return `<button type="button" class="lrow" ${keyAttrs(c)} aria-expanded="${open}">
-    <span class="nm">${esc(c.item_name)}<small>${esc(c.kind_name)} · ${esc(c.rank_name)}</small></span>
+  return `<div class="lrow${open ? ' open' : ''}" ${keyAttrs(c)}>
+    <button type="button" class="nmbtn" aria-expanded="${open}">
+      <span class="nm">${esc(c.item_name)}<small>${esc(c.kind_name)} · ${esc(c.rank_name)}</small></span></button>
     <span class="pr">${won(c.price)}<small>${esc(c.unit)}</small></span>
     ${pill(c)}${spark(c.spark, 96, 24)}
-    <span class="wk ${wcls}">${wk == null ? '—' : signed(wk)}</span></button>`;
+    <span class="wk ${wcls}">${wk == null ? '—' : signed(wk)}</span>
+    ${cartCtlHtml(c)}</div>`;
 }
+
+// 장바구니가 바뀌면(담기 · 빼기 · 로그인 · 로그아웃) 목록을 다시 그리지 않고 칸만 고친다.
+// 다시 그리면 펼쳐 둔 차트가 깜빡이고 스크롤이 튄다.
+function paintCartCtls(){
+  document.querySelectorAll('#list .lrow[data-kind]').forEach(row => {
+    const ctl = row.querySelector('.cartctl');
+    if(!ctl) return;
+    const c = {item_code: row.dataset.item, kind_code: row.dataset.kind,
+               rank_name: row.dataset.rank, item_name: row.querySelector('.nm').firstChild.textContent};
+    ctl.outerHTML = cartCtlHtml(c);
+  });
+}
+window.addEventListener('nongsdaq-cart', paintCartCtls);
 
 // 펼친 품목. 목록을 다시 그려도 기억해 두었다가 같은 줄 아래에 다시 펼친다.
 let OPEN = null;    // {item, kind, rank}
@@ -924,10 +976,12 @@ function renderList(){
   // 다른 분류에 있는 품목은 여기에 해당하지 않는다 — 분류를 바꾸면 펼친 품목을 닫는다.
   if(OPEN && !BRIEF.some(c => c.item_code === OPEN.item)){
     const it = ITEMS[OPEN.item];
-    if(it) html = `<button type="button" class="lrow" data-item="${it.item_code}" aria-expanded="true">
-      <span class="nm">${esc(it.item_name)}<small>지금은 목록에 없는 품목 (최근 조사 없음)</small></span>
-      <span class="pr"></span><span class="pill na">조사 없음</span></button>` + html;
+    if(it) html = `<div class="lrow open" data-item="${it.item_code}">
+      <button type="button" class="nmbtn" aria-expanded="true">
+        <span class="nm">${esc(it.item_name)}<small>지금은 목록에 없는 품목 (최근 조사 없음)</small></span></button>
+      <span class="pr"></span><span class="pill na">조사 없음</span></div>` + html;
   }
+  document.getElementById('allcard').classList.toggle('nocart', MARKET !== 'retail');
   box.innerHTML = html || '<div class="lempty">이 분류에는 지금 조사되는 품목이 없어요.</div>';
 
   if(OPEN){
@@ -939,8 +993,10 @@ function renderList(){
 function closeItem(){
   OPEN = null;
   park.appendChild(xdetail);
-  document.querySelectorAll('.lrow[aria-expanded="true"]')
-    .forEach(r => r.setAttribute('aria-expanded', 'false'));
+  document.querySelectorAll('#list .lrow.open').forEach(r => {
+    r.classList.remove('open');
+    r.querySelector('.nmbtn').setAttribute('aria-expanded', 'false');
+  });
 }
 
 // 카드 · 목록 · 검색 · 포춘쿠키에서 품목을 고르면 모두 이 길로 온다.
@@ -962,9 +1018,25 @@ function openItem(itemCode, kindCode, rankName){
   if(row) row.scrollIntoView({behavior: 'smooth', block: 'start'});
 }
 
-document.getElementById('list').addEventListener('click', e => {
+document.getElementById('list').addEventListener('click', async e => {
   const row = e.target.closest('.lrow');
   if(!row) return;
+  // 장바구니 칸은 펼치기와 따로 논다. 칸 안 어디를 눌러도 줄이 펼쳐지지 않는다.
+  const ctl = e.target.closest('.cartctl');
+  if(ctl){
+    const b = e.target.closest('button');
+    if(!b || b.disabled || !window.nongsdaqCart) return;
+    // 응답이 올 때까지 두 버튼을 잠가 연달아 눌러도 요청이 겹치지 않게 한다
+    ctl.querySelectorAll('button').forEach(x => x.disabled = true);
+    const {item, kind, rank} = row.dataset;
+    if(b.classList.contains('inc')){
+      await nongsdaqCart.add(item, kind, rank, row.querySelector('.nm').firstChild.textContent);
+    }else{
+      await nongsdaqCart.dec(item, kind, rank);
+    }
+    paintCartCtls();    // 실패했거나 로그인 창을 닫은 경우에도 버튼을 되살린다
+    return;
+  }
   if(OPEN && OPEN.item === row.dataset.item){ closeItem(); return; }
   openItem(row.dataset.item, row.dataset.kind, row.dataset.rank);
 });

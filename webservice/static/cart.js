@@ -63,6 +63,8 @@
     badge.textContent = n;
     badge.hidden = !n;
     btn.setAttribute('aria-label', n ? `장바구니 ${n}가지 담김` : '장바구니');
+    // 장바구니가 바뀔 때마다 알린다. 메인 화면 목록의 +/− 와 수량이 이걸 듣고 다시 그린다.
+    window.dispatchEvent(new CustomEvent('nongsdaq-cart'));
   }
 
   // ── 패널 ────────────────────────────────────────────────────────────
@@ -290,18 +292,42 @@
     if(e.target.closest('[data-open]')){ toast.hidden = true; open(); }
   });
 
+  // 담긴 줄 찾기. 등급을 주면 등급까지 맞춘다 (같은 품종의 다른 등급은 다른 줄이다).
+  function lineOf(item, kind, rank){
+    if(!cart) return null;
+    return cart.items.find(i => i.item_code === item && i.kind_code === kind &&
+                                (!rank || i.rank_name === rank)) || null;
+  }
+
   async function add(item, kind, rank, name){
     const user = await auth.require();
     if(!user) return;
     try{
       cart = await call('POST', '', {item_code: item, kind_code: kind, rank_name: rank || null});
       paintBadge();
-      const line = cart.items.find(i => i.item_code === item && i.kind_code === kind);
+      if(dlg.open) render();
+      const line = lineOf(item, kind, rank);
       say(`${name || '품목'}을(를) 담았어요${line && line.qty > 1 ? ` · 지금 ${line.qty}개` : ''}`, true);
     }catch(e){
       say(e.message, false);
     }
   }
 
-  window.nongsdaqCart = {open, add};
+  // 하나 빼기. 1개 남았으면 장바구니에서 뺀다.
+  async function dec(item, kind, rank){
+    const line = lineOf(item, kind, rank);
+    if(!line) return;
+    try{
+      cart = line.qty > 1
+        ? await call('PATCH', '/' + line.cart_no, {qty: line.qty - 1})
+        : await call('DELETE', '/' + line.cart_no);
+      paintBadge();
+      if(dlg.open) render();
+      if(line.qty <= 1) say(`${line.item_name}을(를) 장바구니에서 뺐어요`, true);
+    }catch(e){
+      say(e.message, false);
+    }
+  }
+
+  window.nongsdaqCart = {open, add, dec, lineOf};
 })();
