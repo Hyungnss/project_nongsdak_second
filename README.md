@@ -51,6 +51,8 @@ KAMIS 일별 **소매·도매** 시세를 Oracle 에 적재해 두고, 오늘 �
 | `webservice/auth.py` | 회원가입 · 로그인 · 로그아웃 (`/api/auth/*`). 다른 API 가 붙여 쓰는 `current_user` · `require_user` 의존성 |
 | `webservice/static/index.html` | 화면 전체 (외부 리소스 0건) |
 | `webservice/static/auth.js` · `auth.css` | 오른쪽 위 로그인 버튼과 팝업. 다른 기능이 쓰는 `window.nongsdaqAuth` |
+| `webservice/cart.py` | 장바구니 (`/api/cart/*`). 로그인한 회원만 쓴다 |
+| `webservice/static/cart.js` · `cart.css` | 오른쪽 위 장바구니 버튼(로그인했을 때만)과 장바구니 패널, 상세의 '장바구니에 담기' |
 
 ---
 
@@ -80,6 +82,29 @@ const user = await nongsdaqAuth.require();
 
 개인 데이터 테이블은 `TBL_USER.USER_NO` 를 외래키로 건다.
 로그인 시도 횟수 제한(무차별 대입 방어)은 아직 없다 — 배포 전에 붙일 것.
+
+---
+
+## 장바구니
+
+로그인하면 오른쪽 위에 **장바구니** 버튼이 생긴다. 누르면 메인 화면 위로 오른쪽에서 패널이 열린다
+(휴대폰은 화면 전체). 메인 화면은 그대로다.
+
+| | |
+|---|---|
+| 테이블 | `TBL_CART_ITEM` (`database/12_create_cart.sql`, `11` 다음에 실행). 회원당 같은 품종 · 등급은 한 줄, 수량 1~99, 최대 50가지 |
+| 가격 | 저장하지 않는다. 열 때마다 장보기 브리핑(`/api/briefing`)의 최신 **소매가**를 붙인다. 철 지나 조사가 끊긴 품목은 마지막 조사 가격을 '지금 조사 안 함'과 함께 보여준다 |
+| 화면 | 합계 · 지난주 대비 · 평년 대비 막대, 품목마다 '사기 좋은 때 / 평소 가격 / 조금 기다려 보기'(평년 ±10%), 수량 조절 · 빼기 · 비우기, 더 담기, 묶음 담기(김장 · 아침 식탁 · 찌개거리) |
+| 담는 곳 | 패널의 '더 담기', 메인 화면 품목 상세의 '장바구니에 담기'(로그인 안 했으면 로그인 창부터) |
+| API | `GET /api/cart` · `POST /api/cart` · `POST /api/cart/bulk` · `PATCH /api/cart/{cart_no}` · `DELETE /api/cart/{cart_no}` · `DELETE /api/cart`. 쓰기는 바뀐 뒤의 장바구니 전체를 돌려준다 |
+
+도매는 담지 않는다. 도매가는 10kg · 상자 단위라 장보기 합계에 섞으면 숫자가 의미를 잃는다.
+
+```js
+// 다른 화면에서 쓰기 (cart.js 는 auth.js 다음에 불러온다)
+nongsdaqCart.open();                       // 패널 열기
+nongsdaqCart.add(item, kind, rank, name);  // 한 품목 담기
+```
 
 ---
 
