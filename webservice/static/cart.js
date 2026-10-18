@@ -313,21 +313,5 @@
     }
   }
 
-  // 하나 빼기. 1개 남았으면 장바구니에서 뺀다.
-  async function dec(item, kind, rank){
-    const line = lineOf(item, kind, rank);
-    if(!line) return;
-    try{
-      cart = line.qty > 1
-        ? await call('PATCH', '/' + line.cart_no, {qty: line.qty - 1})
-        : await call('DELETE', '/' + line.cart_no);
-      paintBadge();
-      if(dlg.open) render();
-      if(line.qty <= 1) say(`${line.item_name}을(를) 장바구니에서 뺐어요`, true);
-    }catch(e){
-      say(e.message, false);
-    }
-  }
-
-  window.nongsdaqCart = {open, add, dec, lineOf};
+  window.nongsdaqCart = {open, add, lineOf};
 })();
