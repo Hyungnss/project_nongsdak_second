@@ -2,6 +2,7 @@
 
 시세는 TBL_DAILY_PRICE 만 사용한다. 모든 시세 API 가 ?market=retail|wholesale 을 받는다 (기본 소매).
 회원가입 · 로그인은 auth.py 에 있다 (TBL_USER · TBL_USER_SESSION). 시세는 로그인 없이 본다.
+장바구니는 cart.py 에 있다 (TBL_CART_ITEM). 로그인한 회원만 쓴다.
 보여주는 것은 두 가지다.
   1. 품목을 고르면 오늘 가격과 어제·1주일전·2주일전·1개월전 대비 변동
   2. 어제 대비 / 일주일 대비 많이 싸진·비싸진 품목 Top 5
@@ -23,6 +24,7 @@ from fastapi.staticfiles import StaticFiles
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import auth  # noqa: E402
+import cart  # noqa: E402
 import db  # noqa: E402
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -56,6 +58,8 @@ app = FastAPI(
 
 # 회원가입 · 로그인 (/api/auth/*). 시세 API 는 로그인 없이 그대로 열려 있다.
 app.include_router(auth.router)
+# 장바구니 (/api/cart/*). 로그인한 회원만 쓴다 (TBL_CART_ITEM).
+app.include_router(cart.router)
 
 
 @app.get("/api/meta")

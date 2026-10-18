@@ -1,0 +1,127 @@
+/* 장바구니. 색은 index.html 의 :root 토큰을 그대로 따른다 (다크 모드 포함).
+   메인 화면은 그대로 두고 오른쪽에서 밀려 나오는 패널로 연다. 휴대폰에서는 화면을 꽉 채운다. */
+
+/* 오른쪽 위 버튼 — 로그인 버튼(.authbtn)과 같은 모양에 담긴 가짓수만 덧붙인다 */
+.cartbtn{display:inline-flex;align-items:center;gap:6px}
+.cartbtn[hidden]{display:none}
+/* index.html 은 차트용으로 모든 svg 에 width:100% · min-width:560px 를 건다. 아이콘은 크기를 고정한다. */
+.cartbtn svg{flex:none;display:block;width:16px;height:16px;min-width:0}
+.cartbtn .n{font-size:11.5px;font-weight:700;min-width:19px;height:19px;padding:0 5px;border-radius:999px;
+  background:var(--ink);color:var(--card);display:inline-grid;place-items:center;
+  font-family:ui-monospace,Consolas,monospace}
+.cartbtn .n[hidden]{display:none}
+
+/* 패널 */
+.cartdlg{position:fixed;inset:0 0 0 auto;margin:0;padding:0;border:0;
+  width:min(580px,100vw);height:100%;max-height:none;max-width:none;
+  background:var(--bg);color:var(--ink);box-shadow:-20px 0 60px rgba(0,0,0,.22)}
+.cartdlg::backdrop{background:rgba(0,0,0,.4)}
+@keyframes cartIn{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
+.cartdlg[open]{animation:cartIn .22s ease-out}
+@media (prefers-reduced-motion:reduce){.cartdlg[open]{animation:none}}
+.cartdlg .wrapc{display:flex;flex-direction:column;height:100%}
+.cartdlg .hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  padding:20px 22px 16px;border-bottom:1px solid var(--line);background:var(--card)}
+.cartdlg h2{margin:0;font-size:21px;letter-spacing:-.3px}
+.cartdlg .hd p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.cartdlg .x{font:inherit;font-size:24px;line-height:1;border:0;background:none;color:var(--muted);
+  cursor:pointer;padding:2px 8px;border-radius:6px}
+.cartdlg .x:hover{color:var(--ink)}
+.cartdlg .x:focus-visible{outline:2px solid var(--accent)}
+.cartdlg .bd{flex:1;overflow-y:auto;padding:18px 22px 28px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:560px){
+  .cartdlg .hd{padding:16px 16px 14px}
+  .cartdlg .bd{padding:14px 16px 24px}
+}
+
+.cbox{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:16px 18px}
+.cbox h3{margin:0;font-size:15.5px}
+.cbox .sub{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+
+/* 합계 — 이 화면의 답이라 숫자를 크게 */
+.csum{display:flex;flex-direction:column;gap:14px}
+.csum .lb{font-size:13px;color:var(--ink2)}
+.csum .big{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-size:36px;font-weight:700;letter-spacing:-.03em;line-height:1.15}
+.csum .big small{font-family:inherit;font-size:16px;font-weight:600;margin-left:3px}
+.csum .delta{font-size:14.5px;margin-top:2px}
+.csum .delta b{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
+.csum .delta.up b{color:var(--up)} .csum .delta.down b{color:var(--down)}
+.cbars{display:flex;flex-direction:column;gap:7px}
+.cbar{display:grid;grid-template-columns:44px minmax(0,1fr) 92px;gap:10px;align-items:center;font-size:12.5px}
+.cbar .lab{color:var(--ink2)}
+.cbar .trk{height:12px;background:var(--card2);border-radius:0 4px 4px 0;overflow:hidden}
+.cbar .trk i{display:block;height:100%;background:var(--muted);border-radius:0 4px 4px 0}
+.cbar.now .trk i{background:var(--ink)}
+.cbar.nrm .trk i{background:var(--teal)}
+.cbar .v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
+.cscale{font-size:11.5px;color:var(--muted)}
+
+.ctip{font-size:13.5px;line-height:1.55;border-radius:12px;padding:11px 14px;
+  background:var(--card2);color:var(--ink)}
+.ctip b.g{color:var(--down)} .ctip b.r{color:var(--up)}
+
+/* 담은 품목 */
+.clist{margin-top:6px}
+.crow{display:grid;gap:8px 12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);
+  grid-template-columns:minmax(0,1fr) auto auto}
+.crow:first-child{border-top:0}
+.crow .nm{font-weight:650;font-size:14.5px;min-width:0}
+.crow .nm small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
+.crow .nm .old{color:var(--amber)}
+.crow .tot{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-weight:650;white-space:nowrap}
+.crow .tot small{display:block;font-size:11.5px;font-weight:600}
+.crow .tot .up{color:var(--up)} .crow .tot .down{color:var(--down)} .crow .tot .flat{color:var(--muted)}
+.crow .rm{font:inherit;font-size:18px;line-height:1;border:0;background:none;color:var(--muted);
+  cursor:pointer;padding:4px 6px;border-radius:6px}
+.crow .rm:hover{color:var(--up)}
+.crow .rm:focus-visible{outline:2px solid var(--accent)}
+.crow .line2{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.crow .line2 .why{font-size:12px;color:var(--muted)}
+.qty{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;
+  overflow:hidden;background:var(--card)}
+.qty button{font:inherit;border:0;background:none;width:32px;height:30px;cursor:pointer;font-size:16px;color:var(--ink2)}
+.qty button:hover:not(:disabled){background:var(--card2);color:var(--ink)}
+.qty button:disabled{opacity:.35;cursor:default}
+.qty button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.qty output{min-width:28px;text-align:center;font-family:ui-monospace,Consolas,monospace;font-size:13.5px}
+
+.cempty{text-align:center;padding:22px 8px;color:var(--ink2);font-size:14px}
+.cempty b{display:block;font-size:16px;color:var(--ink);margin-bottom:4px}
+
+/* 더 담기 */
+.cadd{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.cadd select{font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+  background:var(--card);color:var(--ink);flex:1 1 220px;min-width:0;max-width:100%}
+.cadd select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.cbtn{font:inherit;font-size:14px;padding:8px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;
+  border:1px solid var(--ink);background:var(--ink);color:var(--card)}
+.cbtn:hover{opacity:.88}
+.cbtn:disabled{opacity:.5;cursor:default}
+.cbtn.ghost{background:var(--card);color:var(--ink2);border-color:var(--line)}
+.cbtn.ghost:hover{color:var(--ink);border-color:var(--muted);opacity:1}
+.cbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cpresets{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.cpresets button small{color:var(--muted);margin-left:4px;font-size:12px}
+.cfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+  font-size:12.5px;color:var(--muted)}
+.cerr{color:var(--up);font-size:13.5px}
+
+/* 상세 화면의 '장바구니에 담기' */
+.addcart{font:inherit;font-size:14px;font-weight:600;padding:9px 16px;border-radius:999px;cursor:pointer;
+  border:1px solid var(--ink);background:var(--card);color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+.addcart:hover{background:var(--ink);color:var(--card)}
+.addcart:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.addrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
+.addrow .hint{font-size:12.5px;color:var(--muted)}
+
+/* 담았다는 알림 */
+.ctoast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;
+  display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;border-radius:12px;
+  background:var(--ink);color:var(--card);font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);
+  max-width:calc(100vw - 32px)}
+.ctoast[hidden]{display:none}
+.ctoast button{font:inherit;font-size:13.5px;font-weight:650;border:0;border-radius:8px;padding:6px 10px;
+  background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap}
+.ctoast button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
