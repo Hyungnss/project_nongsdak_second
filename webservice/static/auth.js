@@ -58,6 +58,8 @@
     if(act === 'login' || act === 'signup') open(act);
     if(act === 'logout'){
       try{ await post('logout'); }catch(err){}
+      // 같은 기기를 다음 사람이 쓸 수 있으니 써 두었던 입력도 비운다
+      clearForm();
       setUser(null);
     }
   });
@@ -116,16 +118,29 @@
     errEl.textContent = '';
   }
 
-  function open(m){
+  // 입력칸은 열 때 비우지 않는다. 다 써 놓고 바깥을 잘못 눌러 닫혀도, 다시 열면 그대로 남아 있다.
+  // 비우는 때는 로그인 · 가입이 성공했을 때와 로그아웃할 때뿐이다 (clearForm).
+  // 값은 이 화면(DOM)에만 있고 저장소에 남기지 않으므로 새로고침하면 사라진다.
+  function clearForm(){
     form.reset();
+    errEl.textContent = '';
+  }
+
+  // 이어서 쓸 수 있도록 아직 비어 있는 첫 칸에 커서를 둔다
+  function focusFirstEmpty(){
+    const fields = [...form.querySelectorAll('input')].filter(i => !i.closest('[hidden]'));
+    (fields.find(i => !i.value) || fields[0]).focus();
+  }
+
+  function open(m){
     setMode(m || 'login');
     if(!dlg.open) dlg.showModal();
-    form.login_id.focus();
+    focusFirstEmpty();
   }
 
   dlg.querySelector('.switch').addEventListener('click', e => {
     const m = e.target.closest('[data-mode]')?.dataset.mode;
-    if(m){ setMode(m); form.login_id.focus(); }
+    if(m){ setMode(m); focusFirstEmpty(); }
   });
   dlg.querySelector('[data-close]').addEventListener('click', () => dlg.close());
   // 바깥(어두운 영역)을 누르면 닫는다
@@ -154,6 +169,7 @@
     errEl.textContent = '';
     try{
       const u = await post(mode, body);
+      clearForm();          // 성공했으니 비밀번호를 화면에 남겨 둘 이유가 없다
       setUser(u);
       dlg.close();
     }catch(err){
