@@ -182,7 +182,7 @@ def rows_from(body, cat_code, regday, cls=RETAIL):
     """응답 하나를 CSV 모양 dict 목록으로 바꾼다.
 
     CSV 17컬럼 외에 '등급코드'·'1일전일자'·'1주일전일자'·'2주일전일자' 를 더 담는다.
-    CSV 로 떨굴 때는 CSV_COLUMNS 로 잘려 빠지고, upsert 의 MERGE 만 이 값을 쓴다.
+    CSV 로 떨굴 때는 CSV_COLUMNS 로 잘려 빠지고, upsert 의 반영 SQL 만 이 값을 쓴다.
     """
     rows = []
     for it in extract_items(body):

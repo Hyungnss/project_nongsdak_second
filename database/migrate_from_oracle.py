@@ -84,13 +84,13 @@ IDENTITIES = [(t, pk) for t, pk, _ in TABLES if t != "TBL_USER_SESSION"]
 # ── 접속 ─────────────────────────────────────────────────────────────────────
 def connect_oracle():
     """thin 으로 먼저 붙어 보고, 11g 라 안 되면(DPY-3010) Instant Client 로 thick 전환."""
-    args = dict(user=config.DB_USER, password=config.DB_PASSWORD, **config.DB_DSN)
+    args = dict(user=config.ORACLE_USER, password=config.ORACLE_PASSWORD, **config.ORACLE_DSN)
     try:
         return oracledb.connect(**args)
     except oracledb.Error as e:
         if "DPY-3010" not in str(e):
             raise
-    oracledb.init_oracle_client(lib_dir=config.CLIENT_LIB_DIR)
+    oracledb.init_oracle_client(lib_dir=config.ORACLE_CLIENT_DIR)
     return oracledb.connect(**args)
 
 

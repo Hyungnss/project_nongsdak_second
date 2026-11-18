@@ -16,7 +16,7 @@ rem              tomorrow's --days 7 re-ask picks it up, so it self-heals.
 rem why --days 7: a once-a-day run asks for that day only, so a missed run would
 rem               leave a permanent hole. Re-asking today back through -6 fills a
 rem               week of gaps (covers a longer PC-off stretch) and picks up
-rem               KAMIS's after-the-fact revisions. MERGE, so no dupes.
+rem               KAMIS's after-the-fact revisions. ON CONFLICT upsert, so no dupes.
 rem markets   : 06 fetches retail (01) and wholesale (02) by default, 12 calls
 rem               per day. Raw JSON goes to TBL_API_RAW before parsing.
 rem ===========================================================================

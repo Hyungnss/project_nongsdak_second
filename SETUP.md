@@ -1,7 +1,10 @@
 # 농스닥 — 내 PC에서 돌려보기
 
-CSV 한 개를 각자 로컬 Oracle 에 올리고 웹서비스를 띄우는 순서다.
-처음부터 끝까지 **15분쯤** 걸린다.
+PostgreSQL 을 Docker 로 띄우고, 원본 CSV 를 넣고, 웹서비스를 띄우는 순서다.
+처음부터 끝까지 **10분쯤** 걸린다.
+
+> v1.0.0 까지는 Oracle XE 11g 를 썼다. v2 부터 PostgreSQL 이다.
+> Oracle 에 쌓인 데이터를 옮겨 오는 방법은 맨 아래 [Oracle 에서 옮겨 오기](#oracle-에서-옮겨-오기-v1--v2) 에 있다.
 
 ---
 
@@ -9,17 +12,14 @@ CSV 한 개를 각자 로컬 Oracle 에 올리고 웹서비스를 띄우는 순�
 
 | | 확인 방법 |
 |---|---|
-| **Oracle Database XE** 가 돌고 있을 것 | 서비스 목록에서 `OracleServiceXE` 실행 중 |
-| **Oracle Instant Client** | 압축 푼 폴더 경로를 기억해 둘 것 (아래 2단계에서 씀) |
+| **Docker Desktop** | `docker --version` · `docker compose version` — PostgreSQL 을 컨테이너로 띄운다 |
 | **uv** | `uv --version` — 파이썬 3.11 은 uv 가 알아서 받는다 (1단계) |
 | **Git** | `git --version` · 저장소를 받는다: `git clone <저장소주소>` |
 
 원본 CSV(`data/raws/kamis_price_data_20250901_20260818.csv`)는 저장소에 함께 들어 있다.
 `.env` 와 `.venv/`, `logs/` 는 들어 있지 않다 — 각자 만든다(1·2단계).
 
-> **Instant Client 가 왜 필요한가** — 이 프로젝트의 Oracle 은 11g 라서 `oracledb` 의
-> 기본(thin) 모드로는 접속이 안 된다(`DPY-3010`). Instant Client 를 써서 thick 모드로
-> 붙어야 한다. 스크립트가 알아서 전환하지만, **경로는 각자 고쳐야 한다.**
+예전처럼 Oracle Instant Client 를 깔 필요는 없다.
 
 ---
 
@@ -47,10 +47,10 @@ uv sync
 
 ---
 
-## 2. 접속 정보 맞추기 (⚠ 각자 환경에 맞게)
+## 2. 접속 정보 맞추기 — `.env`
 
-접속 정보는 **`.env` 한 곳**에만 적는다. 코드(`config.py`)가 여기서 읽어 가므로
-스크립트를 열어 고칠 필요가 없다. `.env` 는 커밋되지 않는다 (`.gitignore`).
+접속 정보는 **`.env` 한 곳**에만 적는다. 코드(`config.py`)와 `docker compose` 가 둘 다 여기서 읽는다.
+`.env` 는 커밋되지 않는다 (`.gitignore`).
 
 ```
 Copy-Item .env.example .env
@@ -60,32 +60,38 @@ Copy-Item .env.example .env
 
 | 값 | 설명 |
 |---|---|
-| `ORACLE_CLIENT_DIR` | **사람마다 다르다.** Instant Client 압축을 푼 폴더로 바꿀 것. `oci.dll` 이 **바로 들어 있는 안쪽 폴더**(`...\instantclient_23_26`)여야 한다 |
-| `ORACLE_USER` · `ORACLE_PASSWORD` | 실습 환경(`kdt_admin` / `1234`)과 같다면 지워도 된다 |
+| `DB_PASSWORD` | **꼭 정한다.** 3단계에서 DB 를 처음 띄울 때 이 비밀번호로 만들어진다 (나중에 바꾸려면 볼륨을 새로 만들어야 한다) |
+| `DB_HOST` · `DB_PORT` · `DB_NAME` · `DB_USER` | 기본값(`127.0.0.1` · `5432` · `nongsdak` · `nongsdak`) 그대로 두면 된다 |
 | `KAMIS_CERT_KEY` · `KAMIS_CERT_ID` | 6단계에서 채운다. 지금은 비워 둬도 웹서비스는 뜬다 |
 
 값을 찾는 순서는 **환경변수 → `.env` → `config.py` 의 기본값**이다.
-Oracle 쪽만 기본값이 있고, KAMIS 인증키는 기본값을 두지 않는다 —
-없는 채로 수집기를 돌리면 안 되기 때문이다.
+KAMIS 인증키는 기본값을 두지 않는다 — 없는 채로 수집기를 돌리면 안 되기 때문이다.
+
+> **`DB_HOST` 를 `localhost` 로 적지 말 것** — Windows 는 `localhost` 를 IPv6(`::1`)로 먼저 시도하는데,
+> Docker 는 IPv4(`127.0.0.1`)에만 열어 두어서 접속할 때마다 몇 초씩 멈춘다.
 
 ---
 
-## 3. 테이블 만들기
+## 3. DB 띄우기 — docker compose
 
-SQL Developer 등에서 `kdt_admin` 으로 접속해 `database/01_create_kamis_table.sql` 을 실행한다.
-테이블 1개 · 시퀀스 1개 · 인덱스 3개가 만들어진다.
+```
+docker compose up -d db
+```
 
-파일 끝의 확인용 SELECT 로 잘 만들어졌는지 볼 수 있다.
+처음 뜰 때 `database/schema.sql` 이 자동으로 실행돼 **테이블 6개**(시세 · 수집 이력 · API 원문 ·
+회원 · 로그인 세션 · 장바구니)가 만들어진다. 데이터는 `pgdata` 볼륨에 남아서 껐다 켜도 그대로다.
 
-로그인 · 회원가입을 쓰려면 `database/11_create_user.sql` 도 실행한다 (회원 · 세션 테이블).
-다른 SQL 과 순서는 상관없다. 안 만들어도 시세 화면은 그대로 뜨고, 로그인만 안 된다.
+```
+docker compose ps                                       # STATUS 가 healthy 면 준비 완료
+docker compose exec db psql -U nongsdak -d nongsdak     # 직접 들어가 보기 (\dt 로 테이블 목록)
+```
 
-> **`ORA-01950: no privileges on tablespace` 가 나면** — 계정에 테이블스페이스 권한이 없다.
-> DBA 계정으로 아래를 실행한 뒤 다시 시도한다.
-> ```sql
-> ALTER USER kdt_admin DEFAULT TABLESPACE USERS;
-> ALTER USER kdt_admin QUOTA UNLIMITED ON USERS;
-> ```
+| 할 일 | 명령 |
+|---|---|
+| 끄기 (데이터 유지) | `docker compose down` |
+| 처음부터 다시 (⚠ 데이터 삭제) | `docker compose down -v` 후 `docker compose up -d db` |
+
+DB 는 이 PC 안에서만 접속할 수 있다 (`127.0.0.1:5432`). 버전은 `postgres:18.7` 로 고정돼 있다.
 
 ---
 
@@ -99,13 +105,13 @@ uv run python -m collector.loader
 
 ```
 CSV 읽음: kamis_price_data_20250901_20260818.csv · 43,480행
-Oracle 연결 성공 (thick 모드)
+PostgreSQL 연결 성공 (127.0.0.1:5432/nongsdak)
 적재 완료: 43,480행
 기간 2025-09-01 ~ 2026-08-18 · 품목 93개 · 당일가격 있는 행 40,xxx
 ```
 
-> **`ORA-00001: unique constraint` 가 나면** — 이미 들어 있는 자료가 있다.
-> 처음부터 다시 넣으려면 `TRUNCATE TABLE TBL_DAILY_PRICE;` 를 실행하고 다시 돌린다.
+> **`duplicate key value violates unique constraint` 가 나면** — 이미 들어 있는 자료가 있다.
+> 처음부터 다시 넣으려면 psql 에서 `TRUNCATE TBL_DAILY_PRICE;` 를 실행하고 다시 돌린다.
 
 ---
 
@@ -114,7 +120,7 @@ Oracle 연결 성공 (thick 모드)
 프로젝트 최상위 폴더에서:
 
 ```
-uv run python -m uvicorn backend.app:app --reload
+uv run uvicorn backend.app:app --reload
 ```
 
 브라우저에서 **http://127.0.0.1:8000** 을 연다.
@@ -126,7 +132,7 @@ uv run python -m uvicorn backend.app:app --reload
 여기까지는 CSV 한 개(2026-08-18 까지)를 넣은 상태다. **그 뒤 날짜는 API 로 받는다.**
 
 1. KAMIS 에서 OpenAPI 인증키를 발급받는다 (`p_cert_key` · `p_cert_id`).
-2. 최상위에 `.env` 를 만들고 채운다 — `.env.example` 을 복사해 쓰면 된다.
+2. `.env` 에 채운다.
 
    ```
    KAMIS_CERT_KEY=발급받은키
@@ -135,9 +141,7 @@ uv run python -m uvicorn backend.app:app --reload
 
    `KAMIS_CERT_ID` 는 **로그인 아이디가 아니다.** KAMIS 마이페이지에 따로 나오는 ID 를 넣는다.
 
-3. 수집 이력 테이블을 만들고, 도매·원본 보관 구조를 얹는다 (**순서대로**):
-   `database/07_create_fetch_log.sql` → `database/10_add_wholesale_and_raw.sql`
-4. 빠진 날짜를 채운다. `--days N` 은 그날부터 거슬러 N일치를 함께 받는다.
+3. 빠진 날짜를 채운다. `--days N` 은 그날부터 거슬러 N일치를 함께 받는다.
 
    ```
    uv run python -m collector.upsert --days 14
@@ -149,12 +153,14 @@ uv run python -m uvicorn backend.app:app --reload
    uv run python -m collector.upsert --days 410 --market wholesale
    ```
 
-   410일 × 6부류 ≈ 2,500번 호출이라 40분쯤 걸린다. 끊겨도 다시 돌리면 이어서 메워진다(MERGE).
+   410일 × 6부류 ≈ 2,500번 호출이라 40분쯤 걸린다. 끊겨도 다시 돌리면 이어서 메워진다.
 
-`MERGE` 라 여러 번 돌려도 중복되지 않고 값만 최신이 된다.
+'있으면 갱신 · 없으면 추가'(`INSERT ... ON CONFLICT`)라 여러 번 돌려도 중복되지 않고 값만 최신이 된다.
 
 **매일 자동으로 받으려면** 작업 스케줄러에 등록한다 (매일 17:30). PowerShell 에서 `$dir` 만 자기 폴더로 바꿔 실행한다.
 `run_fetch.bat` 은 자기 위치로 이동하므로 bat 안의 경로는 고칠 필요가 없다.
+수집할 때 DB 가 떠 있어야 한다 — Docker Desktop 을 로그인할 때 자동 시작으로 두고, db 서비스는
+`restart: unless-stopped` 라 Docker 가 뜨면 같이 뜬다.
 
 ```powershell
 $dir = "C:\Users\본인계정\Desktop\Hyun\project_nongsdak"
@@ -206,16 +212,31 @@ KAMIS 공표가 17:00 이라 17:30 에 돈다. `--days 7` 로 지난 7일을 다
 
 ---
 
+## 8. 검사 돌리기
+
+push 하기 전에 로컬에서 CI 와 같은 검사를 돌릴 수 있다.
+
+```
+uv run ruff check .     # 린트
+uv run pytest           # 시험 — DB 시험은 3단계의 Postgres 를 쓴다
+```
+
+DB 시험은 개발 DB(`nongsdak`)를 건드리지 않고 **`nongsdak_test` 를 새로 만들어** 쓴다 (매번 지우고 다시 만든다).
+Postgres 가 꺼져 있으면 DB 시험만 건너뛴다. GitHub CI 에서는 Postgres 를 따로 띄워 전부 돌린다.
+
+---
+
 ## 화면에서 볼 수 있는 것
 
 | 영역 | 내용 |
 |---|---|
-| 맨 위 띠 | 오늘 조사된 87개 품목이 흘러간다. 마우스를 올리면 멈춘다 |
-| 등락 요약 | `▲47 ▼21 ―19` — 오른/내린/보합 품목 수 |
-| 품목별 시세 | 검색(초성 가능) → 오늘 가격 + 어제~평년 비교 + 90일 추이 차트(평년선 포함) |
-| 하한가 · 상한가 | 많이 내린/오른 품목 5개씩. 어제·일주일·한 달 탭 |
+| 소매 · 도매 탭 | 누르면 화면 전체가 그 시장으로 바뀐다 |
+| 맨 위 띠 | 오늘 조사된 품목이 흘러간다. 마우스를 올리면 멈춘다 |
+| 오늘의 상한가 · 하한가 | 오른쪽 위 카드. 직전 조사일 대비 많이 오른/내린 품목 3개씩 |
+| 지금 사기 좋아요 | 평년 같은 때보다 많이 싼 품목 |
+| 모든 품목 (시세판) | 어제 · 1주 · 평년 대비로 정렬. 누르면 오늘 가격 + 비교 + 90일 추이 차트(평년선 포함) |
 | 오늘의 포춘쿠키 | 쿠키를 깨면 품목 하나를 무작위로 추천 |
-| 오른쪽 위 버튼 | 다크 모드 전환 |
+| 오른쪽 위 버튼 | 로그인 · 회원가입 · 장바구니 · 다크 모드 |
 
 ---
 
@@ -223,11 +244,12 @@ KAMIS 공표가 17:00 이라 17:30 에 돈다. `--days 7` 로 지난 7일을 다
 
 | 증상 | 원인과 해결 |
 |---|---|
-| `DPY-3010` | Instant Client 경로(`CLIENT_LIB_DIR`)가 틀렸다. 2단계 확인 — 압축 폴더 바깥쪽을 적은 경우가 많다 |
-| `DPI-1047` | Visual C++ 런타임이 없다. `winget install --id Microsoft.VCRedist.2015+.x64 -e` |
+| `connection refused` · `could not connect to server` | DB 가 안 떠 있다. Docker Desktop 실행 → `docker compose up -d db` → `docker compose ps` 가 healthy 인지 |
+| `password authentication failed` | `.env` 의 `DB_PASSWORD` 가 DB 를 처음 만들 때와 다르다. 맞추거나, 데이터가 없으면 `docker compose down -v` 후 다시 띄운다 |
+| 접속이 몇 초씩 걸림 | `DB_HOST=localhost` 로 돼 있다. `127.0.0.1` 로 바꾼다 (2단계) |
+| `port is already allocated` (5432) | 이 PC 에 다른 PostgreSQL 이 돌고 있다. `.env` 의 `DB_PORT` 를 5433 등으로 바꾸고 다시 띄운다 |
 | 화면이 "불러오는 중…" 에서 멈춤 | 서버는 떴는데 DB 접속 실패. 터미널에 찍힌 오류 확인 |
 | 품목이 93개가 아님 | CSV 를 다 못 넣었다. 4단계 출력의 행 수 확인 |
-| 값이 8월 14일까지만 나옴 | 합치기 전 옛 CSV 를 넣었다. 파일명이 `..._20260818.csv` 인지 확인 |
 
 ---
 
@@ -240,5 +262,28 @@ KAMIS 공표가 17:00 이라 17:30 에 돈다. `--days 7` 로 지난 7일을 다
   이 품목을 열면 "지금은 조사가 없는 철입니다" 경고가 뜬다.
 - **평년가격은 KAMIS 가 계산해 준 값이다.** 최근 5년 중 최고·최저 해를 뺀 3개년 평균이라,
   적재는 1년치여도 차트의 청록 점선은 5년치 기준선이다. 다만 명목가격이라 물가 보정은 없다.
+- **KAMIS 는 코드는 두고 이름만 바꿀 때가 있다.** 계란은 2026-10-27 부터 `특란10구` 가 `XL10구` 가 됐다.
+  화면은 코드로 묶고 이름은 가장 최근 것을 쓴다.
 
 더 자세한 내용은 [README.md](README.md) 의 '알려진 함정' 을 볼 것.
+
+---
+
+## Oracle 에서 옮겨 오기 (v1 → v2)
+
+v1.0.0 의 Oracle XE 에 쌓인 데이터(시세 · 수집 이력 · API 원문 · 회원 · 장바구니)를 그대로 옮긴다.
+CSV 적재(4단계)와 API 백필(6단계) 대신 쓴다. 한 번만 하면 된다.
+
+1. 3단계까지 해서 빈 Postgres 를 띄운다.
+2. `.env` 에 Oracle 접속 정보(`ORACLE_USER` · `ORACLE_PASSWORD` · `ORACLE_HOST` · `ORACLE_PORT` ·
+   `ORACLE_SERVICE` · `ORACLE_CLIENT_DIR`)도 남아 있어야 한다. Oracle 11g 라 Instant Client 가 필요하다.
+3. 옮긴다.
+
+   ```
+   uv run python -m database.migrate_from_oracle            # Postgres 가 비어 있어야 한다
+   uv run python -m database.migrate_from_oracle --replace  # Postgres 를 비우고 다시 옮긴다
+   uv run python -m database.migrate_from_oracle --verify   # 옮기지 않고 비교만
+   ```
+
+   Oracle 은 읽기만 한다. 일련번호는 원래 번호 그대로 넣고, 끝나면 **모든 행을 하나씩 비교**한다.
+   14만 행 남짓에 10초쯤 걸린다. 하나라도 다르면 실패로 끝나고, 넣던 도중 실패하면 Postgres 쪽은 통째로 되돌린다.

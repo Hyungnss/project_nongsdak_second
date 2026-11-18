@@ -1,7 +1,7 @@
 # 농스닥
 
 "지금 이 가격이 평년 대비 어느 수준인가"를 한눈에 보여주는 웹서비스.
-KAMIS 일별 **소매·도매** 시세를 Oracle 에 적재해 두고, 오늘 가격과 시점별 변동을 화면에 띄운다.
+KAMIS 일별 **소매·도매** 시세를 PostgreSQL 에 적재해 두고, 오늘 가격과 시점별 변동을 화면에 띄운다.
 
 팀 **다채롭조**의 일별(daily) 파트로 시작한 프로젝트다. 팀 결과물은 원래 저장소에 v1 으로 남겨 두었고,
 이 저장소는 그 뒤를 이어 개인 프로젝트로 보완 · 배포한다.
@@ -23,7 +23,7 @@ uv run ruff check .     # 린트 — 정의 안 된 이름 · 안 쓰는 import 
 uv run pytest           # 시험 — tests/ (DB · 인증키 없이 돈다)
 ```
 
-**처음 세팅하는 사람은 [SETUP.md](SETUP.md) 를 볼 것** — CSV 를 각자 로컬 Oracle 에 올리고
+**처음 세팅하는 사람은 [SETUP.md](SETUP.md) 를 볼 것** — Docker 로 PostgreSQL 을 띄워 CSV 를 올리고
 서비스를 띄우기까지의 순서와, 자주 걸리는 문제를 정리해 두었다.
 
 ---
@@ -58,7 +58,7 @@ uv run pytest           # 시험 — tests/ (DB · 인증키 없이 돈다)
 | 파일 | 하는 일 |
 |---|---|
 | `backend/app.py` | FastAPI 라우트. 화면이 쓰는 것은 `/api/meta`, `/api/products`, `/api/detail`, `/api/briefing` (시세판 · 띠 · 상한가/하한가 · 포춘쿠키가 모두 이 자료를 같이 쓴다). `/api/movers`, `/api/fortune` 은 지금 화면에서 부르지 않는다. 전부 `?market=retail\|wholesale` 를 받는다 (기본 retail) |
-| `backend/db.py` | Oracle 조회·집계. 모든 조회가 `MARKET_TYPE` 한 시장 안에서만 돈다. 대표 등급 우선순위 `RANK_PRIORITY`도 여기 있다 |
+| `backend/db.py` | PostgreSQL 조회·집계. 모든 조회가 `MARKET_TYPE` 한 시장 안에서만 돈다. 대표 등급 우선순위 `RANK_PRIORITY`도 여기 있다 |
 | `backend/auth.py` | 회원가입 · 로그인 · 로그아웃 (`/api/auth/*`). 다른 API 가 붙여 쓰는 `current_user` · `require_user` 의존성 |
 | `frontend/index.html` | 화면 전체 (외부 리소스 0건) |
 | `frontend/auth.js` · `auth.css` | 오른쪽 위 로그인 버튼과 팝업. 다른 기능이 쓰는 `window.nongsdaqAuth` |
@@ -103,7 +103,7 @@ const user = await nongsdaqAuth.require();
 
 | | |
 |---|---|
-| 테이블 | `TBL_CART_ITEM` (`database/12_create_cart.sql`, `11` 다음에 실행). 회원당 같은 품종 · 등급은 한 줄, 수량 1~99, 최대 50가지 |
+| 테이블 | `TBL_CART_ITEM` (`database/schema.sql`). 회원당 같은 품종 · 등급은 한 줄, 수량 1~99, 최대 50가지 |
 | 가격 | 저장하지 않는다. 열 때마다 장보기 브리핑(`/api/briefing`)의 최신 **소매가**를 붙인다. 철 지나 조사가 끊긴 품목은 마지막 조사 가격을 '지금 조사 안 함'과 함께 보여준다 |
 | 화면 | 합계 · 지난주 대비 · 평년 대비 막대, 품목마다 '사기 좋은 때 / 평소 가격 / 조금 기다려 보기'(평년 ±10%), 수량 조절 · 빼기 · 비우기, 더 담기, 묶음 담기(김장 · 아침 식탁 · 찌개거리) |
 | 담는 곳 | 패널의 '더 담기', 메인 화면 품목 상세의 '장바구니에 담기'(로그인 안 했으면 로그인 창부터) |
@@ -121,31 +121,32 @@ nongsdaqCart.add(item, kind, rank, name);  // 한 품목 담기
 
 ## 데이터베이스
 
-`TBL_DAILY_PRICE` — **118,397행** · `2025-09-01 ~ 2026-10-15` (2026-10-16 기준)
+PostgreSQL 18 (`docker compose` 의 `db` 서비스). 스키마는 **`database/schema.sql` 한 파일**이다.
+
+`TBL_DAILY_PRICE` — **128,807행** · `2025-09-01 ~ 2026-11-18` (2026-11-18 기준)
 
 | 시장 | 행 | 가격 있는 날 | 품목 · 품종 (화면 기준) |
 |---|---|---|---|
-| 소매 | 61,789 | 410일 (주말은 축산물만) | 100개 · 163개 |
-| 도매 | 56,608 | 272일 | 78개 · 126개 (축산물 없음) |
+| 소매 | 67,216 | 444일 (주말은 축산물만) | 100개 · 163개 |
+| 도매 | 61,591 | 295일 | 78개 · 126개 (축산물 없음) |
 
 | 스크립트 | 하는 일 |
 |---|---|
-| `database/01_create_kamis_table.sql` | 테이블·시퀀스·인덱스 생성 (컬럼 주석 포함) |
-| `collector/loader.py` | **전체 적재** — `TRUNCATE` 후 CSV 전량을 다시 넣는다 |
+| `database/schema.sql` | 테이블 6개 · 인덱스 · 제약 · 컬럼 설명. DB 를 처음 띄울 때 자동 실행 |
+| `database/migrate_from_oracle.py` | v1(Oracle) 데이터를 옮기고 모든 행을 비교하는 일회용 도구 |
+| `collector/loader.py` | **전체 적재** — 빈 DB 에 CSV 전량을 넣는다 |
 | `collector/kamis.py` | KAMIS OpenAPI 호출·응답 해석 (소매 01 / 도매 02). 단독 실행하면 소매 하루치를 CSV 로 떨군다 |
-| **`collector/upsert.py`** | **자동 수집의 본체** — 받아서 원문을 `TBL_API_RAW` 에 남기고 `MERGE` 로 덮어쓴다 |
-| `database/07_create_fetch_log.sql` | 수집 이력 테이블 `TBL_FETCH_LOG` |
+| **`collector/upsert.py`** | **자동 수집의 본체** — 받아서 원문을 `TBL_API_RAW` 에 남기고 `INSERT ... ON CONFLICT` 로 덮어쓴다 |
 | `collector/check.py` | 최근 7일 소매·도매 수집 기록 점검 (빈 날이면 슬랙) |
-| `database/10_add_wholesale_and_raw.sql` | 도매 추가 — 자연키에 `MARKET_TYPE`, 원본 테이블 `TBL_API_RAW`, 등급코드·비교 기준일 컬럼 |
-| `database/11_create_user.sql` | 회원 `TBL_USER` · 로그인 세션 `TBL_USER_SESSION` |
 
 | 테이블 | 담는 것 |
 |---|---|
-| `TBL_DAILY_PRICE` | 가격. 한 행 = (시장, 조사일, 품목, 품종, 등급). `MARKET_TYPE` 이 `소매`/`도매` |
-| `TBL_API_RAW` | KAMIS 응답 JSON 원문. 호출 1회 = 1행. 직전 원문과 같으면 쌓지 않으므로 **KAMIS 사후 개정 이력**이 된다. 인증키는 `***` 로 가려 저장 |
+| `TBL_DAILY_PRICE` | 가격. 한 행 = (시장, 조사일, 품목, 품종, 등급). `MARKET_TYPE` 이 `소매`/`도매`. 가격 0 이하는 DB 가 거부한다 |
+| `TBL_API_RAW` | KAMIS 응답 원문(JSONB). 호출 1회 = 1행. 직전 원문과 같으면 쌓지 않으므로 **KAMIS 사후 개정 이력**이 된다. 인증키는 `***` 로 가려 저장 |
 | `TBL_FETCH_LOG` | 수집 이력. 시장·부류마다 1행 + 시장별 하루 요약 1행 |
 | `TBL_USER` | 회원. 아이디 · scrypt 비밀번호 해시 · 닉네임 |
 | `TBL_USER_SESSION` | 로그인 세션. 쿠키 토큰의 SHA-256 · 만료 시각. 회원을 지우면 같이 지워진다 |
+| `TBL_CART_ITEM` | 장바구니. 회원을 지우면 같이 지워진다 |
 
 **평소에는 아무것도 안 해도 된다.** 작업 스케줄러가 매일 17:30 에 `collector/upsert.py` 를 돌린다.
 손으로 돌릴 일이 있으면:
@@ -156,7 +157,7 @@ uv run python -m collector.upsert [YYYY-MM-DD] [--days N] [--market retail|whole
 
 `--market` 을 안 주면 소매·도매 둘 다 받는다 (하루 = 소매 6 + 도매 6 호출).
 
-여러 번 돌려도 중복되지 않고 값만 최신이 된다 (`MERGE` + `NVL` 이라 늦게 온 `-` 가
+여러 번 돌려도 중복되지 않고 값만 최신이 된다 (`ON CONFLICT DO UPDATE` + `COALESCE` 라 늦게 온 `-` 가
 기존 값을 지우지도 않는다). `--days N` 은 그날부터 거슬러 N일치를 함께 요청한다.
 
 변환 규칙(등급 `-`→`없음`, 가격 `-` · `0`→`NULL`)은 `collector/loader.py` 의 함수를 그대로 import 해 쓴다.
@@ -194,10 +195,13 @@ Get-Content logs\fetch.log -Tail 20 -Encoding UTF8
 
 ## 알려진 함정
 
-- **Oracle 11g라 `thin` 모드로 못 붙는다.** `oracledb`가 `DPY-3010`을 내므로 Instant Client로
-  thick 모드 전환이 필요하다. 커넥션 풀은 지연 접속이라 **풀 생성 전에 단일 연결로 모드를
-  판별**해야 폴백이 걸린다.
-- **`FETCH FIRST ... ROWS ONLY`를 못 쓴다** (12c 문법). `ROWNUM`을 쓸 것.
+- **Windows 에서 `DB_HOST=localhost` 는 느리다.** IPv6(`::1`)를 먼저 시도하는데 Docker 는 IPv4 에만
+  열려 있어 접속마다 몇 초씩 멈춘다. `127.0.0.1` 로 둔다.
+- **KAMIS 는 코드는 두고 이름만 바꿀 때가 있다.** 계란은 2026-10-27 부터 `특란10구` → `XL10구`.
+  품목 목록을 이름까지 묶으면 한 품종이 둘로 쪼개져 옛 이름이 'N일째 조사 없음' 으로 보인다.
+  그래서 (품목, 품종, 등급) **코드로 묶고 이름은 가장 최근 행의 것**을 쓴다.
+- **가격 0 은 '조사 없음' 이다.** KAMIS 가 `-` 대신 0 을 줄 때가 있다(닭 절단육). 수집기가 NULL 로 바꾸고,
+  DB 도 `CHECK` 로 0 이하를 거부한다.
 - **비교 시점을 저장 컬럼(`PRICE_1D` 등)으로 계산하면 안 된다.** 연휴 뒤에는 비어 있다.
   그 품종의 **조사 이력에서 직전 조사일**을 찾아 쓰고, 목표 간격과 다르면 실제 날짜를 화면에 적는다.
 - **조사는 평일만 있다.** '어제'가 실제로는 며칠 전일 수 있다.
@@ -236,11 +240,13 @@ project_nongsdak/
 ├── frontend/                    화면 — index.html · auth.js/css · cart.js/css · 이미지. 주소는 /static/...
 ├── collector/                   KAMIS 수집 — kamis.py(API 호출) loader.py(변환 · CSV 전체 적재)
 │                                upsert.py(매일 수집 본체) check.py(수집 점검) notify.py(슬랙)
-├── database/                    Oracle DDL (01 · 07 · 10 · 11 · 12 순서로 실행)
+├── database/                    schema.sql(PostgreSQL 스키마) · migrate_from_oracle.py · oracle/(v1 DDL 보관)
 ├── data/raws/                   원본 CSV (수정 금지)
 ├── logs/                        fetch.log — 자동 수집 로그 (커밋 안 함)
-├── config.py                    Oracle 접속정보·KAMIS 인증키를 한 곳에서 읽는다 (backend · collector 공용)
+├── tests/                       pytest — 순수 로직 · API(가짜 DB) · 실제 PostgreSQL 시험
+├── config.py                    DB 접속정보·KAMIS 인증키를 한 곳에서 읽는다 (backend · collector 공용)
 ├── .env                         인증키·비밀번호 (커밋 안 함 / .env.example 참고)
+├── docker-compose.yml           PostgreSQL (db 서비스)
 ├── run_fetch.bat                작업 스케줄러 진입점 (ASCII 전용) — collector.upsert → collector.check
 ├── check_fetch.bat              수집 점검만 따로 돌릴 때
 ├── README.md
@@ -252,13 +258,13 @@ project_nongsdak/
 
 ## 실행 환경
 
-Python 3.11 · fastapi · uvicorn · oracledb · pandas(적재 스크립트에서만 사용)
-Oracle Database XE 11g + Instant Client (thick 모드 필수)
+Python 3.11 · fastapi · uvicorn · psycopg 3 (+ psycopg-pool) · pandas(적재 스크립트에서만 사용)
+PostgreSQL 18.7 (Docker) · 의존성은 uv 로 고정 (`uv.lock`)
 
 ## 앞으로
 
 **KAMIS OpenAPI 자동 수집 전환은 2026-09-02 에 끝났다** — 사람이 CSV 를 받아 옮기는 과정은
 없어졌고, 매일 17:30 에 저절로 갱신된다. 날짜별 기록과 결정 근거는 [WORKLOG.md](docs/WORKLOG.md) 에 있다.
 
-남은 것은 **배포**다. 지금은 이 PC 가 켜져 있을 때만 돌고 Oracle XE 도 로컬이라,
-남이 접속하려면 서버와 DB 이전이 따로 필요하다.
+2026-11 에 Oracle XE 11g 에서 PostgreSQL 로 옮겼다 (v2). 남은 것은 **배포**다 —
+웹 · 수집기 · DB 를 docker compose 로 묶고, `v*` 태그가 올라오면 AWS Lightsail 서버에 배포한다.
