@@ -15,6 +15,14 @@ uv run uvicorn backend.app:app --reload
 ```
 → http://127.0.0.1:8000
 
+검사는 push 하기 전에 로컬에서도 같은 것을 돌릴 수 있다. GitHub 에서는 main push · PR 마다
+`.github/workflows/ci.yml` 이 자동으로 돌리고, `v*` 태그를 올리면 검사 통과 후 Release 를 만든다.
+
+```
+uv run ruff check .     # 린트 — 정의 안 된 이름 · 안 쓰는 import · 문법 오류
+uv run pytest           # 시험 — tests/ (DB · 인증키 없이 돈다)
+```
+
 **처음 세팅하는 사람은 [SETUP.md](SETUP.md) 를 볼 것** — CSV 를 각자 로컬 Oracle 에 올리고
 서비스를 띄우기까지의 순서와, 자주 걸리는 문제를 정리해 두었다.
 

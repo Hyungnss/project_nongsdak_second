@@ -13,8 +13,30 @@ dependencies = [
 ]
 
 [dependency-groups]
+# 개발 · CI 에서만 쓰는 도구. 서버에는 `uv sync --no-dev` 로 빼고 설치한다.
 dev = [
-    "httpx>=0.28.1",
-    "pytest>=9.2.0",
-    "ruff>=0.17.5",
+    # FastAPI TestClient 가 내부에서 쓴다 (tests/test_api.py)
+    "httpx2>=2.16.2",
+    "pytest>=9.2.0",   # 시험 실행기
+    "ruff>=0.17.5",    # 린터 — 코드를 돌리지 않고 읽어서 실수를 찾는다
 ]
+
+# ── ruff (린터) ───────────────────────────────────────────────────────────
+# 실행: uv run ruff check .
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+# 처음에는 '실제로 버그가 되는 것' 만 켠다. 스타일(줄 길이 · 따옴표 등)은 아직 보지 않는다.
+#   F  = pyflakes : 정의 안 된 이름, 안 쓰는 import · 변수, 잘못된 f-string 등
+#   E9 = 문법 오류 · 파일을 읽을 수 없음
+# 규칙을 늘리고 싶으면 여기에 더한다 (예: "B" = 흔한 버그 패턴, "I" = import 정렬).
+select = ["F", "E9"]
+
+# ── pytest (시험) ─────────────────────────────────────────────────────────
+# 실행: uv run pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]          # 루트를 경로에 넣어 `import collector`, `import backend` 가 되게 한다
+addopts = "-q"
