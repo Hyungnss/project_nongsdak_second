@@ -6,6 +6,7 @@
   1. 조사일자 '2025-09-01'  -> DATE (TO_DATE 로 변환)
   2. 등급 '-'               -> '없음'  (NULL 로 넣으면 UNIQUE 인덱스가 중복을 못 막는다)
   3. 가격 '-'               -> NULL    (숫자 컬럼이라 문자열을 넣을 수 없다)
+     가격 0 이하            -> NULL    (KAMIS 가 '조사 없음' 을 0 으로 줄 때가 있다 — to_price 참고)
 
 PRICE_NO 는 SEQ_DAILY_PRICE.NEXTVAL 로 채번한다.
 
@@ -88,16 +89,23 @@ def connect():
 
 
 def to_price(v):
-    """가격 문자열을 숫자로. '-' 나 빈 값은 NULL(None)."""
+    """가격 문자열을 숫자로. '-' 나 빈 값, 0 이하는 NULL(None).
+
+    0 을 그대로 넣으면 화면이 '0원' 을 진짜 가격으로 보여준다. KAMIS 는 조사가 없는 칸을
+    '-' 대신 0 으로 줄 때가 있다 — 소매 닭/절단육은 2025-10-25 부터 당일가격이 매일 0 이었고,
+    소/갈비 · 수입 소고기/갈비살의 1년전 가격에도 0 이 섞여 있었다. 가격이 0원일 수는 없으니
+    '조사 없음' 과 같게 NULL 로 넣는다.
+    """
     if v is None:
         return None
     s = str(v).strip().replace(",", "")
     if s in ("", "-"):
         return None
     try:
-        return float(s)
+        price = float(s)
     except ValueError:
         return None
+    return price if price > 0 else None
 
 
 def clean_text(v):

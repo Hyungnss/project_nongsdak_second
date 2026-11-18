@@ -193,7 +193,7 @@ def get_meta(market=RETAIL):
     """, {"m": market})[0]
     latest_priced = _query("""
         SELECT MAX(SURVEY_DATE) AS d FROM TBL_DAILY_PRICE
-        WHERE  PRICE_TODAY IS NOT NULL AND MARKET_TYPE = :m
+        WHERE  PRICE_TODAY > 0 AND MARKET_TYPE = :m
     """, {"m": market})[0]["d"]
     latest_full = _latest_full_day(market)
     return {
@@ -249,7 +249,7 @@ def _list_products_uncached(market=RETAIL):
                               WHERE MARKET_TYPE = :m)
                         THEN 1 ELSE 0 END) AS obs_recent
         FROM   TBL_DAILY_PRICE
-        WHERE  PRICE_TODAY IS NOT NULL AND MARKET_TYPE = :m
+        WHERE  PRICE_TODAY > 0 AND MARKET_TYPE = :m
         GROUP BY ITEM_CODE, ITEM_NAME, KIND_CODE, KIND_NAME,
                  RANK_NAME, UNIT, CATEGORY_NAME
     """, {"m": market})
@@ -309,7 +309,7 @@ def _series(item_code, kind_code, rank_name, limit=400, market=RETAIL):
             FROM   TBL_DAILY_PRICE
             WHERE  MARKET_TYPE = :m
               AND  ITEM_CODE = :item AND KIND_CODE = :kind AND RANK_NAME = :rank
-              AND  PRICE_TODAY IS NOT NULL
+              AND  PRICE_TODAY > 0
             ORDER BY SURVEY_DATE DESC
         ) WHERE ROWNUM <= :lim
     """, {"m": market, "item": item_code, "kind": kind_code, "rank": rank_name,
@@ -346,7 +346,7 @@ def _resolve_rank(item_code, kind_code, rank_name=None, market=RETAIL):
         FROM   TBL_DAILY_PRICE
         WHERE  MARKET_TYPE = :m
           AND  ITEM_CODE = :item AND KIND_CODE = :kind
-          AND  PRICE_TODAY IS NOT NULL
+          AND  PRICE_TODAY > 0
         GROUP BY RANK_NAME
     """, {"m": market, "item": item_code, "kind": kind_code})
     if not rows:
@@ -395,7 +395,7 @@ def get_detail(item_code, kind_code, rank_name=None, chart_days=90, market=RETAI
         })
 
     def num(v):
-        return None if v is None else float(v)
+        return None if v is None or v <= 0 else float(v)  # 0원은 가격이 아니다 (to_price 참고)
 
     # 평년가(PRICE_NORMAL)는 행마다 들어 있다. 날짜에 따라 달라지므로
     # 수평선 하나가 아니라 실제 가격과 나란히 놓을 수 있는 선이 된다.
@@ -436,7 +436,7 @@ def _recent_by_product(depth=40, market=RETAIL):
                        ORDER BY SURVEY_DATE DESC
                    ) AS rn
             FROM   TBL_DAILY_PRICE
-            WHERE  PRICE_TODAY IS NOT NULL AND MARKET_TYPE = :m
+            WHERE  PRICE_TODAY > 0 AND MARKET_TYPE = :m
         ) WHERE rn <= :depth
     """, {"depth": depth, "m": market})
 
@@ -580,7 +580,7 @@ def get_briefing(max_stale=3, market=RETAIL):
         series.setdefault((r["item_code"], r["kind_code"], r["rank_name"]), []).append(r)
 
     def num(v):
-        return None if v is None else float(v)
+        return None if v is None or v <= 0 else float(v)  # 0원은 가격이 아니다 (to_price 참고)
 
     items = []
     for c in day:
