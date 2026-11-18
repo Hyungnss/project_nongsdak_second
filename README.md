@@ -11,7 +11,7 @@ KAMIS 일별 **소매·도매** 시세를 Oracle 에 적재해 두고, 오늘 �
 ## 실행
 
 ```
-.venv\Scripts\python.exe -m uvicorn backend.app:app --reload
+uv run uvicorn backend.app:app --reload
 ```
 → http://127.0.0.1:8000
 
@@ -143,7 +143,7 @@ nongsdaqCart.add(item, kind, rank, name);  // 한 품목 담기
 손으로 돌릴 일이 있으면:
 
 ```
-.venv\Scripts\python.exe -m collector.upsert [YYYY-MM-DD] [--days N] [--market retail|wholesale|all] [--dry-run]
+uv run python -m collector.upsert [YYYY-MM-DD] [--days N] [--market retail|wholesale|all] [--dry-run]
 ```
 
 `--market` 을 안 주면 소매·도매 둘 다 받는다 (하루 = 소매 6 + 도매 6 호출).
@@ -238,7 +238,8 @@ project_nongsdak/
 ├── README.md
 ├── SETUP.md                     처음 세팅하는 사람용
 ├── docs/WORKLOG.md              날짜별 작업 기록 (무엇을 왜 그렇게 정했는지)
-└── requirements.txt
+├── pyproject.toml · uv.lock      의존성 (uv 로 관리 — 설치는 `uv sync`)
+└── .python-version              파이썬 3.11
 ```
 
 ## 실행 환경

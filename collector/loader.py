@@ -11,7 +11,7 @@
 PRICE_NO 는 SEQ_DAILY_PRICE.NEXTVAL 로 채번한다.
 
 실행 전에
-  pip install oracledb
+  uv sync  (oracledb 포함 — pyproject.toml)
   01_create_kamis_table.sql 을 먼저 실행해 테이블·시퀀스·인덱스를 만들어 둘 것.
 
 재적재할 때

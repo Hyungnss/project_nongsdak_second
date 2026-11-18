@@ -1,6 +1,6 @@
 """KAMIS OpenAPI 로 하루치를 받아 TBL_DAILY_PRICE 에 MERGE 로 반영한다 (5·6단계).
 
-  실행:  .venv\\Scripts\\python.exe -m collector.upsert [YYYY-MM-DD]
+  실행:  uv run python -m collector.upsert [YYYY-MM-DD]
   기본값: 오늘
   옵션:  --dry-run   받아서 요약만 보여주고 DB 는 건드리지 않는다
          --days N    그날부터 거슬러 N일치를 함께 요청한다 (기본 1)

@@ -1,7 +1,7 @@
 r"""최근 며칠치 수집이 실제로 됐는지 확인하고, 빠진 날이 있으면 슬랙으로 경고한다 (8단계).
 
-  실행:  .venv\Scripts\python.exe -m collector.check [--days N]
-         .venv\Scripts\python.exe -m collector.check YYYY-MM-DD
+  실행:  uv run python -m collector.check [--days N]
+         uv run python -m collector.check YYYY-MM-DD
   기본값: 최근 7일
 
 왜 필요한가

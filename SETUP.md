@@ -11,7 +11,7 @@ CSV 한 개를 각자 로컬 Oracle 에 올리고 웹서비스를 띄우는 순�
 |---|---|
 | **Oracle Database XE** 가 돌고 있을 것 | 서비스 목록에서 `OracleServiceXE` 실행 중 |
 | **Oracle Instant Client** | 압축 푼 폴더 경로를 기억해 둘 것 (아래 2단계에서 씀) |
-| **Python 3.11** | `python --version` |
+| **uv** | `uv --version` — 파이썬 3.11 은 uv 가 알아서 받는다 (1단계) |
 | **Git** | `git --version` · 저장소를 받는다: `git clone <저장소주소>` |
 
 원본 CSV(`data/raws/kamis_price_data_20250901_20260818.csv`)는 저장소에 함께 들어 있다.
@@ -23,24 +23,27 @@ CSV 한 개를 각자 로컬 Oracle 에 올리고 웹서비스를 띄우는 순�
 
 ---
 
-## 1. 파이썬 패키지 설치
+## 1. 파이썬 환경 만들기 — uv
+
+파이썬 버전(`.python-version` = 3.11)과 패키지 버전(`uv.lock`)은 [uv](https://docs.astral.sh/uv/) 로 관리한다.
+uv 가 없으면 먼저 설치한다.
+
+```powershell
+winget install --id=astral-sh.uv -e
+```
+
+저장소 폴더에서 한 줄이면 된다. 파이썬 3.11 이 없으면 uv 가 받아 오고, `.venv/` 를 만들어
+`uv.lock` 에 적힌 버전 그대로 설치한다.
 
 ```
-python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
+uv sync
 ```
 
-> **`UnicodeDecodeError: 'cp949' codec can't decode` 가 나면** — `requirements.txt` 의 한글 주석을
-> pip 가 윈도우 기본 인코딩(cp949)으로 읽다 깨진 것이다. UTF-8 모드를 켜고 다시 실행한다.
-> ```powershell
-> $env:PYTHONUTF8='1'; .venv\Scripts\pip install -r requirements.txt
-> ```
-
-`requirements.txt` 가 없다면 직접 적어도 된다.
-
-```
-.venv\Scripts\pip install oracledb pandas fastapi uvicorn
-```
+- 실행은 `uv run ...` 으로 한다 (예: `uv run python -m collector.upsert --dry-run`).
+  `.venv\Scripts\python.exe -m ...` 로 직접 불러도 같다 — 작업 스케줄러용 `run_fetch.bat` 은 이쪽을 쓴다
+  (스케줄러 환경에 uv 가 PATH 에 없어도 돌게 하려고).
+- 패키지를 더하거나 빼려면 `uv add 이름` / `uv remove 이름`. `pyproject.toml` 과 `uv.lock` 이 같이 바뀌니 둘 다 커밋한다.
+- 서버에는 개발 도구(pytest · ruff)가 필요 없으므로 `uv sync --no-dev` 로 설치한다.
 
 ---
 
@@ -89,7 +92,7 @@ SQL Developer 등에서 `kdt_admin` 으로 접속해 `database/01_create_kamis_t
 ## 4. CSV 적재
 
 ```
-.venv\Scripts\python.exe -m collector.loader
+uv run python -m collector.loader
 ```
 
 이렇게 나오면 성공이다.
@@ -111,7 +114,7 @@ Oracle 연결 성공 (thick 모드)
 프로젝트 최상위 폴더에서:
 
 ```
-.venv\Scripts\python.exe -m uvicorn backend.app:app --reload
+uv run python -m uvicorn backend.app:app --reload
 ```
 
 브라우저에서 **http://127.0.0.1:8000** 을 연다.
@@ -137,13 +140,13 @@ Oracle 연결 성공 (thick 모드)
 4. 빠진 날짜를 채운다. `--days N` 은 그날부터 거슬러 N일치를 함께 받는다.
 
    ```
-   .venv\Scripts\python.exe -m collector.upsert --days 14
+   uv run python -m collector.upsert --days 14
    ```
 
    소매·도매를 둘 다 받는다. **도매는 CSV 가 없어 과거분도 API 로 받아야 한다** — 1년치면:
 
    ```
-   .venv\Scripts\python.exe -m collector.upsert --days 410 --market wholesale
+   uv run python -m collector.upsert --days 410 --market wholesale
    ```
 
    410일 × 6부류 ≈ 2,500번 호출이라 40분쯤 걸린다. 끊겨도 다시 돌리면 이어서 메워진다(MERGE).
@@ -222,7 +225,6 @@ KAMIS 공표가 17:00 이라 17:30 에 돈다. `--days 7` 로 지난 7일을 다
 |---|---|
 | `DPY-3010` | Instant Client 경로(`CLIENT_LIB_DIR`)가 틀렸다. 2단계 확인 — 압축 폴더 바깥쪽을 적은 경우가 많다 |
 | `DPI-1047` | Visual C++ 런타임이 없다. `winget install --id Microsoft.VCRedist.2015+.x64 -e` |
-| pip 설치 중 `'cp949' codec can't decode` | 1단계의 `PYTHONUTF8` 안내 참고 |
 | 화면이 "불러오는 중…" 에서 멈춤 | 서버는 떴는데 DB 접속 실패. 터미널에 찍힌 오류 확인 |
 | 품목이 93개가 아님 | CSV 를 다 못 넣었다. 4단계 출력의 행 수 확인 |
 | 값이 8월 14일까지만 나옴 | 합치기 전 옛 CSV 를 넣었다. 파일명이 `..._20260818.csv` 인지 확인 |

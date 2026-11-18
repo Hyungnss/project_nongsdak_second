@@ -8,7 +8,7 @@
   2. 어제 대비 / 일주일 대비 많이 싸진·비싸진 품목 Top 5
 
 실행:
-    .venv\\Scripts\\python.exe -m uvicorn backend.app:app --reload
+    uv run uvicorn backend.app:app --reload
     -> http://127.0.0.1:8000
 """
 

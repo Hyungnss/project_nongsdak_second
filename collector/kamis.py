@@ -1,7 +1,7 @@
 """KAMIS OpenAPI 로 하루치 소매·도매 시세를 받아 CSV 와 같은 모양으로 만든다.
 
-  응답 확인:  .venv\\Scripts\\python.exe -m collector.kamis --probe [YYYY-MM-DD]
-  하루치 수집: .venv\\Scripts\\python.exe -m collector.kamis [YYYY-MM-DD]
+  응답 확인:  uv run python -m collector.kamis --probe [YYYY-MM-DD]
+  하루치 수집: uv run python -m collector.kamis [YYYY-MM-DD]
   기본 날짜:  오늘   (CSV 파일로 떨구는 건 소매만 한다 — 과거 CSV 와 대조하는 용도라서)
 
 --probe 는 부류 하나(채소류)만 불러 응답 생김새를 보여준다. 코드를 믿기 전에
