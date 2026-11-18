@@ -14,7 +14,7 @@ CSV 한 개를 각자 로컬 Oracle 에 올리고 웹서비스를 띄우는 순�
 | **Python 3.11** | `python --version` |
 | **Git** | `git --version` · 저장소를 받는다: `git clone <저장소주소>` |
 
-원본 CSV(`raws/kamis_price_data_20250901_20260818.csv`)는 저장소에 함께 들어 있다.
+원본 CSV(`data/raws/kamis_price_data_20250901_20260818.csv`)는 저장소에 함께 들어 있다.
 `.env` 와 `.venv/`, `logs/` 는 들어 있지 않다 — 각자 만든다(1·2단계).
 
 > **Instant Client 가 왜 필요한가** — 이 프로젝트의 Oracle 은 11g 라서 `oracledb` 의
@@ -89,7 +89,7 @@ SQL Developer 등에서 `kdt_admin` 으로 접속해 `database/01_create_kamis_t
 ## 4. CSV 적재
 
 ```
-.venv\Scripts\python.exe database\02_insert_daily_price.py
+.venv\Scripts\python.exe -m collector.loader
 ```
 
 이렇게 나오면 성공이다.
@@ -111,7 +111,7 @@ Oracle 연결 성공 (thick 모드)
 프로젝트 최상위 폴더에서:
 
 ```
-.venv\Scripts\python.exe -m uvicorn webservice.app:app --reload
+.venv\Scripts\python.exe -m uvicorn backend.app:app --reload
 ```
 
 브라우저에서 **http://127.0.0.1:8000** 을 연다.
@@ -137,13 +137,13 @@ Oracle 연결 성공 (thick 모드)
 4. 빠진 날짜를 채운다. `--days N` 은 그날부터 거슬러 N일치를 함께 받는다.
 
    ```
-   .venv\Scripts\python.exe database\06_upsert_daily_price.py --days 14
+   .venv\Scripts\python.exe -m collector.upsert --days 14
    ```
 
    소매·도매를 둘 다 받는다. **도매는 CSV 가 없어 과거분도 API 로 받아야 한다** — 1년치면:
 
    ```
-   .venv\Scripts\python.exe database\06_upsert_daily_price.py --days 410 --market wholesale
+   .venv\Scripts\python.exe -m collector.upsert --days 410 --market wholesale
    ```
 
    410일 × 6부류 ≈ 2,500번 호출이라 40분쯤 걸린다. 끊겨도 다시 돌리면 이어서 메워진다(MERGE).

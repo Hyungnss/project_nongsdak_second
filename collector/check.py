@@ -1,11 +1,11 @@
 r"""최근 며칠치 수집이 실제로 됐는지 확인하고, 빠진 날이 있으면 슬랙으로 경고한다 (8단계).
 
-  실행:  .venv\Scripts\python.exe database\08_check_daily_fetch.py [--days N]
-         .venv\Scripts\python.exe database\08_check_daily_fetch.py YYYY-MM-DD
+  실행:  .venv\Scripts\python.exe -m collector.check [--days N]
+         .venv\Scripts\python.exe -m collector.check YYYY-MM-DD
   기본값: 최근 7일
 
 왜 필요한가
-  06 의 완료 알림은 '06 이 돌았을 때만' 온다. PC 가 꺼져 있거나 작업 스케줄러가
+  upsert 의 완료 알림은 'upsert 가 돌았을 때만' 온다. PC 가 꺼져 있거나 작업 스케줄러가
   걸러 먹거나 스크립트가 시작도 못 하고 죽으면, 수집이 안 됐는데도 슬랙은 조용하다.
   침묵을 성공으로 착각하게 되는 것이다. 이 스크립트가 그 침묵을 대신 깬다.
 
@@ -28,10 +28,10 @@ r"""최근 며칠치 수집이 실제로 됐는지 확인하고, 빠진 날이 �
   아직 오지 않은 수집을 놓쳤다고 경고한다(이르게 잡으면).
 
 어떻게 판단하나
-  06 은 하루치를 반영할 때마다 TBL_FETCH_LOG 에 그날의 요약 한 줄
+  upsert 는 하루치를 반영할 때마다 TBL_FETCH_LOG 에 그날의 요약 한 줄
   (CATEGORY_CODE IS NULL) 을 남긴다. 그 요약행을 보고 판단한다.
-    · 없음        -> 06 이 그날 안 돌았다. 경고한다.
-    · STATUS=OK   -> 정상. (완료 알림은 06 이 이미 보냈으니) 조용히 넘어간다.
+    · 없음        -> upsert 가 그날 안 돌았다. 경고한다.
+    · STATUS=OK   -> 정상. (완료 알림은 upsert 가 이미 보냈으니) 조용히 넘어간다.
     · NO_DATA     -> 주말·공휴일이라 자료가 없는 날. 정상이므로 조용하다.
     · ERROR       -> 실패로 기록됐다. 경고한다.
   DB 에 접속조차 못 하면 그것도 경고한다 (오라클이 죽었을 수 있으므로).
@@ -40,7 +40,7 @@ r"""최근 며칠치 수집이 실제로 됐는지 확인하고, 빠진 날이 �
   도매만 실패해도 '그날은 됐다' 고 넘어가면 도매 탭이 조용히 멈춘다.
 
 언제 도는가
-  자체 예약 작업은 없다. run_fetch.bat 이 06 을 끝낸 직후 check_fetch.bat 을
+  자체 예약 작업은 없다. run_fetch.bat 이 upsert 를 끝낸 직후 check_fetch.bat 을
   call 로 부른다. 즉 17:30 수집 → 곧바로 점검이다.
 
   예전에는 19:00 짜리 작업(KAMIS_check_1900) 이 따로 있었다. 두 작업 모두
@@ -55,16 +55,16 @@ r"""최근 며칠치 수집이 실제로 됐는지 확인하고, 빠진 날이 �
 먼저 07_create_fetch_log.sql 로 TBL_FETCH_LOG 를 만들어 둘 것.
 """
 
-import importlib.util
 import sys
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
+# python collector/check.py 로 직접 돌려도 config · collector 를 찾도록 루트를 경로에 넣는다.
 BASE_DIR = Path(__file__).resolve().parent.parent
-HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
-from notify import notify_slack
+from collector import loader  # noqa: E402  접속은 loader 의 것을 그대로 쓴다 (upsert 와 같은 규칙)
+from collector.notify import notify_slack  # noqa: E402
 
 # 기본 점검 범위. run_fetch.bat 의 --days 7 백필과 맞춘다.
 DEFAULT_DAYS = 7
@@ -74,18 +74,7 @@ DEFAULT_DAYS = 7
 FETCH_TIME = time(17, 30)
 
 
-def _load(name, filename):
-    """파일명이 숫자로 시작해 일반 import 가 안 된다. 경로로 직접 읽어들인다."""
-    spec = importlib.util.spec_from_file_location(name, HERE / filename)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-# 접속은 02 의 것을 그대로 쓴다 (06 과 같은 규칙).
-loader = _load("kamis_loader", "02_insert_daily_price.py")
-
-# 점검할 시장. 06 이 --market all 로 둘 다 받는다.
+# 점검할 시장. upsert 가 --market all 로 둘 다 받는다.
 MARKETS = ["소매", "도매"]
 
 # 한 날짜에 요약행이 여러 번 쌓일 수 있다 (재실행). LOG_NO 오름차순으로 읽어

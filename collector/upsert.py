@@ -1,6 +1,6 @@
 """KAMIS OpenAPI 로 하루치를 받아 TBL_DAILY_PRICE 에 MERGE 로 반영한다 (5·6단계).
 
-  실행:  .venv\\Scripts\\python.exe database\\06_upsert_daily_price.py [YYYY-MM-DD]
+  실행:  .venv\\Scripts\\python.exe -m collector.upsert [YYYY-MM-DD]
   기본값: 오늘
   옵션:  --dry-run   받아서 요약만 보여주고 DB 는 건드리지 않는다
          --days N    그날부터 거슬러 N일치를 함께 요청한다 (기본 1)
@@ -57,7 +57,6 @@ NULL 로 덮어쓰지 않는다
 먼저 07_create_fetch_log.sql · 10_add_wholesale_and_raw.sql 을 실행해 둘 것.
 """
 
-import importlib.util
 import sys
 import time
 import traceback
@@ -66,25 +65,15 @@ from pathlib import Path
 
 import oracledb
 
+# python collector/upsert.py 로 직접 돌려도 config · collector 를 찾도록 루트를 경로에 넣는다.
 BASE_DIR = Path(__file__).resolve().parent.parent
-HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
-from notify import notify_slack
-
-
-def _load(name, filename):
-    """파일명이 숫자로 시작해 일반 import 가 안 된다. 경로로 직접 읽어들인다."""
-    spec = importlib.util.spec_from_file_location(name, HERE / filename)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-# 변환 규칙(등급 '-' -> '없음', 가격 '-' -> NULL)과 접속은 02 의 것을 그대로 쓴다.
+# 변환 규칙(등급 '-' -> '없음', 가격 '-' · 0 -> NULL)과 접속은 loader 의 것을 그대로 쓴다.
 # 같은 규칙을 두 곳에 적어두면 나중에 한쪽만 고쳐져 데이터가 어긋난다.
-loader = _load("kamis_loader", "02_insert_daily_price.py")
-fetcher = _load("kamis_fetcher", "05_fetch_kamis.py")
+from collector import kamis as fetcher  # noqa: E402
+from collector import loader  # noqa: E402
+from collector.notify import notify_slack  # noqa: E402
 
 # build_rows 가 돌려주는 튜플의 순서 -> MERGE 의 바인드 이름
 BIND_NAMES = [

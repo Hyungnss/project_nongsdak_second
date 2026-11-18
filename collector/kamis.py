@@ -1,17 +1,17 @@
 """KAMIS OpenAPI 로 하루치 소매·도매 시세를 받아 CSV 와 같은 모양으로 만든다.
 
-  응답 확인:  .venv\\Scripts\\python.exe database\\05_fetch_kamis.py --probe [YYYY-MM-DD]
-  하루치 수집: .venv\\Scripts\\python.exe database\\05_fetch_kamis.py [YYYY-MM-DD]
+  응답 확인:  .venv\\Scripts\\python.exe -m collector.kamis --probe [YYYY-MM-DD]
+  하루치 수집: .venv\\Scripts\\python.exe -m collector.kamis [YYYY-MM-DD]
   기본 날짜:  오늘   (CSV 파일로 떨구는 건 소매만 한다 — 과거 CSV 와 대조하는 용도라서)
 
 --probe 는 부류 하나(채소류)만 불러 응답 생김새를 보여준다. 코드를 믿기 전에
 실제 응답을 눈으로 확인하는 단계다.
 
-기본 실행은 6개 부류를 순회해 raws/kamis_api_YYYY-MM-DD.csv 로 떨군다.
-**이 스크립트는 DB 를 건드리지 않는다.** 적재는 06 이 한다.
+기본 실행은 6개 부류를 순회해 data/raws/kamis_api_YYYY-MM-DD.csv 로 떨군다.
+**이 스크립트는 DB 를 건드리지 않는다.** 적재는 upsert 가 한다.
 
 만드는 DataFrame 은 기존 CSV 와 같은 17컬럼이다. 그래야
-02_insert_daily_price.py 의 build_rows() 를 그대로 재사용할 수 있고,
+collector/loader.py 의 build_rows() 를 그대로 재사용할 수 있고,
 변환 규칙(등급 '-' -> '없음', 가격 '-' -> NULL)이 한 곳에만 남는다.
 """
 
@@ -182,7 +182,7 @@ def rows_from(body, cat_code, regday, cls=RETAIL):
     """응답 하나를 CSV 모양 dict 목록으로 바꾼다.
 
     CSV 17컬럼 외에 '등급코드'·'1일전일자'·'1주일전일자'·'2주일전일자' 를 더 담는다.
-    CSV 로 떨굴 때는 CSV_COLUMNS 로 잘려 빠지고, 06 의 MERGE 만 이 값을 쓴다.
+    CSV 로 떨굴 때는 CSV_COLUMNS 로 잘려 빠지고, upsert 의 MERGE 만 이 값을 쓴다.
     """
     rows = []
     for it in extract_items(body):
@@ -334,7 +334,7 @@ def main():
     print(f"당일가격 있는 행 {priced:,} / {len(df):,}"
           f" (결측 {100 * (1 - priced / len(df)):.1f}%)")
 
-    out = BASE_DIR / "raws" / f"kamis_api_{day}.csv"
+    out = BASE_DIR / "data" / "raws" / f"kamis_api_{day}.csv"
     df.to_csv(out, index=False, encoding="utf-8-sig")
     print(f"저장: {out}")
     print("\n원본 CSV 와 같은 모양인지 확인한 뒤 적재한다 (9단계 대조).")

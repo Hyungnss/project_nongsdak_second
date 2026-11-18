@@ -10,7 +10,7 @@ logs/
 *.log
 
 # API 수집분. 원본 CSV(kamis_price_data_*.csv)는 저장소에 둔다.
-raws/kamis_api_*.csv
+data/raws/kamis_api_*.csv
 
 # 편집기·OS 부스러기 (.vscode/settings.json 은 팀 공용이라 커밋한다)
 .idea/

@@ -1,6 +1,6 @@
 """KAMIS 수집 CSV를 TBL_DAILY_PRICE 에 적재한다.
 
-원본: raws/kamis_price_data_20250901_20260818.csv (43,480행 · 17컬럼)
+원본: data/raws/kamis_price_data_20250901_20260818.csv (43,480행 · 17컬럼)
 
 적재하면서 바꾸는 것 세 가지
   1. 조사일자 '2025-09-01'  -> DATE (TO_DATE 로 변환)
@@ -30,7 +30,7 @@ sys.path.insert(0, str(BASE_DIR))
 import config  # noqa: E402
 
 # 08-17·18 을 합친 최신 파일. 예전 파일(..._20260814.csv)을 가리키면 이틀이 빠진다.
-CSV_FILE = BASE_DIR / "raws" / "kamis_price_data_20250901_20260818.csv"
+CSV_FILE = BASE_DIR / "data" / "raws" / "kamis_price_data_20250901_20260818.csv"
 
 # 접속 정보는 config.py 한 곳에서만 관리한다 (환경변수 -> .env -> 기본값).
 DSN = config.DB_DSN

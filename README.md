@@ -11,7 +11,7 @@ KAMIS 일별 **소매·도매** 시세를 Oracle 에 적재해 두고, 오늘 �
 ## 실행
 
 ```
-.venv\Scripts\python.exe -m uvicorn webservice.app:app --reload
+.venv\Scripts\python.exe -m uvicorn backend.app:app --reload
 ```
 → http://127.0.0.1:8000
 
@@ -49,13 +49,13 @@ KAMIS 일별 **소매·도매** 시세를 Oracle 에 적재해 두고, 오늘 �
 
 | 파일 | 하는 일 |
 |---|---|
-| `webservice/app.py` | FastAPI 라우트. 화면이 쓰는 것은 `/api/meta`, `/api/products`, `/api/detail`, `/api/briefing` (시세판 · 띠 · 상한가/하한가 · 포춘쿠키가 모두 이 자료를 같이 쓴다). `/api/movers`, `/api/fortune` 은 지금 화면에서 부르지 않는다. 전부 `?market=retail\|wholesale` 를 받는다 (기본 retail) |
-| `webservice/db.py` | Oracle 조회·집계. 모든 조회가 `MARKET_TYPE` 한 시장 안에서만 돈다. 대표 등급 우선순위 `RANK_PRIORITY`도 여기 있다 |
-| `webservice/auth.py` | 회원가입 · 로그인 · 로그아웃 (`/api/auth/*`). 다른 API 가 붙여 쓰는 `current_user` · `require_user` 의존성 |
-| `webservice/static/index.html` | 화면 전체 (외부 리소스 0건) |
-| `webservice/static/auth.js` · `auth.css` | 오른쪽 위 로그인 버튼과 팝업. 다른 기능이 쓰는 `window.nongsdaqAuth` |
-| `webservice/cart.py` | 장바구니 (`/api/cart/*`). 로그인한 회원만 쓴다 |
-| `webservice/static/cart.js` · `cart.css` | 오른쪽 위 장바구니 버튼(로그인했을 때만)과 장바구니 패널, 상세의 '장바구니에 담기' |
+| `backend/app.py` | FastAPI 라우트. 화면이 쓰는 것은 `/api/meta`, `/api/products`, `/api/detail`, `/api/briefing` (시세판 · 띠 · 상한가/하한가 · 포춘쿠키가 모두 이 자료를 같이 쓴다). `/api/movers`, `/api/fortune` 은 지금 화면에서 부르지 않는다. 전부 `?market=retail\|wholesale` 를 받는다 (기본 retail) |
+| `backend/db.py` | Oracle 조회·집계. 모든 조회가 `MARKET_TYPE` 한 시장 안에서만 돈다. 대표 등급 우선순위 `RANK_PRIORITY`도 여기 있다 |
+| `backend/auth.py` | 회원가입 · 로그인 · 로그아웃 (`/api/auth/*`). 다른 API 가 붙여 쓰는 `current_user` · `require_user` 의존성 |
+| `frontend/index.html` | 화면 전체 (외부 리소스 0건) |
+| `frontend/auth.js` · `auth.css` | 오른쪽 위 로그인 버튼과 팝업. 다른 기능이 쓰는 `window.nongsdaqAuth` |
+| `backend/cart.py` | 장바구니 (`/api/cart/*`). 로그인한 회원만 쓴다 |
+| `frontend/cart.js` · `cart.css` | 오른쪽 위 장바구니 버튼(로그인했을 때만)과 장바구니 패널, 상세의 '장바구니에 담기' |
 
 ---
 
@@ -123,11 +123,11 @@ nongsdaqCart.add(item, kind, rank, name);  // 한 품목 담기
 | 스크립트 | 하는 일 |
 |---|---|
 | `database/01_create_kamis_table.sql` | 테이블·시퀀스·인덱스 생성 (컬럼 주석 포함) |
-| `database/02_insert_daily_price.py` | **전체 적재** — `TRUNCATE` 후 CSV 전량을 다시 넣는다 |
-| `database/05_fetch_kamis.py` | KAMIS OpenAPI 호출·응답 해석 (소매 01 / 도매 02). 단독 실행하면 소매 하루치를 CSV 로 떨군다 |
-| **`database/06_upsert_daily_price.py`** | **자동 수집의 본체** — 받아서 원문을 `TBL_API_RAW` 에 남기고 `MERGE` 로 덮어쓴다 |
+| `collector/loader.py` | **전체 적재** — `TRUNCATE` 후 CSV 전량을 다시 넣는다 |
+| `collector/kamis.py` | KAMIS OpenAPI 호출·응답 해석 (소매 01 / 도매 02). 단독 실행하면 소매 하루치를 CSV 로 떨군다 |
+| **`collector/upsert.py`** | **자동 수집의 본체** — 받아서 원문을 `TBL_API_RAW` 에 남기고 `MERGE` 로 덮어쓴다 |
 | `database/07_create_fetch_log.sql` | 수집 이력 테이블 `TBL_FETCH_LOG` |
-| `database/08_check_daily_fetch.py` | 최근 7일 소매·도매 수집 기록 점검 (빈 날이면 슬랙) |
+| `collector/check.py` | 최근 7일 소매·도매 수집 기록 점검 (빈 날이면 슬랙) |
 | `database/10_add_wholesale_and_raw.sql` | 도매 추가 — 자연키에 `MARKET_TYPE`, 원본 테이블 `TBL_API_RAW`, 등급코드·비교 기준일 컬럼 |
 | `database/11_create_user.sql` | 회원 `TBL_USER` · 로그인 세션 `TBL_USER_SESSION` |
 
@@ -139,11 +139,11 @@ nongsdaqCart.add(item, kind, rank, name);  // 한 품목 담기
 | `TBL_USER` | 회원. 아이디 · scrypt 비밀번호 해시 · 닉네임 |
 | `TBL_USER_SESSION` | 로그인 세션. 쿠키 토큰의 SHA-256 · 만료 시각. 회원을 지우면 같이 지워진다 |
 
-**평소에는 아무것도 안 해도 된다.** 작업 스케줄러가 매일 17:30 에 `06` 을 돌린다.
+**평소에는 아무것도 안 해도 된다.** 작업 스케줄러가 매일 17:30 에 `collector/upsert.py` 를 돌린다.
 손으로 돌릴 일이 있으면:
 
 ```
-.venv\Scripts\python.exe database\06_upsert_daily_price.py [YYYY-MM-DD] [--days N] [--market retail|wholesale|all] [--dry-run]
+.venv\Scripts\python.exe -m collector.upsert [YYYY-MM-DD] [--days N] [--market retail|wholesale|all] [--dry-run]
 ```
 
 `--market` 을 안 주면 소매·도매 둘 다 받는다 (하루 = 소매 6 + 도매 6 호출).
@@ -151,7 +151,7 @@ nongsdaqCart.add(item, kind, rank, name);  // 한 품목 담기
 여러 번 돌려도 중복되지 않고 값만 최신이 된다 (`MERGE` + `NVL` 이라 늦게 온 `-` 가
 기존 값을 지우지도 않는다). `--days N` 은 그날부터 거슬러 N일치를 함께 요청한다.
 
-변환 규칙(등급 `-`→`없음`, 가격 `-`→`NULL`)은 `02`의 함수를 importlib로 불러 쓴다.
+변환 규칙(등급 `-`→`없음`, 가격 `-` · `0`→`NULL`)은 `collector/loader.py` 의 함수를 그대로 import 해 쓴다.
 같은 규칙을 두 곳에 적어두면 나중에 한쪽만 고쳐져 데이터가 어긋나기 때문이다.
 
 ## 자동 수집
@@ -210,29 +210,31 @@ Get-Content logs\fetch.log -Tail 20 -Encoding UTF8
   그래서 자연키에 `MARKET_TYPE` 이 들어가고, `db.py` 의 모든 조회가 시장 조건을 건다.
   하나라도 빠지면 '1포기' 소매가와 '10kg' 도매가가 한 차트·한 순위에 섞인다.
 - **도매 축산물은 KAMIS 가 소매 값을 그대로 돌려준다.** `p_product_cls_code=02` 로 축산물(500)을
-  요청해도 data 가 소매와 완전히 같다 (세 날짜로 확인). `06` 이 같은 날 소매 응답과 비교해 같으면
+  요청해도 data 가 소매와 완전히 같다 (세 날짜로 확인). `collector/upsert.py` 가 같은 날 소매 응답과 비교해 같으면
   건너뛴다 — 원문만 `TBL_API_RAW` 에 남는다. KAMIS 가 따로 주기 시작하면 비교가 달라져 저절로 들어간다.
   같은 날 소매 축산물이 실패했거나 `--market wholesale` 로 돌리면 비교할 값이 없으므로 그 자리에서
   소매 축산물을 한 번 더 받아 비교한다. 그것도 실패하면 넣지 않고 ERROR 로 남긴다
   (예전에는 그대로 넣어 2026-02-15 에 도매 축산물 29행이 생겼다 — WORKLOG 2026-10-16).
 - **KAMIS 응답의 `condition` 에 인증키가 그대로 돌아온다.** 원문을 저장·출력할 때는 반드시
-  `05` 의 `mask()` / `raw_text()` 를 거칠 것.
+  `collector/kamis.py` 의 `mask()` / `raw_text()` 를 거칠 것.
 
 ---
 
 ## 폴더 구조
 
 ```
-project_grocery_price_insights_service/
-├── webservice/                  FastAPI 서비스
-│   ├── app.py  db.py  auth.py
-│   └── static/index.html  auth.js  auth.css
-├── database/                    Oracle DDL·적재·수집 스크립트
-├── raws/                        원본 CSV (수정 금지)
+project_nongsdak/
+├── backend/                     FastAPI 서버 — app.py(라우트) db.py(조회) auth.py(로그인) cart.py(장바구니)
+├── frontend/                    화면 — index.html · auth.js/css · cart.js/css · 이미지. 주소는 /static/...
+├── collector/                   KAMIS 수집 — kamis.py(API 호출) loader.py(변환 · CSV 전체 적재)
+│                                upsert.py(매일 수집 본체) check.py(수집 점검) notify.py(슬랙)
+├── database/                    Oracle DDL (01 · 07 · 10 · 11 · 12 순서로 실행)
+├── data/raws/                   원본 CSV (수정 금지)
 ├── logs/                        fetch.log — 자동 수집 로그 (커밋 안 함)
-├── config.py                    Oracle 접속정보·KAMIS 인증키를 한 곳에서 읽는다
+├── config.py                    Oracle 접속정보·KAMIS 인증키를 한 곳에서 읽는다 (backend · collector 공용)
 ├── .env                         인증키·비밀번호 (커밋 안 함 / .env.example 참고)
-├── run_fetch.bat                작업 스케줄러 진입점 (ASCII 전용)
+├── run_fetch.bat                작업 스케줄러 진입점 (ASCII 전용) — collector.upsert → collector.check
+├── check_fetch.bat              수집 점검만 따로 돌릴 때
 ├── README.md
 ├── SETUP.md                     처음 세팅하는 사람용
 ├── docs/WORKLOG.md              날짜별 작업 기록 (무엇을 왜 그렇게 정했는지)

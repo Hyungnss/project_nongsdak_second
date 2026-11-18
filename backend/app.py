@@ -8,7 +8,7 @@
   2. 어제 대비 / 일주일 대비 많이 싸진·비싸진 품목 Top 5
 
 실행:
-    .venv\\Scripts\\python.exe -m uvicorn webservice.app:app --reload
+    .venv\\Scripts\\python.exe -m uvicorn backend.app:app --reload
     -> http://127.0.0.1:8000
 """
 
@@ -27,7 +27,8 @@ import auth  # noqa: E402
 import cart  # noqa: E402
 import db  # noqa: E402
 
-STATIC_DIR = Path(__file__).resolve().parent / "static"
+# 화면 파일은 루트의 frontend/ 에 있다. 주소는 예전처럼 /static/... 으로 낸다.
+STATIC_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
 # 모든 API 가 받는 시장 구분. 기본값 retail 이라 market 을 안 붙이던 예전 호출은 그대로 소매를 본다.
 Market = Literal["retail", "wholesale"]

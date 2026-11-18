@@ -7,7 +7,7 @@
   },
   "search.exclude": {
     ".venv": true,
-    "raws": true
+    "data/raws": true
   },
   "[python]": {
     "editor.rulers": [100]

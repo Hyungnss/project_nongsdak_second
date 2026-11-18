@@ -10,7 +10,7 @@ rem Verifies the last 7 days actually got collected. For any day with no
 rem TBL_FETCH_LOG summary row, or one marked ERROR, it Slack-alerts so a silent
 rem miss (PC off, scheduler skip, crash) does not pass unnoticed. Today only
 rem counts once CUTOFF_HOUR has passed. Korean notes live in
-rem database\08_check_daily_fetch.py.
+rem collector\check.py.
 rem
 rem ASCII only, on purpose (same reason as run_fetch.bat).
 rem ===========================================================================
@@ -23,6 +23,6 @@ rem project moved to a new PC, so follow the file instead.
 cd /d "%~dp0"
 if not exist logs mkdir logs
 
-.venv\Scripts\python.exe -u database\08_check_daily_fetch.py >> logs\fetch.log 2>&1
+.venv\Scripts\python.exe -u -m collector.check >> logs\fetch.log 2>&1
 
 exit /b %ERRORLEVEL%

@@ -5,6 +5,6 @@
 # 문제가 나면 이 버전에 맞춰 보면 된다.
 oracledb>=4.0.2      # Oracle 접속 (11g 라서 Instant Client 로 thick 모드 사용)
 pandas>=3.0.5        # CSV 읽기 (적재 스크립트에서만 씀)
-requests>=2.32.0     # KAMIS OpenAPI 호출 (05_fetch_kamis.py)
+requests>=2.32.0     # KAMIS OpenAPI 호출 (collector/kamis.py)
 fastapi>=0.141.1     # 웹 API
 uvicorn>=0.52.1      # 웹서버
