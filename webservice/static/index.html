@@ -239,8 +239,29 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 /* 좁으면 로그인 · 테마 버튼(줄바꿈 안 됨)이 제목을 밀어내 화면 밖으로 나간다. 위로 올린다. */
 @media (max-width:560px){
   .topbar-inner{flex-direction:column-reverse;gap:8px;padding:12px 16px 6px}
-  .topbar-inner .topright{align-self:flex-end}
+  .topbar-inner .topside{align-self:stretch}
 }
+
+/* 오른쪽 위 묶음 — 버튼 줄 아래에 오늘의 상한가 · 하한가 */
+.topside{display:flex;flex-direction:column;align-items:flex-end;gap:12px;flex:none}
+.movers{width:300px;background:var(--card);border:1px solid var(--hair);border-radius:14px;
+  padding:12px 14px;box-sizing:border-box}
+.movers[hidden]{display:none}
+@media (max-width:560px){ .movers{width:100%} }
+.movers .mh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.movers .mh b{font-size:13.5px}
+.movers .mh small{font-size:11.5px;color:var(--muted)}
+.movers .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.movers .ct{font-size:12px;font-weight:650;margin:0 0 2px}
+.movers .ct.up{color:var(--up)} .movers .ct.down{color:var(--down)}
+.movers button{font:inherit;width:100%;display:flex;justify-content:space-between;gap:6px;
+  padding:4px 2px;border:0;border-top:1px solid var(--line);background:none;color:var(--ink);
+  cursor:pointer;font-size:13px;text-align:left}
+.movers button:hover{background:var(--card2)}
+.movers button .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.movers button .up{color:var(--up)} .movers button .down{color:var(--down)}
+.movers button span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.movers .none{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding:4px 2px}
 
 /* 테마 전환 버튼 */
 .themebtn{font:inherit;font-size:13.5px;padding:8px 14px;border-radius:20px;cursor:pointer;
@@ -553,6 +574,7 @@ try{
       <div class="fresh" id="fresh" hidden></div>
     </header>
 
+    <div class="topside">
     <div class="topright">
       <!-- 장바구니. 로그인한 사람에게만 보인다 (/static/cart.js 가 켜고 끈다) -->
       <button class="authbtn cartbtn" type="button" id="cartbtn" hidden>
@@ -566,6 +588,9 @@ try{
       <button class="themebtn" type="button" id="themebtn" aria-pressed="false">
         <span class="ico" aria-hidden="true">🌙</span><span class="lbl">다크 모드</span>
       </button>
+    </div>
+    <!-- 오늘의 상한가 · 하한가 3개씩. 내용은 renderMovers 가 그린다 -->
+    <section class="movers" id="movers" aria-label="오늘의 상한가 · 하한가" hidden></section>
     </div>
   </div>
 </div>
@@ -1474,6 +1499,36 @@ function renderBoard(f){
   track.style.animationDuration = (oneLoop / TICKER_PX_PER_SEC).toFixed(1) + 's';
 }
 
+// ── 오늘의 상한가 · 하한가 ──────────────────────────────────────────────
+// 시세판과 같은 브리핑 자료(직전 조사일 대비)에서 많이 오른/내린 품목 3개씩.
+// 같은 집합을 써야 위 '▲ 오름 N' 과 이 목록이 서로 다른 말을 하지 않는다.
+// 값이 그대로인 품목은 상한가 · 하한가가 아니므로 뺀다.
+const MOVERS_N = 3;
+
+function renderMovers(items){
+  const el = document.getElementById('movers');
+  const up = items.filter(c => c.change_pct > 0)
+    .sort((a, b) => b.change_pct - a.change_pct).slice(0, MOVERS_N);
+  const down = items.filter(c => c.change_pct < 0)
+    .sort((a, b) => a.change_pct - b.change_pct).slice(0, MOVERS_N);
+  const rows = list => list.length ? list.map(c => {
+    const cls = dirClass(c.change_pct);
+    return `<button type="button" data-item="${esc(c.item_code)}" data-kind="${esc(c.kind_code)}"` +
+      ` data-rank="${esc(c.rank_name)}" title="${esc(c.kind_name)} · ${won(c.price)}">` +
+      `<span class="nm">${esc(c.item_name)}</span>` +
+      `<span class="${cls}">${mark(c.change_pct)}${Math.abs(c.change_pct).toFixed(1)}%</span></button>`;
+  }).join('') : '<div class="none">없어요</div>';
+  el.innerHTML =
+    `<div class="mh"><b>오늘의 상한가 · 하한가</b><small>직전 조사일 대비</small></div>` +
+    `<div class="cols"><div><p class="ct up">상한가 ▲</p>${rows(up)}</div>` +
+    `<div><p class="ct down">하한가 ▼</p>${rows(down)}</div></div>`;
+  el.hidden = false;
+}
+document.getElementById('movers').addEventListener('click', e => {
+  const b = e.target.closest('button[data-item]');
+  if(b) openItem(b.dataset.item, b.dataset.kind, b.dataset.rank);
+});
+
 // ── 테마 ─────────────────────────────────────────────────────────────
 // 기본은 라이트 모드다 (기기 설정과 상관없이). 버튼으로 다크를 고르면 그 선택을 기억한다.
 const THEME_KEY = 'nongsdaq-theme';
@@ -1727,6 +1782,7 @@ async function loadMarket(keepItem){
     POOL = b.items;
     lastPick = -1;
     renderBoard(b);
+    renderMovers(b.items);
     cookieStage();
     renderBrief();
     // 품종 코드는 시장마다 다를 수 있어 품목만 이어 가고, 품종은 그 시장의 기본값으로 연다.
@@ -1735,6 +1791,7 @@ async function loadMarket(keepItem){
   }catch(e){
     if(mk !== MARKET) return;
     document.getElementById('ticker').hidden = true;
+    document.getElementById('movers').hidden = true;
     const err = `<div class="err">${esc(e.message)}</div>`;
     ['good', 'list', 'fortune'].forEach(id => document.getElementById(id).innerHTML = err);
   }
