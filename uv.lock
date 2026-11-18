@@ -474,7 +474,6 @@ version = "1.0.0"
 source = { virtual = "." }
 dependencies = [
     { name = "fastapi" },
-    { name = "oracledb" },
     { name = "pandas" },
     { name = "psycopg", extra = ["binary"] },
     { name = "psycopg-pool" },
@@ -488,11 +487,13 @@ dev = [
     { name = "pytest" },
     { name = "ruff" },
 ]
+migrate = [
+    { name = "oracledb" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.143.1" },
-    { name = "oracledb", specifier = ">=26.0.1" },
     { name = "pandas", specifier = ">=3.0.6" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.9" },
     { name = "psycopg-pool", specifier = ">=3.3.3" },
@@ -506,6 +507,7 @@ dev = [
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "ruff", specifier = ">=0.17.5" },
 ]
+migrate = [{ name = "oracledb", specifier = ">=26.0.1" }]
 
 [[package]]
 name = "numpy"

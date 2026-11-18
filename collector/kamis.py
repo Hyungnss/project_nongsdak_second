@@ -317,7 +317,7 @@ def probe(regday, cat_code="200"):
 
 def main():
     args = [a for a in sys.argv[1:] if a != "--probe"]
-    day = args[0] if args else date.today().isoformat()
+    day = args[0] if args else config.now_kst().date().isoformat()
 
     if "--probe" in sys.argv:
         probe(day)

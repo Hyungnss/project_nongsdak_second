@@ -11,12 +11,18 @@ KAMIS 일별 **소매·도매** 시세를 PostgreSQL 에 적재해 두고, 오�
 ## 실행
 
 ```
-uv run uvicorn backend.app:app --reload
+docker compose up -d db                      # PostgreSQL
+uv run uvicorn backend.app:app --reload      # 개발용 웹 → http://127.0.0.1:8000
+docker compose up -d --build                 # 또는 컨테이너로 db + web → http://127.0.0.1:8080
 ```
-→ http://127.0.0.1:8000
+
+이미지 하나(`Dockerfile`)를 웹과 수집기가 같이 쓴다. 서버에서는 `collector` 컨테이너가 매일 17:30 에
+수집하고(`.env` 에 `COMPOSE_PROFILES=collector`), 이 PC 에서는 작업 스케줄러가 한다.
 
 검사는 push 하기 전에 로컬에서도 같은 것을 돌릴 수 있다. GitHub 에서는 main push · PR 마다
-`.github/workflows/ci.yml` 이 자동으로 돌리고, `v*` 태그를 올리면 검사 통과 후 Release 를 만든다.
+`.github/workflows/ci.yml` 이 자동으로 돌린다 — ① 린트 · 시험(실제 PostgreSQL 포함) ② 이미지를 만들어
+docker compose 로 띄우고 헬스체크 · 화면 · API 확인. `v*` 태그를 올리면 둘 다 통과한 뒤 이미지를
+GHCR(`ghcr.io/<계정>/nongsdak:<버전>`)에 올리고 Release 를 만든다.
 
 ```
 uv run ruff check .     # 린트 — 정의 안 된 이름 · 안 쓰는 import · 문법 오류
@@ -240,13 +246,15 @@ project_nongsdak/
 ├── frontend/                    화면 — index.html · auth.js/css · cart.js/css · 이미지. 주소는 /static/...
 ├── collector/                   KAMIS 수집 — kamis.py(API 호출) loader.py(변환 · CSV 전체 적재)
 │                                upsert.py(매일 수집 본체) check.py(수집 점검) notify.py(슬랙)
+│                                scheduler.py(컨테이너용 매일 17:30 실행기)
 ├── database/                    schema.sql(PostgreSQL 스키마) · migrate_from_oracle.py · oracle/(v1 DDL 보관)
 ├── data/raws/                   원본 CSV (수정 금지)
 ├── logs/                        fetch.log — 자동 수집 로그 (커밋 안 함)
 ├── tests/                       pytest — 순수 로직 · API(가짜 DB) · 실제 PostgreSQL 시험
 ├── config.py                    DB 접속정보·KAMIS 인증키를 한 곳에서 읽는다 (backend · collector 공용)
 ├── .env                         인증키·비밀번호 (커밋 안 함 / .env.example 참고)
-├── docker-compose.yml           PostgreSQL (db 서비스)
+├── Dockerfile                   웹 · 수집기 공용 이미지 (uv 로 의존성 설치, root 아닌 사용자)
+├── docker-compose.yml           db(PostgreSQL) · web · collector(서버에서만, 매일 17:30)
 ├── run_fetch.bat                작업 스케줄러 진입점 (ASCII 전용) — collector.upsert → collector.check
 ├── check_fetch.bat              수집 점검만 따로 돌릴 때
 ├── README.md
@@ -259,7 +267,7 @@ project_nongsdak/
 ## 실행 환경
 
 Python 3.11 · fastapi · uvicorn · psycopg 3 (+ psycopg-pool) · pandas(적재 스크립트에서만 사용)
-PostgreSQL 18.7 (Docker) · 의존성은 uv 로 고정 (`uv.lock`)
+PostgreSQL 18.7 · Docker 이미지는 `python:3.11.18-slim-bookworm` 기반 · 의존성은 uv 로 고정 (`uv.lock`)
 
 ## 앞으로
 

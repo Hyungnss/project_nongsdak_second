@@ -1,0 +1,28 @@
+# 이미지에 넣지 않을 것. Dockerfile 이 필요한 파일만 골라 COPY 하지만,
+# 빌드할 때 Docker 로 보내는 양(빌드 컨텍스트)을 줄이고 비밀이 섞여 들어가는 일을 막는다.
+
+# 비밀 — 절대 이미지에 넣지 않는다 (실행할 때 env_file 로 준다)
+.env
+.env.*
+!.env.example
+
+# 로컬 환경 · 기록
+.venv/
+logs/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# 저장소 · 편집기
+.git/
+.github/
+.vscode/
+.idea/
+
+# 이미지에서 쓰지 않는 것
+tests/
+docs/
+database/
+data/raws/kamis_api_*.csv
+*.bat
