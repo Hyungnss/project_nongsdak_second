@@ -2,8 +2,7 @@
 
 날짜별로 **무엇을 왜 그렇게 정했는지** 남긴다. 코드만 봐서는 알 수 없는 것,
 특히 **한 번 해 봤다가 되돌린 것**과 **막혔다가 원인을 찾은 것**을 적는다.
-현재 상태는 [README.md](README.md), 전환 계획의 전체 맥락은
-[REALTIME_MIGRATION.md](REALTIME_MIGRATION.md) 에 있다.
+현재 상태는 [README.md](../README.md), 설치 · 실행 순서는 [SETUP.md](../SETUP.md) 에 있다.
 
 ---
 

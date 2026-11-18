@@ -14,9 +14,6 @@ CSV 한 개를 각자 로컬 Oracle 에 올리고 웹서비스를 띄우는 순�
 | **Python 3.11** | `python --version` |
 | **Git** | `git --version` · 저장소를 받는다: `git clone <저장소주소>` |
 
-위 네 가지가 아직 안 깔린 컴퓨터라면 [NEW_PC_SETUP.md](NEW_PC_SETUP.md) 를 먼저 본다 —
-파이썬·Git·Node·Claude Code 설치부터 저장소 내려받기까지 순서대로 적어 뒀다.
-
 원본 CSV(`raws/kamis_price_data_20250901_20260818.csv`)는 저장소에 함께 들어 있다.
 `.env` 와 `.venv/`, `logs/` 는 들어 있지 않다 — 각자 만든다(1·2단계).
 
@@ -153,20 +150,56 @@ Oracle 연결 성공 (thick 모드)
 
 `MERGE` 라 여러 번 돌려도 중복되지 않고 값만 최신이 된다.
 
-**매일 자동으로 받으려면** 작업 스케줄러에 등록한다 — 명령과 옵션은
-[REALTIME_MIGRATION.md](REALTIME_MIGRATION.md) 의 7단계에 그대로 적어 뒀다 (매일 17:30).
-`run_fetch.bat` 은 자기 위치로 이동하므로 경로를 고칠 필요가 없다. 등록 명령의 `$dir` 만 자기 폴더로 바꾼다.
+**매일 자동으로 받으려면** 작업 스케줄러에 등록한다 (매일 17:30). PowerShell 에서 `$dir` 만 자기 폴더로 바꿔 실행한다.
+`run_fetch.bat` 은 자기 위치로 이동하므로 bat 안의 경로는 고칠 필요가 없다.
+
+```powershell
+$dir = "C:\Users\본인계정\Desktop\Hyun\project_nongsdak"
+$action  = New-ScheduledTaskAction -Execute "cmd.exe" -Argument ('/c "' + $dir + '\run_fetch.bat"') -WorkingDirectory $dir
+$trigger = New-ScheduledTaskTrigger -Daily -At (Get-Date -Hour 17 -Minute 30 -Second 0)
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries `
+              -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 1) `
+              -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName "KAMIS_fetch_1730" -Action $action -Trigger $trigger -Settings $settings
+```
+
+| 옵션 | 왜 |
+|---|---|
+| `-StartWhenAvailable` | 17:30 에 PC 가 꺼져 있었으면 켜질 때 바로 따라잡는다 |
+| `-AllowStartIfOnBatteries` · `-DontStopIfGoingOnBatteries` | 기본값은 배터리면 시작 안 함 / 배터리로 바뀌면 중단이라 노트북에서 결번이 된다 |
+| `-MultipleInstances IgnoreNew` | 앞 실행이 안 끝났는데 또 뜨는 걸 막는다 |
+
+KAMIS 공표가 17:00 이라 17:30 에 돈다. `--days 7` 로 지난 7일을 다시 받으므로 며칠 꺼져 있던 구멍도 메워진다.
 
 > `run_fetch.bat` 은 **주석까지 ASCII 로만** 쓴다. 한글을 넣으면 `cmd` 가 코드페이지 때문에
-> 파일을 잘못 읽어 통째로 깨진다. 자세한 건 [WORKLOG.md](WORKLOG.md).
+> 파일을 잘못 읽어 통째로 깨진다. 자세한 건 [WORKLOG.md](docs/WORKLOG.md).
 
-### CSV 로 추가하는 경우
+---
 
-원본은 **덮어쓰지 말고** 새 파일로 합친 뒤 증분 적재를 쓴다.
+## 7. 수집 알림 — Slack (선택)
 
-```
-.venv\Scripts\python.exe database\04_insert_new_days.py <새CSV경로>
-```
+매일 수집 결과(완료 · 실패 · 빠진 날 경고)를 Slack 채널로 받으려면 **Incoming Webhook** 주소가 하나 필요하다.
+`.env` 에 `SLACK_WEBHOOK_URL` 이 비어 있으면 알림만 조용히 건너뛰고 수집은 그대로 돈다.
+
+1. 알림 받을 채널을 만든다.
+2. [api.slack.com/apps](https://api.slack.com/apps) → **Create New App → From scratch** → 앱 이름 · 워크스페이스 선택 → **Create App**.
+3. 왼쪽 **Incoming Webhooks** → 스위치 **On** → **Add New Webhook to Workspace** → 채널 선택 → **Allow**.
+4. 생긴 Webhook URL 을 `.env` 에 넣는다.
+
+   ```
+   SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+   ```
+
+5. PowerShell 에서 테스트한다. `ok` 가 나오고 채널에 글이 뜨면 된 것이다.
+
+   ```powershell
+   $url  = "여기에_복사한_웹훅_URL"
+   $body = [Text.Encoding]::UTF8.GetBytes('{"text":"농스닥 알림 테스트입니다"}')
+   Invoke-RestMethod -Method Post -Uri $url -ContentType "application/json; charset=utf-8" -Body $body
+   ```
+
+> **웹훅 URL 은 비밀번호처럼 다룬다** — 이 주소만 알면 누구나 채널에 글을 쓸 수 있다.
+> `.env` 에만 두고 커밋하지 않는다. 새어 나갔다면 앱 설정에서 그 웹훅을 지우고(**Remove**) 새로 만든다.
 
 ---
 

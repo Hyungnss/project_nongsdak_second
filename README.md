@@ -3,7 +3,8 @@
 "지금 이 가격이 평년 대비 어느 수준인가"를 한눈에 보여주는 웹서비스.
 KAMIS 일별 **소매·도매** 시세를 Oracle 에 적재해 두고, 오늘 가격과 시점별 변동을 화면에 띄운다.
 
-팀 **다채롭조**에서 월별/주별/일별로 나눠 맡았고, 이 저장소는 **일별(daily)** 파트다.
+팀 **다채롭조**의 일별(daily) 파트로 시작한 프로젝트다. 팀 결과물은 원래 저장소에 v1 으로 남겨 두었고,
+이 저장소는 그 뒤를 이어 개인 프로젝트로 보완 · 배포한다.
 
 ---
 
@@ -28,7 +29,9 @@ KAMIS 일별 **소매·도매** 시세를 Oracle 에 적재해 두고, 오늘 �
 | 등락 요약 | `▲47 ▼21 ―19` — 오른/내린/보합 품목 수 |
 | **검색** | 품목명·품종명·등급명 부분일치 + **초성 검색**(`ㅂㅊ` → 배추) |
 | **품목별 시세** | 오늘 가격 + 어제/1주일/2주일/1개월/1년전/평년 대비 + 최근 90일 추이 차트 |
-| **하한가 · 상한가** | 많이 내린/오른 품목 5개씩. 어제·일주일·한 달 탭 |
+| **오늘의 상한가 · 하한가** | 오른쪽 위 카드. 직전 조사일 대비 많이 오른/내린 품목 3개씩. 누르면 그 품목 상세가 열린다 |
+| 지금 사기 좋아요 | 평년 같은 때보다 많이 싼 품목 카드 |
+| **모든 품목 (시세판)** | 어제 · 1주 · 평년 대비 열 머리를 눌러 정렬. 한 페이지 30개 |
 | 오늘의 포춘쿠키 | 쿠키를 깨면 품목 하나를 무작위로 추천 |
 | 오른쪽 위 버튼 | **로그인 · 회원가입** (선택) · 다크 모드 전환 |
 
@@ -46,7 +49,7 @@ KAMIS 일별 **소매·도매** 시세를 Oracle 에 적재해 두고, 오늘 �
 
 | 파일 | 하는 일 |
 |---|---|
-| `webservice/app.py` | FastAPI 라우트 (`/api/meta`, `/api/products`, `/api/detail`, `/api/movers`, `/api/fortune`). 전부 `?market=retail\|wholesale` 를 받는다 (기본 retail) |
+| `webservice/app.py` | FastAPI 라우트. 화면이 쓰는 것은 `/api/meta`, `/api/products`, `/api/detail`, `/api/briefing` (시세판 · 띠 · 상한가/하한가 · 포춘쿠키가 모두 이 자료를 같이 쓴다). `/api/movers`, `/api/fortune` 은 지금 화면에서 부르지 않는다. 전부 `?market=retail\|wholesale` 를 받는다 (기본 retail) |
 | `webservice/db.py` | Oracle 조회·집계. 모든 조회가 `MARKET_TYPE` 한 시장 안에서만 돈다. 대표 등급 우선순위 `RANK_PRIORITY`도 여기 있다 |
 | `webservice/auth.py` | 회원가입 · 로그인 · 로그아웃 (`/api/auth/*`). 다른 API 가 붙여 쓰는 `current_user` · `require_user` 의존성 |
 | `webservice/static/index.html` | 화면 전체 (외부 리소스 0건) |
@@ -121,12 +124,10 @@ nongsdaqCart.add(item, kind, rank, name);  // 한 품목 담기
 |---|---|
 | `database/01_create_kamis_table.sql` | 테이블·시퀀스·인덱스 생성 (컬럼 주석 포함) |
 | `database/02_insert_daily_price.py` | **전체 적재** — `TRUNCATE` 후 CSV 전량을 다시 넣는다 |
-| `database/04_insert_new_days.py` | **증분 적재** — DB에 없는 조사 건만 골라 이어붙인다 (CSV용) |
 | `database/05_fetch_kamis.py` | KAMIS OpenAPI 호출·응답 해석 (소매 01 / 도매 02). 단독 실행하면 소매 하루치를 CSV 로 떨군다 |
 | **`database/06_upsert_daily_price.py`** | **자동 수집의 본체** — 받아서 원문을 `TBL_API_RAW` 에 남기고 `MERGE` 로 덮어쓴다 |
 | `database/07_create_fetch_log.sql` | 수집 이력 테이블 `TBL_FETCH_LOG` |
 | `database/08_check_daily_fetch.py` | 최근 7일 소매·도매 수집 기록 점검 (빈 날이면 슬랙) |
-| `database/09_verify_against_csv.py` | API 값과 원본 CSV 값 대조 |
 | `database/10_add_wholesale_and_raw.sql` | 도매 추가 — 자연키에 `MARKET_TYPE`, 원본 테이블 `TBL_API_RAW`, 등급코드·비교 기준일 컬럼 |
 | `database/11_create_user.sql` | 회원 `TBL_USER` · 로그인 세션 `TBL_USER_SESSION` |
 
@@ -157,7 +158,7 @@ nongsdaqCart.add(item, kind, rank, name);  // 한 품목 담기
 
 | | |
 |---|---|
-| 진입점 | `run_fetch.bat` (**ASCII 전용** — 이유는 [WORKLOG.md](WORKLOG.md)) |
+| 진입점 | `run_fetch.bat` (**ASCII 전용** — 이유는 [WORKLOG.md](docs/WORKLOG.md)) |
 | 작업 이름 | `KAMIS_fetch_1730` · 매일 **17:30** · 놓친 실행은 PC 가 켜지면 따라잡음 |
 | 받는 범위 | `--days 7` — 오늘부터 거슬러 7일치, **소매·도매 둘 다** (실행 누락 + KAMIS 사후 개정 대응) |
 | 점검 | 수집 직후 `check_fetch.bat` 이 최근 7일 소매·도매 기록을 각각 확인하고, 빈 날이 있으면 슬랙으로 알림 |
@@ -173,9 +174,9 @@ Get-Content logs\fetch.log -Tail 20 -Encoding UTF8
 ```
 
 > **실행 중(17:30 직후 1분쯤)에는 작업 상태를 들여다보지 말 것** — 그 실행이 `^C` 로 죽는다.
-> 끝난 뒤 로그로 확인한다. 이유는 [WORKLOG.md](WORKLOG.md).
+> 끝난 뒤 로그로 확인한다. 이유는 [WORKLOG.md](docs/WORKLOG.md).
 
-새 PC 에서 작업을 다시 등록하는 명령은 [REALTIME_MIGRATION.md](REALTIME_MIGRATION.md) 7단계에 있다.
+새 PC 에서 작업을 다시 등록하는 명령은 [SETUP.md](SETUP.md) 6단계에 있다.
 `.bat` 은 자기 위치(`%~dp0`)로 이동하므로 경로를 고칠 필요가 없다.
 
 화면 위쪽 최신성 표시는 `TBL_FETCH_LOG` 를 읽는다. 수집이 조용히 죽으면
@@ -234,8 +235,7 @@ project_grocery_price_insights_service/
 ├── run_fetch.bat                작업 스케줄러 진입점 (ASCII 전용)
 ├── README.md
 ├── SETUP.md                     처음 세팅하는 사람용
-├── REALTIME_MIGRATION.md        KAMIS OpenAPI 자동 수집 — 전환 과정과 결정 근거
-├── WORKLOG.md                   날짜별 작업 기록
+├── docs/WORKLOG.md              날짜별 작업 기록 (무엇을 왜 그렇게 정했는지)
 └── requirements.txt
 ```
 
@@ -247,8 +247,7 @@ Oracle Database XE 11g + Instant Client (thick 모드 필수)
 ## 앞으로
 
 **KAMIS OpenAPI 자동 수집 전환은 2026-09-02 에 끝났다** — 사람이 CSV 를 받아 옮기는 과정은
-없어졌고, 매일 17:30 에 저절로 갱신된다. 과정과 결정 근거는
-[REALTIME_MIGRATION.md](REALTIME_MIGRATION.md), 날짜별 기록은 [WORKLOG.md](WORKLOG.md) 에 있다.
+없어졌고, 매일 17:30 에 저절로 갱신된다. 날짜별 기록과 결정 근거는 [WORKLOG.md](docs/WORKLOG.md) 에 있다.
 
 남은 것은 **배포**다. 지금은 이 PC 가 켜져 있을 때만 돌고 Oracle XE 도 로컬이라,
 남이 접속하려면 서버와 DB 이전이 따로 필요하다.
