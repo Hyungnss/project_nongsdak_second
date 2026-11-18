@@ -89,9 +89,10 @@ CLIENT_LIB_DIR = get(
 
 # ── PostgreSQL (v2) ───────────────────────────────────────────────────────
 # docker compose 의 db 서비스와 같은 값을 쓴다 (.env 의 DB_*). 컨테이너 안에서는
-# DB_HOST 가 'db'(서비스 이름)가 되고, 이 PC 에서 직접 붙을 때는 localhost 다.
+# DB_HOST 가 'db'(서비스 이름)가 되고, 이 PC 에서 직접 붙을 때는 127.0.0.1 이다.
+# (localhost 로 적으면 Windows 가 IPv6(::1)를 먼저 시도하다 몇 초씩 멈춘다 — Docker 는 IPv4 에만 열려 있다)
 PG = {
-    "host": get("DB_HOST", "localhost"),
+    "host": get("DB_HOST", "127.0.0.1"),
     "port": int(get("DB_PORT", "5432")),
     "dbname": get("DB_NAME", "nongsdak"),
     "user": get("DB_USER", "nongsdak"),

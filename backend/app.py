@@ -1,4 +1,4 @@
-"""농스닥 웹서비스 — Oracle DB 기반 FastAPI.
+"""농스닥 웹서비스 — PostgreSQL 기반 FastAPI.
 
 시세는 TBL_DAILY_PRICE 만 사용한다. 모든 시세 API 가 ?market=retail|wholesale 을 받는다 (기본 소매).
 회원가입 · 로그인은 auth.py 에 있다 (TBL_USER · TBL_USER_SESSION). 시세는 로그인 없이 본다.
@@ -39,15 +39,14 @@ MARKET_Q = Query("retail", description="retail=소매 · wholesale=도매")
 async def lifespan(app):
     """기동할 때 커넥션 풀을 먼저 만든다.
 
-    풀은 지연 접속이라 그냥 두면 첫 요청이 들어올 때 붙는다. thick 모드 판별까지
-    거치느라 첫 사용자만 몇 초를 기다리게 되므로 미리 만들어 둔다.
+    그냥 두면 첫 요청이 들어올 때 붙느라 첫 사용자만 기다리게 되므로 미리 만들어 둔다.
     DB 가 안 떠 있어도 서버는 뜨게 한다 — 그래야 화면에 오류를 보여줄 수 있다.
     """
     try:
         db._init_pool()
-        print("Oracle 커넥션 풀 준비 완료")
+        print("PostgreSQL 커넥션 풀 준비 완료")
     except Exception as e:
-        print(f"Oracle 연결 실패 — 첫 요청 때 다시 시도합니다: {e}")
+        print(f"PostgreSQL 연결 실패 — 첫 요청 때 다시 시도합니다: {e}")
     yield
 
 

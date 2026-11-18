@@ -27,9 +27,7 @@ import hashlib
 import hmac
 import re
 import secrets
-from datetime import datetime, timedelta
-
-import oracledb
+import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
@@ -84,7 +82,7 @@ def _find_user_by_token(token):
         SELECT u.USER_NO, u.LOGIN_ID, u.NICKNAME
         FROM   TBL_USER_SESSION s
         JOIN   TBL_USER u ON u.USER_NO = s.USER_NO
-        WHERE  s.TOKEN_HASH = :t AND s.EXPIRES_AT > SYSDATE
+        WHERE  s.TOKEN_HASH = %(t)s AND s.EXPIRES_AT > now()
     """, {"t": _token_hash(token)})
     return rows[0] if rows else None
 
@@ -94,12 +92,12 @@ def _create_session(conn, user_no):
     token = secrets.token_urlsafe(32)
     with conn.cursor() as cur:
         # 만료된 세션은 따로 청소 작업을 두지 않고 로그인할 때마다 같이 지운다
-        cur.execute("DELETE FROM TBL_USER_SESSION WHERE EXPIRES_AT <= SYSDATE")
+        cur.execute("DELETE FROM TBL_USER_SESSION WHERE EXPIRES_AT <= now()")
+        # 만료 시각은 DB 시계로 정한다 (앱 서버와 DB 의 시간대가 달라도 어긋나지 않게)
         cur.execute("""
             INSERT INTO TBL_USER_SESSION (TOKEN_HASH, USER_NO, EXPIRES_AT)
-            VALUES (:t, :u, :exp)
-        """, {"t": _token_hash(token), "u": user_no,
-              "exp": datetime.now() + timedelta(days=SESSION_DAYS)})
+            VALUES (%(t)s, %(u)s, now() + make_interval(days => %(days)s))
+        """, {"t": _token_hash(token), "u": user_no, "days": SESSION_DAYS})
     return token
 
 
@@ -161,17 +159,16 @@ def signup(body: SignupIn, request: Request, response: Response):
         raise HTTPException(400, f"닉네임은 {NICKNAME_MIN}~{NICKNAME_MAX}자여야 해요")
 
     pw_hash = hash_password(body.password)
-    with db._init_pool().acquire() as conn:
+    with db._init_pool().connection() as conn:
         try:
             with conn.cursor() as cur:
-                user_no = cur.var(oracledb.NUMBER)
                 cur.execute("""
-                    INSERT INTO TBL_USER (USER_NO, LOGIN_ID, PASSWORD_HASH, NICKNAME, LAST_LOGIN_AT)
-                    VALUES (SEQ_USER.NEXTVAL, :id, :pw, :nick, SYSDATE)
-                    RETURNING USER_NO INTO :no
-                """, {"id": login_id, "pw": pw_hash, "nick": nickname, "no": user_no})
-                user_no = int(user_no.getvalue()[0])
-        except oracledb.IntegrityError:
+                    INSERT INTO TBL_USER (LOGIN_ID, PASSWORD_HASH, NICKNAME, LAST_LOGIN_AT)
+                    VALUES (%(id)s, %(pw)s, %(nick)s, now())
+                    RETURNING USER_NO
+                """, {"id": login_id, "pw": pw_hash, "nick": nickname})
+                user_no = int(cur.fetchone()["user_no"])
+        except psycopg.errors.UniqueViolation:
             # 중복 확인을 먼저 SELECT 로 하면 동시에 가입할 때 둘 다 통과한다.
             # 유니크 제약에 맡기고 여기서 받는다.
             raise HTTPException(409, "이미 사용 중인 아이디예요")
@@ -187,7 +184,7 @@ def login(body: LoginIn, request: Request, response: Response):
     login_id = body.login_id.strip().lower()
     rows = db._query("""
         SELECT USER_NO, LOGIN_ID, NICKNAME, PASSWORD_HASH
-        FROM   TBL_USER WHERE LOGIN_ID = :id
+        FROM   TBL_USER WHERE LOGIN_ID = %(id)s
     """, {"id": login_id})
     u = rows[0] if rows else None
     ok = verify_password(body.password, u["password_hash"] if u else _DUMMY_HASH)
@@ -195,10 +192,10 @@ def login(body: LoginIn, request: Request, response: Response):
         # 아이디가 틀렸는지 비밀번호가 틀렸는지는 알려주지 않는다
         raise HTTPException(401, "아이디 또는 비밀번호가 올바르지 않아요")
 
-    with db._init_pool().acquire() as conn:
+    with db._init_pool().connection() as conn:
         token = _create_session(conn, u["user_no"])
         with conn.cursor() as cur:
-            cur.execute("UPDATE TBL_USER SET LAST_LOGIN_AT = SYSDATE WHERE USER_NO = :u",
+            cur.execute("UPDATE TBL_USER SET LAST_LOGIN_AT = now() WHERE USER_NO = %(u)s",
                         {"u": u["user_no"]})
         conn.commit()
 
@@ -210,8 +207,8 @@ def login(body: LoginIn, request: Request, response: Response):
 def logout(request: Request, response: Response):
     token = request.cookies.get(COOKIE_NAME)
     if token:
-        with db._init_pool().acquire() as conn, conn.cursor() as cur:
-            cur.execute("DELETE FROM TBL_USER_SESSION WHERE TOKEN_HASH = :t",
+        with db._init_pool().connection() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM TBL_USER_SESSION WHERE TOKEN_HASH = %(t)s",
                         {"t": _token_hash(token)})
             conn.commit()
     response.delete_cookie(COOKIE_NAME, path="/")

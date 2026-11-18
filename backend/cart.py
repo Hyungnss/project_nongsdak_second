@@ -40,7 +40,7 @@ def _rows(user_no):
     return db._query("""
         SELECT CART_NO, ITEM_CODE, KIND_CODE, RANK_NAME, QTY
         FROM   TBL_CART_ITEM
-        WHERE  USER_NO = :u
+        WHERE  USER_NO = %(u)s
         ORDER  BY ADDED_AT, CART_NO
     """, {"u": user_no})
 
@@ -82,7 +82,7 @@ def _priced(user_no):
 def _owned(conn, cart_no, user_no):
     """그 줄이 이 회원 것인지. 남의 줄 번호를 넣어도 건드리지 못하게 한다."""
     with conn.cursor() as cur:
-        cur.execute("SELECT 1 FROM TBL_CART_ITEM WHERE CART_NO = :c AND USER_NO = :u",
+        cur.execute("SELECT 1 FROM TBL_CART_ITEM WHERE CART_NO = %(c)s AND USER_NO = %(u)s",
                     {"c": cart_no, "u": user_no})
         if cur.fetchone() is None:
             raise HTTPException(404, "장바구니에 없는 품목이에요")
@@ -110,29 +110,24 @@ def _check(products, body):
 
 def _add_lines(uno, lines):
     """(item, kind, rank, qty) 들을 한 트랜잭션으로 담는다. 하나라도 못 담으면 전부 되돌린다."""
-    with db._init_pool().acquire() as conn:
+    with db._init_pool().connection() as conn:
         with conn.cursor() as cur:
             for item, kind, rank, qty in lines:
-                cur.execute("SELECT COUNT(*) FROM TBL_CART_ITEM WHERE USER_NO = :u", {"u": uno})
-                (n,) = cur.fetchone()
+                cur.execute("SELECT COUNT(*) AS n FROM TBL_CART_ITEM WHERE USER_NO = %(u)s", {"u": uno})
+                n = cur.fetchone()["n"]
                 cur.execute("""
                     SELECT 1 FROM TBL_CART_ITEM
-                    WHERE  USER_NO = :u AND ITEM_CODE = :i AND KIND_CODE = :k AND RANK_NAME = :r
+                    WHERE  USER_NO = %(u)s AND ITEM_CODE = %(i)s AND KIND_CODE = %(k)s AND RANK_NAME = %(r)s
                 """, {"u": uno, "i": item, "k": kind, "r": rank})
                 if cur.fetchone() is None and n >= MAX_LINES:
                     raise HTTPException(400, f"장바구니에는 {MAX_LINES}가지까지 담을 수 있어요")
-                # 같은 품목을 두 번 눌러도 줄이 늘지 않도록 MERGE 로 한 번에 처리한다
+                # 같은 품목을 두 번 눌러도 줄이 늘지 않도록 한 문장으로 처리한다.
+                # UX_CART_ITEM(회원, 품목, 품종, 등급) 이 겹치면 새 줄 대신 수량을 더한다 (최대 99).
                 cur.execute("""
-                    MERGE INTO TBL_CART_ITEM t
-                    USING (SELECT :u AS USER_NO, :i AS ITEM_CODE, :k AS KIND_CODE, :r AS RANK_NAME
-                           FROM dual) s
-                    ON (t.USER_NO = s.USER_NO AND t.ITEM_CODE = s.ITEM_CODE
-                        AND t.KIND_CODE = s.KIND_CODE AND t.RANK_NAME = s.RANK_NAME)
-                    WHEN MATCHED THEN UPDATE SET t.QTY = LEAST(:qmax, t.QTY + :q)
-                    WHEN NOT MATCHED THEN
-                        INSERT (CART_NO, USER_NO, ITEM_CODE, KIND_CODE, RANK_NAME, QTY)
-                        VALUES (SEQ_CART_ITEM.NEXTVAL, s.USER_NO, s.ITEM_CODE, s.KIND_CODE,
-                                s.RANK_NAME, :q)
+                    INSERT INTO TBL_CART_ITEM (USER_NO, ITEM_CODE, KIND_CODE, RANK_NAME, QTY)
+                    VALUES (%(u)s, %(i)s, %(k)s, %(r)s, %(q)s)
+                    ON CONFLICT (USER_NO, ITEM_CODE, KIND_CODE, RANK_NAME)
+                    DO UPDATE SET QTY = LEAST(%(qmax)s, TBL_CART_ITEM.QTY + EXCLUDED.QTY)
                 """, {"u": uno, "i": item, "k": kind, "r": rank, "q": qty, "qmax": QTY_MAX})
         conn.commit()
 
@@ -160,10 +155,10 @@ def add_bulk(body: BulkIn, user: dict = Depends(auth.require_user)):
 
 @router.patch("/{cart_no}")
 def set_qty(cart_no: int, body: QtyIn, user: dict = Depends(auth.require_user)):
-    with db._init_pool().acquire() as conn:
+    with db._init_pool().connection() as conn:
         _owned(conn, cart_no, user["user_no"])
         with conn.cursor() as cur:
-            cur.execute("UPDATE TBL_CART_ITEM SET QTY = :q WHERE CART_NO = :c",
+            cur.execute("UPDATE TBL_CART_ITEM SET QTY = %(q)s WHERE CART_NO = %(c)s",
                         {"q": body.qty, "c": cart_no})
         conn.commit()
     return _priced(user["user_no"])
@@ -171,17 +166,17 @@ def set_qty(cart_no: int, body: QtyIn, user: dict = Depends(auth.require_user)):
 
 @router.delete("/{cart_no}")
 def remove(cart_no: int, user: dict = Depends(auth.require_user)):
-    with db._init_pool().acquire() as conn:
+    with db._init_pool().connection() as conn:
         _owned(conn, cart_no, user["user_no"])
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM TBL_CART_ITEM WHERE CART_NO = :c", {"c": cart_no})
+            cur.execute("DELETE FROM TBL_CART_ITEM WHERE CART_NO = %(c)s", {"c": cart_no})
         conn.commit()
     return _priced(user["user_no"])
 
 
 @router.delete("")
 def clear(user: dict = Depends(auth.require_user)):
-    with db._init_pool().acquire() as conn, conn.cursor() as cur:
-        cur.execute("DELETE FROM TBL_CART_ITEM WHERE USER_NO = :u", {"u": user["user_no"]})
+    with db._init_pool().connection() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM TBL_CART_ITEM WHERE USER_NO = %(u)s", {"u": user["user_no"]})
         conn.commit()
     return _priced(user["user_no"])
