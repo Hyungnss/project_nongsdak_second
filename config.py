@@ -87,6 +87,17 @@ CLIENT_LIB_DIR = get(
     r"C:\instantclient-basic-windows.x64-23.26.3.0.0\instantclient_23_26",
 )
 
+# ── PostgreSQL (v2) ───────────────────────────────────────────────────────
+# docker compose 의 db 서비스와 같은 값을 쓴다 (.env 의 DB_*). 컨테이너 안에서는
+# DB_HOST 가 'db'(서비스 이름)가 되고, 이 PC 에서 직접 붙을 때는 localhost 다.
+PG = {
+    "host": get("DB_HOST", "localhost"),
+    "port": int(get("DB_PORT", "5432")),
+    "dbname": get("DB_NAME", "nongsdak"),
+    "user": get("DB_USER", "nongsdak"),
+    "password": get("DB_PASSWORD", ""),
+}
+
 # ── KAMIS OpenAPI ─────────────────────────────────────────────────────────
 KAMIS_CERT_KEY = get("KAMIS_CERT_KEY")
 KAMIS_CERT_ID = get("KAMIS_CERT_ID")
