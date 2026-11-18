@@ -80,11 +80,11 @@ MARKETS = ["소매", "도매"]
 # 한 날짜에 요약행이 여러 번 쌓일 수 있다 (재실행). LOG_NO 오름차순으로 읽어
 # 나중 것으로 덮으면 각 날짜의 최신 상태만 남는다.
 SUMMARY_SQL = """
-SELECT TO_CHAR(SURVEY_DATE, 'YYYY-MM-DD'), NVL(MARKET_TYPE, '소매'),
+SELECT TO_CHAR(SURVEY_DATE, 'YYYY-MM-DD'), COALESCE(MARKET_TYPE, '소매'),
        STATUS, ROWS_FETCHED, ROWS_UPSERTED, MESSAGE
 FROM   TBL_FETCH_LOG
 WHERE  CATEGORY_CODE IS NULL
-  AND  SURVEY_DATE BETWEEN TO_DATE(:d1, 'YYYY-MM-DD') AND TO_DATE(:d2, 'YYYY-MM-DD')
+  AND  SURVEY_DATE BETWEEN %(d1)s::date AND %(d2)s::date
 ORDER  BY SURVEY_DATE, LOG_NO
 """
 
@@ -123,7 +123,7 @@ def fetch_summaries(conn, days):
     """(날짜, 시장) -> (STATUS, 받은행, 반영행, 메시지). 기록이 없으면 키가 없다."""
     found = {}
     with conn.cursor() as cur:
-        cur.execute(SUMMARY_SQL, d1=days[0], d2=days[-1])
+        cur.execute(SUMMARY_SQL, {"d1": days[0], "d2": days[-1]})
         for day, market, status, fetched, upserted, message in cur:
             found[(day, market)] = (status, fetched, upserted, message)
     return found

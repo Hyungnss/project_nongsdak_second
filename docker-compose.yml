@@ -1,0 +1,43 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# 농스닥 docker compose
+#
+#   지금(1단계): Postgres 만 띄운다. 웹 · 수집은 아직 이 PC 에서 uv 로 돌린다.
+#   2단계에서 web(uvicorn) · collector(매일 수집) 서비스를 여기에 더한다.
+#
+#   띄우기   : docker compose up -d db
+#   상태     : docker compose ps
+#   접속     : docker compose exec db psql -U nongsdak -d nongsdak
+#   끄기     : docker compose down          (데이터는 pgdata 볼륨에 남는다)
+#   초기화   : docker compose down -v       (⚠ 볼륨까지 지운다 — 데이터가 사라진다)
+#
+# 접속 정보는 .env 에서 읽는다 (DB_USER · DB_PASSWORD · DB_NAME). 없으면 아래 기본값.
+# ─────────────────────────────────────────────────────────────────────────────
+name: nongsdak
+
+services:
+  db:
+    # 정확한 버전으로 고정한다 (로컬 · CI · 서버가 같은 버전). 올릴 때는 여기만 바꾼다.
+    image: postgres:18.7
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-nongsdak}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-nongsdak}
+      POSTGRES_DB: ${DB_NAME:-nongsdak}
+    # 시각(TIMESTAMPTZ)은 UTC 로 저장되고, 꺼내 볼 때 이 시간대로 보인다.
+    command: ["postgres", "-c", "timezone=Asia/Seoul"]
+    ports:
+      # 이 PC 안에서만 접속 가능하게 127.0.0.1 에만 연다 (외부 노출 금지)
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+      # 볼륨이 비어 있는 '처음 한 번' 만 실행된다. 이미 데이터가 있으면 건너뛴다.
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      # 접속을 받을 준비가 됐는지. web · collector 는 이게 통과한 뒤에 뜨게 한다 (2단계).
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:

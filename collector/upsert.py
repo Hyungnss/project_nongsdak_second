@@ -1,4 +1,4 @@
-"""KAMIS OpenAPI 로 하루치를 받아 TBL_DAILY_PRICE 에 MERGE 로 반영한다 (5·6단계).
+"""KAMIS OpenAPI 로 하루치를 받아 TBL_DAILY_PRICE 에 반영한다 (있으면 갱신, 없으면 추가).
 
   실행:  uv run python -m collector.upsert [YYYY-MM-DD]
   기본값: 오늘
@@ -8,7 +8,7 @@
 
 소매·도매 (2026-10-15~)
   같은 품종·등급이 소매에도 도매에도 있으므로 MARKET_TYPE 이 자연키에 들어간다
-  (10_add_wholesale_and_raw.sql). 하루치는 [소매 6부류 -> 도매 6부류] 순서로 받는다.
+  (database/schema.sql 의 UX_DAILY_PRICE_NATURAL). 하루치는 [소매 6부류 -> 도매 6부류] 순서로 받는다.
 
   도매 축산물(500)은 KAMIS 가 소매와 똑같은 값을 돌려준다 (2025-09-01 · 2026-03-03 ·
   2026-10-14 세 날짜로 확인, data 부분이 완전히 같다). 그대로 넣으면 소매 값이
@@ -27,7 +27,7 @@
 
   덤으로 KAMIS 의 사후 개정도 따라간다 — 2026-08-18 을 나중에 다시 받아 보니
   물오징어 원양(냉동)/中 이 5,271 -> 5,258 로, 꽃게의 1년전·평년이 '-' -> 19,511 로
-  바뀌어 있었다. MERGE 라 다시 받아도 중복되지 않고 값만 최신이 된다.
+  바뀌어 있었다. '있으면 갱신' 이라 다시 받아도 중복되지 않고 값만 최신이 된다.
 
   주말을 메우는 용도가 아님에 주의. 토·일은 며칠 뒤에 다시 받아도 축산물 29행뿐이다.
   (KAMIS 가 조사를 안 한 날이라 애초에 자료가 없다.)
@@ -40,21 +40,18 @@
     오후 4시 재호출 -> 값이 채워져 있지만 자연키가 이미 있어 건너뛴다
     결과: 오늘 시세가 영원히 빈칸으로 남는다
 
-  그래서 MERGE 로 덮어쓴다. 하루에 여러 번 돌려도 중복되지 않고 값만 최신이 된다.
+  그래서 INSERT ... ON CONFLICT DO UPDATE 로 덮어쓴다 (Oracle 시절에는 MERGE).
+  하루에 여러 번 돌려도 중복되지 않고 값만 최신이 된다.
   실제로 KAMIS 는 공표 뒤에도 값을 보정한다 — 2026-08-18 을 나중에 다시 받아 보니
   물오징어 원양(냉동)/中 이 5,271 -> 5,258 로 바뀌어 있었고, 꽃게의 1년전·평년은
   비어 있다가 채워져 있었다 (09_verify_against_csv.py(2026-11-18 삭제) 로 확인).
 
 NULL 로 덮어쓰지 않는다
   이미 값이 있는 행에 늦게 도착한 '-'(NULL)를 그대로 UPDATE 하면 있던 값이 지워진다.
-  UPDATE 절을 NVL(:price, t.PRICE) 로 감싼다.
+  갱신 부분을 COALESCE(새 값, 기존 값) 로 감싼다.
+  품목명 · 품종명 · 단위처럼 이름 칸은 처음 들어간 값을 그대로 둔다 (Oracle MERGE 때와 같다).
 
-이 DB(11.2.0.2)에서 확인해 둔 것
-  · MERGE 의 INSERT 절에 SEQ_DAILY_PRICE.NEXTVAL -> 된다 (ORA-02287 안 남)
-  · executemany + 이름 바인드로 MERGE -> 된다
-  · UPDATE 절에 ON 조건 컬럼을 넣으면 ORA-38104 -> 자연키 4개는 UPDATE 에서 뺐다
-
-먼저 07_create_fetch_log.sql · 10_add_wholesale_and_raw.sql 을 실행해 둘 것.
+먼저 database/schema.sql 로 테이블을 만들어 둘 것 (docker compose 는 처음 뜰 때 자동).
 """
 
 import sys
@@ -63,7 +60,6 @@ import traceback
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-import oracledb
 
 # python collector/upsert.py 로 직접 돌려도 config · collector 를 찾도록 루트를 경로에 넣는다.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -75,7 +71,7 @@ from collector import kamis as fetcher  # noqa: E402
 from collector import loader  # noqa: E402
 from collector.notify import notify_slack  # noqa: E402
 
-# build_rows 가 돌려주는 튜플의 순서 -> MERGE 의 바인드 이름
+# build_rows 가 돌려주는 튜플의 순서 -> UPSERT_SQL 의 바인드 이름
 BIND_NAMES = [
     "survey_date", "market_type", "category_name", "category_code",
     "item_code", "item_name", "kind_code", "kind_name", "rank_name", "unit",
@@ -90,84 +86,61 @@ EXTRA_BINDS = [
     ("p1w_date", "1주일전일자"), ("p2w_date", "2주일전일자"),
 ]
 
-# 자연키 = (MARKET_TYPE, SURVEY_DATE, ITEM_CODE, KIND_CODE, RANK_NAME).
+# 자연키 = (MARKET_TYPE, SURVEY_DATE, ITEM_CODE, KIND_CODE, RANK_NAME) — UX_DAILY_PRICE_NATURAL.
 # MARKET_TYPE 이 빠지면 도매가 같은 날 소매 행을 덮어쓴다.
-MERGE_SQL = """
-MERGE INTO TBL_DAILY_PRICE t
-USING (
-    SELECT :market_type AS MARKET_TYPE,
-           TO_DATE(:survey_date, 'YYYY-MM-DD') AS SURVEY_DATE,
-           :item_code AS ITEM_CODE,
-           :kind_code AS KIND_CODE,
-           :rank_name AS RANK_NAME
-    FROM DUAL
-) s
-ON (    t.MARKET_TYPE = s.MARKET_TYPE
-    AND t.SURVEY_DATE = s.SURVEY_DATE
-    AND t.ITEM_CODE   = s.ITEM_CODE
-    AND t.KIND_CODE   = s.KIND_CODE
-    AND t.RANK_NAME   = s.RANK_NAME)
-WHEN MATCHED THEN UPDATE SET
-    t.PRICE_TODAY   = NVL(:price_today,  t.PRICE_TODAY),
-    t.PRICE_1D      = NVL(:price_1d,     t.PRICE_1D),
-    t.PRICE_1W      = NVL(:price_1w,     t.PRICE_1W),
-    t.PRICE_2W      = NVL(:price_2w,     t.PRICE_2W),
-    t.PRICE_1M      = NVL(:price_1m,     t.PRICE_1M),
-    t.PRICE_1Y      = NVL(:price_1y,     t.PRICE_1Y),
-    t.PRICE_NORMAL  = NVL(:price_normal, t.PRICE_NORMAL),
-    t.RANK_CODE     = NVL(:rank_code,    t.RANK_CODE),
-    t.PRICE_1D_DATE = NVL(TO_DATE(:p1d_date, 'YYYY-MM-DD'), t.PRICE_1D_DATE),
-    t.PRICE_1W_DATE = NVL(TO_DATE(:p1w_date, 'YYYY-MM-DD'), t.PRICE_1W_DATE),
-    t.PRICE_2W_DATE = NVL(TO_DATE(:p2w_date, 'YYYY-MM-DD'), t.PRICE_2W_DATE)
-WHEN NOT MATCHED THEN INSERT
-    (PRICE_NO, SURVEY_DATE, MARKET_TYPE, CATEGORY_NAME, CATEGORY_CODE,
+# 날짜는 'YYYY-MM-DD' 문자열로 넘기고 ::date 로 바꾼다. 일련번호(PRICE_NO)는 IDENTITY 가 채운다.
+UPSERT_SQL = """
+INSERT INTO TBL_DAILY_PRICE
+    (SURVEY_DATE, MARKET_TYPE, CATEGORY_NAME, CATEGORY_CODE,
      ITEM_CODE, ITEM_NAME, KIND_CODE, KIND_NAME, RANK_NAME, UNIT,
      PRICE_TODAY, PRICE_1D, PRICE_1W, PRICE_2W, PRICE_1M, PRICE_1Y, PRICE_NORMAL,
      RANK_CODE, PRICE_1D_DATE, PRICE_1W_DATE, PRICE_2W_DATE)
 VALUES
-    (SEQ_DAILY_PRICE.NEXTVAL, s.SURVEY_DATE, s.MARKET_TYPE, :category_name, :category_code,
-     s.ITEM_CODE, :item_name, s.KIND_CODE, :kind_name, s.RANK_NAME, :unit,
-     :price_today, :price_1d, :price_1w, :price_2w, :price_1m, :price_1y, :price_normal,
-     :rank_code, TO_DATE(:p1d_date, 'YYYY-MM-DD'), TO_DATE(:p1w_date, 'YYYY-MM-DD'),
-     TO_DATE(:p2w_date, 'YYYY-MM-DD'))
+    (%(survey_date)s::date, %(market_type)s, %(category_name)s, %(category_code)s,
+     %(item_code)s, %(item_name)s, %(kind_code)s, %(kind_name)s, %(rank_name)s, %(unit)s,
+     %(price_today)s, %(price_1d)s, %(price_1w)s, %(price_2w)s,
+     %(price_1m)s, %(price_1y)s, %(price_normal)s,
+     %(rank_code)s, %(p1d_date)s::date, %(p1w_date)s::date, %(p2w_date)s::date)
+ON CONFLICT (MARKET_TYPE, SURVEY_DATE, ITEM_CODE, KIND_CODE, RANK_NAME) DO UPDATE SET
+    PRICE_TODAY   = COALESCE(EXCLUDED.PRICE_TODAY,   TBL_DAILY_PRICE.PRICE_TODAY),
+    PRICE_1D      = COALESCE(EXCLUDED.PRICE_1D,      TBL_DAILY_PRICE.PRICE_1D),
+    PRICE_1W      = COALESCE(EXCLUDED.PRICE_1W,      TBL_DAILY_PRICE.PRICE_1W),
+    PRICE_2W      = COALESCE(EXCLUDED.PRICE_2W,      TBL_DAILY_PRICE.PRICE_2W),
+    PRICE_1M      = COALESCE(EXCLUDED.PRICE_1M,      TBL_DAILY_PRICE.PRICE_1M),
+    PRICE_1Y      = COALESCE(EXCLUDED.PRICE_1Y,      TBL_DAILY_PRICE.PRICE_1Y),
+    PRICE_NORMAL  = COALESCE(EXCLUDED.PRICE_NORMAL,  TBL_DAILY_PRICE.PRICE_NORMAL),
+    RANK_CODE     = COALESCE(EXCLUDED.RANK_CODE,     TBL_DAILY_PRICE.RANK_CODE),
+    PRICE_1D_DATE = COALESCE(EXCLUDED.PRICE_1D_DATE, TBL_DAILY_PRICE.PRICE_1D_DATE),
+    PRICE_1W_DATE = COALESCE(EXCLUDED.PRICE_1W_DATE, TBL_DAILY_PRICE.PRICE_1W_DATE),
+    PRICE_2W_DATE = COALESCE(EXCLUDED.PRICE_2W_DATE, TBL_DAILY_PRICE.PRICE_2W_DATE)
 """
 
 LOG_SQL = """
 INSERT INTO TBL_FETCH_LOG
-    (LOG_NO, SURVEY_DATE, MARKET_TYPE, CATEGORY_CODE, STATUS,
-     ROWS_FETCHED, ROWS_UPSERTED, MESSAGE)
+    (SURVEY_DATE, MARKET_TYPE, CATEGORY_CODE, STATUS, ROWS_FETCHED, ROWS_UPSERTED, MESSAGE)
 VALUES
-    (SEQ_FETCH_LOG.NEXTVAL, TO_DATE(:survey_date, 'YYYY-MM-DD'), :market_type,
-     :category_code, :status, :rows_fetched, :rows_upserted, :message)
+    (%(survey_date)s::date, %(market_type)s, %(category_code)s, %(status)s,
+     %(rows_fetched)s, %(rows_upserted)s, %(message)s)
 """
 
 # 같은 키의 가장 최근 원문 해시. 같으면 다시 넣지 않는다.
 RAW_LAST_SQL = """
-SELECT BODY_HASH FROM (
-    SELECT BODY_HASH FROM TBL_API_RAW
-    WHERE  SURVEY_DATE = TO_DATE(:survey_date, 'YYYY-MM-DD')
-      AND  MARKET_TYPE = :market_type AND CATEGORY_CODE = :category_code
-    ORDER  BY RAW_NO DESC
-) WHERE ROWNUM = 1
+SELECT BODY_HASH FROM TBL_API_RAW
+WHERE  SURVEY_DATE = %(survey_date)s::date
+  AND  MARKET_TYPE = %(market_type)s AND CATEGORY_CODE = %(category_code)s
+ORDER  BY RAW_NO DESC
+LIMIT  1
 """
 
+# 원문은 JSONB 로 넣는다. BODY_HASH 는 '키 정렬한 JSON 텍스트' 의 해시라 JSONB 로 바뀌어도
+# 다시 같은 텍스트를 만들 수 있다 (fetcher.raw_text).
 RAW_INSERT_SQL = """
 INSERT INTO TBL_API_RAW
-    (RAW_NO, SURVEY_DATE, MARKET_TYPE, CATEGORY_CODE, ERROR_CODE, ITEM_COUNT, BODY_HASH, BODY)
+    (SURVEY_DATE, MARKET_TYPE, CATEGORY_CODE, ERROR_CODE, ITEM_COUNT, BODY_HASH, BODY)
 VALUES
-    (SEQ_API_RAW.NEXTVAL, TO_DATE(:survey_date, 'YYYY-MM-DD'), :market_type, :category_code,
-     :error_code, :item_count, :body_hash, :body)
+    (%(survey_date)s::date, %(market_type)s, %(category_code)s,
+     %(error_code)s, %(item_count)s, %(body_hash)s, %(body)s::jsonb)
 """
-
-# 바인드 크기. 한 배치가 전부 NULL 인 가격 컬럼이 있으면 oracledb 가 타입을
-# 못 정해 터지므로 미리 알려 준다. 문자열 길이는 01_create_kamis_table.sql 기준.
-INPUT_SIZES = dict(
-    survey_date=20, market_type=10, category_name=20, category_code=5,
-    item_code=10, item_name=40, kind_code=10, kind_name=60,
-    rank_name=30, unit=20,
-    rank_code=10, p1d_date=10, p1w_date=10, p2w_date=10,
-    **{n: oracledb.NUMBER for n in PRICE_BINDS},
-)
 
 
 def to_binds(rows, dicts):
@@ -193,8 +166,6 @@ def store_raw(conn, survey_date, market, cat_code, body):
         last = cur.fetchone()
         if last and last[0] == digest:
             return False
-        # 4000자를 넘는 문자열은 CLOB 으로 알려 줘야 ORA-01461 이 안 난다
-        cur.setinputsizes(body=oracledb.DB_TYPE_CLOB)
         cur.execute(RAW_INSERT_SQL, dict(
             keys, error_code=fetcher.error_code_of(body),
             item_count=len(fetcher.extract_items(body)),
@@ -204,7 +175,7 @@ def store_raw(conn, survey_date, market, cat_code, body):
 
 def write_log(conn, survey_date, market, cat_code, status, fetched=0, upserted=0,
               message=None):
-    """수집 이력 한 줄. 로그 실패가 수집을 막지는 않게 한다."""
+    """수집 이력 한 줄. 로그 실패가 수집을 막지는 않게 한다 (실패하면 그 트랜잭션만 되돌린다)."""
     try:
         with conn.cursor() as cur:
             cur.execute(LOG_SQL, dict(
@@ -212,22 +183,19 @@ def write_log(conn, survey_date, market, cat_code, status, fetched=0, upserted=0
                 status=status, rows_fetched=fetched, rows_upserted=upserted,
                 message=(message or "")[:500] or None))
         conn.commit()
-    except oracledb.Error as e:
-        if "ORA-00942" in str(e):     # table or view does not exist
-            print("  (TBL_FETCH_LOG 가 없습니다 — 07_create_fetch_log.sql 을 실행하세요)")
-        else:
-            print(f"  (수집 로그 기록 실패: {e})")
+    except Exception as e:
+        conn.rollback()
+        print(f"  (수집 로그 기록 실패: {type(e).__name__}: {e})")
 
 
 def upsert(conn, rows_dicts):
-    """MERGE 로 반영하고 반영된 행 수를 돌려준다."""
+    """있으면 갱신 · 없으면 추가로 반영하고, 반영된 행 수(추가+갱신)를 돌려준다."""
     import pandas as pd
 
     df = pd.DataFrame(rows_dicts)
     binds = to_binds(loader.build_rows(df), rows_dicts)
     with conn.cursor() as cur:
-        cur.setinputsizes(**INPUT_SIZES)
-        cur.executemany(MERGE_SQL, binds)
+        cur.executemany(UPSERT_SQL, binds)
         return cur.rowcount
 
 
@@ -399,8 +367,8 @@ def run_market(conn, day, cls, dry, retail_data):
     with conn.cursor() as cur:
         cur.execute("""SELECT COUNT(*), COUNT(PRICE_TODAY)
                        FROM   TBL_DAILY_PRICE
-                       WHERE  SURVEY_DATE = TO_DATE(:d, 'YYYY-MM-DD')
-                         AND  MARKET_TYPE = :m""", d=day, m=market)
+                       WHERE  SURVEY_DATE = %(d)s::date
+                         AND  MARKET_TYPE = %(m)s""", {"d": day, "m": market})
         n, priced = cur.fetchone()
         print(f"  DB 의 {day} {market}: {n}행 · 당일가격 있는 행 {priced}")
 

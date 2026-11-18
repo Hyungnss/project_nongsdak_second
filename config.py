@@ -1,16 +1,16 @@
-"""Oracle 접속 정보와 KAMIS 인증키를 한 곳에서 읽는다.
+"""DB 접속 정보와 KAMIS 인증키를 한 곳에서 읽는다.
 
 값을 찾는 순서
   1. 환경변수
   2. 프로젝트 최상위의 `.env` 파일
-  3. 코드에 적힌 기본값 (Oracle 접속 정보만)
+  3. 코드에 적힌 기본값 (DB 접속 정보만)
 
 `.env` 를 함께 보는 이유는, Windows 에서 [Environment]::SetEnvironmentVariable 로 심은
 값이 이미 떠 있는 프로세스에는 전달되지 않아 터미널을 다시 열어야 하기 때문이다.
 파일로 두면 바로 읽힌다. 대신 이 파일은 절대 커밋하지 않는다 (.gitignore 에 있다).
 
 KAMIS 인증키에는 기본값을 두지 않는다. 없는 채로 수집기를 돌리면 안 되기 때문이다.
-다만 import 시점에 터뜨리지는 않는다 — 웹서비스(backend) 는 여기서 Oracle 정보만 가져다 쓰는데,
+다만 import 시점에 터뜨리지는 않는다 — 웹서비스(backend) 는 여기서 DB 정보만 가져다 쓰는데,
 인증키가 없다는 이유로 화면이 안 뜨면 곤란하다. 수집기가 require_kamis() 를 부르는
 시점에 확인한다.
 """
@@ -74,15 +74,28 @@ def get(name, default=None):
     return default
 
 
-# ── Oracle ────────────────────────────────────────────────────────────────
-DB_USER = get("ORACLE_USER", "kdt_admin")
-DB_PASSWORD = get("ORACLE_PASSWORD", "1234")
-DB_DSN = {
+# ── PostgreSQL (v2) ───────────────────────────────────────────────────────
+# docker compose 의 db 서비스와 같은 값을 쓴다 (.env 의 DB_*). 컨테이너 안에서는
+# DB_HOST 가 'db'(서비스 이름)가 되고, 이 PC 에서 직접 붙을 때는 127.0.0.1 이다.
+# (localhost 로 적으면 Windows 가 IPv6(::1)를 먼저 시도하다 몇 초씩 멈춘다 — Docker 는 IPv4 에만 열려 있다)
+PG = {
+    "host": get("DB_HOST", "127.0.0.1"),
+    "port": int(get("DB_PORT", "5432")),
+    "dbname": get("DB_NAME", "nongsdak"),
+    "user": get("DB_USER", "nongsdak"),
+    "password": get("DB_PASSWORD", ""),
+}
+
+# ── Oracle (v1) — database/migrate_from_oracle.py 에서만 쓴다 ─────────────
+# v1.0.0 의 Oracle XE 11g 에서 데이터를 옮겨 올 때만 필요하다. 웹 · 수집은 쓰지 않는다.
+ORACLE_USER = get("ORACLE_USER", "kdt_admin")
+ORACLE_PASSWORD = get("ORACLE_PASSWORD", "1234")
+ORACLE_DSN = {
     "host": get("ORACLE_HOST", "localhost"),
     "port": int(get("ORACLE_PORT", "1521")),
     "service_name": get("ORACLE_SERVICE", "xe"),
 }
-CLIENT_LIB_DIR = get(
+ORACLE_CLIENT_DIR = get(
     "ORACLE_CLIENT_DIR",
     r"C:\instantclient-basic-windows.x64-23.26.3.0.0\instantclient_23_26",
 )

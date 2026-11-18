@@ -4,8 +4,9 @@
 #   main 에 push · PR      ──▶  test            (검사만)
 #   v* 태그 push (v1.0.0)   ──▶  test ──▶ deploy  (검사를 통과해야만 배포)
 #
-# test   : 린트(ruff) + 시험(pytest). Oracle 도 KAMIS 인증키도 필요 없다.
-#          DB 를 부르는 함수는 시험 안에서 가짜로 바꿔 끼운다 (tests/test_api.py).
+# test   : 린트(ruff) + 시험(pytest). KAMIS 인증키는 필요 없다.
+#          PostgreSQL 을 서비스 컨테이너로 띄워 SQL 까지 실제 DB 로 검증한다 (tests/test_pg_*.py).
+#          시험은 'nongsdak_test' DB 를 새로 만들어 쓰고 database/schema.sql 도 그때 적용된다.
 # deploy : 지금은 GitHub Release 를 만드는 데까지만 한다.
 #          실제 서버 배포는 배포 대상(클라우드 VM · Docker 등)이 정해지면
 #          아래 '실제 배포' 자리에 단계를 더한다.
@@ -34,8 +35,33 @@ jobs:
     name: 린트 · 시험
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+
+    # 시험용 PostgreSQL. 버전은 docker-compose.yml 과 같게 맞춘다.
+    # 이 DB 는 작업이 끝나면 사라진다 — 비밀번호도 시험 전용 값이라 Secrets 에 둘 필요가 없다.
+    services:
+      postgres:
+        image: postgres:18.7
+        env:
+          POSTGRES_USER: nongsdak
+          POSTGRES_PASSWORD: nongsdak
+          POSTGRES_DB: nongsdak
+        ports:
+          - 5432:5432
+        # 접속을 받을 준비가 될 때까지 기다린 뒤 다음 단계로 간다
+        options: >-
+          --health-cmd "pg_isready -U nongsdak -d nongsdak"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
     env:
       PYTHONUTF8: "1"    # 한글 주석 · 출력이 많아 UTF-8 모드로 고정한다
+      # config.py 가 읽는 접속 정보 (.env 대신 환경변수로 준다)
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_NAME: nongsdak
+      DB_USER: nongsdak
+      DB_PASSWORD: nongsdak
     steps:
       - name: 코드 받기
         uses: actions/checkout@v7
@@ -58,7 +84,8 @@ jobs:
       - name: 린트 (ruff)
         run: uv run ruff check --output-format=github .
 
-      # tests/ 의 시험 전부. 화면 스크립트 문법 검사에 node 를 쓰는데,
+      # tests/ 의 시험 전부. DB 시험은 위 postgres 서비스를 쓴다 (CI=true 라 접속 실패면 건너뛰지 않고 실패).
+      # 화면 스크립트 문법 검사에 node 를 쓰는데,
       # GitHub 의 ubuntu 러너에는 node 가 이미 깔려 있다.
       - name: 시험 (pytest)
         run: uv run pytest -v
