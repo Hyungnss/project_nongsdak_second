@@ -56,13 +56,14 @@ r"""최근 며칠치 수집이 실제로 됐는지 확인하고, 빠진 날이 �
 """
 
 import sys
-from datetime import date, datetime, time, timedelta
+from datetime import date, time, timedelta
 from pathlib import Path
 
 # python collector/check.py 로 직접 돌려도 config · collector 를 찾도록 루트를 경로에 넣는다.
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
+import config  # noqa: E402
 from collector import loader  # noqa: E402  접속은 loader 의 것을 그대로 쓴다 (upsert 와 같은 규칙)
 from collector.notify import notify_slack  # noqa: E402
 
@@ -130,7 +131,7 @@ def fetch_summaries(conn, days):
 
 
 def main():
-    now = datetime.now()
+    now = config.now_kst()          # 서버가 UTC 여도 17:30 판단은 한국 시각으로
     days = parse_args(sys.argv, now)
 
     print(f"\n===== {now:%Y-%m-%d %H:%M} 수집 점검 =====")

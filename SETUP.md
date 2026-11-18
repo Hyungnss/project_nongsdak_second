@@ -117,13 +117,22 @@ PostgreSQL 연결 성공 (127.0.0.1:5432/nongsdak)
 
 ## 5. 웹서비스 실행
 
-프로젝트 최상위 폴더에서:
+둘 중 하나로 띄운다.
+
+| 방법 | 명령 | 주소 | 언제 |
+|---|---|---|---|
+| 개발 (코드 고치면 바로 반영) | `uv run uvicorn backend.app:app --reload` | http://127.0.0.1:8000 | 코드를 고칠 때 |
+| 컨테이너 (서버와 같은 모양) | `docker compose up -d --build` | http://127.0.0.1:8080 | 배포 전에 확인할 때 |
+
+컨테이너는 `Dockerfile` 로 만든 이미지 하나를 웹과 수집기가 같이 쓴다. `docker compose up -d` 는
+`db` + `web` 만 띄운다 — 이 PC 에서는 수집을 작업 스케줄러가 하므로 `collector` 는 띄우지 않는다
+(두 번 수집하지 않게). 서버에서는 `.env` 에 `COMPOSE_PROFILES=collector` 를 넣어 같이 띄운다.
 
 ```
-uv run uvicorn backend.app:app --reload
+docker compose ps               # web 이 healthy 면 DB 까지 정상 (/api/health)
+docker compose logs -f web      # 로그
+docker compose up -d --build    # 코드를 고친 뒤 이미지 다시 만들기
 ```
-
-브라우저에서 **http://127.0.0.1:8000** 을 연다.
 
 ---
 
@@ -157,7 +166,8 @@ uv run uvicorn backend.app:app --reload
 
 '있으면 갱신 · 없으면 추가'(`INSERT ... ON CONFLICT`)라 여러 번 돌려도 중복되지 않고 값만 최신이 된다.
 
-**매일 자동으로 받으려면** 작업 스케줄러에 등록한다 (매일 17:30). PowerShell 에서 `$dir` 만 자기 폴더로 바꿔 실행한다.
+**매일 자동으로 받으려면** — 서버(컨테이너)에서는 `collector` 서비스가 매일 17:30(한국 시각)에
+수집 → 점검을 돈다(`collector/scheduler.py`). 이 PC(Windows)에서는 작업 스케줄러에 등록한다 (매일 17:30). PowerShell 에서 `$dir` 만 자기 폴더로 바꿔 실행한다.
 `run_fetch.bat` 은 자기 위치로 이동하므로 bat 안의 경로는 고칠 필요가 없다.
 수집할 때 DB 가 떠 있어야 한다 — Docker Desktop 을 로그인할 때 자동 시작으로 두고, db 서비스는
 `restart: unless-stopped` 라 Docker 가 뜨면 같이 뜬다.
@@ -275,14 +285,15 @@ v1.0.0 의 Oracle XE 에 쌓인 데이터(시세 · 수집 이력 · API 원문 
 CSV 적재(4단계)와 API 백필(6단계) 대신 쓴다. 한 번만 하면 된다.
 
 1. 3단계까지 해서 빈 Postgres 를 띄운다.
-2. `.env` 에 Oracle 접속 정보(`ORACLE_USER` · `ORACLE_PASSWORD` · `ORACLE_HOST` · `ORACLE_PORT` ·
+2. Oracle 드라이버는 평소에는 설치하지 않는다(`migrate` 그룹). 이때만 함께 설치해 실행한다 — 아래 명령의 `--group migrate`.
+3. `.env` 에 Oracle 접속 정보(`ORACLE_USER` · `ORACLE_PASSWORD` · `ORACLE_HOST` · `ORACLE_PORT` ·
    `ORACLE_SERVICE` · `ORACLE_CLIENT_DIR`)도 남아 있어야 한다. Oracle 11g 라 Instant Client 가 필요하다.
-3. 옮긴다.
+4. 옮긴다.
 
    ```
-   uv run python -m database.migrate_from_oracle            # Postgres 가 비어 있어야 한다
-   uv run python -m database.migrate_from_oracle --replace  # Postgres 를 비우고 다시 옮긴다
-   uv run python -m database.migrate_from_oracle --verify   # 옮기지 않고 비교만
+   uv run --group migrate python -m database.migrate_from_oracle            # Postgres 가 비어 있어야 한다
+   uv run --group migrate python -m database.migrate_from_oracle --replace  # Postgres 를 비우고 다시 옮긴다
+   uv run --group migrate python -m database.migrate_from_oracle --verify   # 옮기지 않고 비교만
    ```
 
    Oracle 은 읽기만 한다. 일련번호는 원래 번호 그대로 넣고, 끝나면 **모든 행을 하나씩 비교**한다.

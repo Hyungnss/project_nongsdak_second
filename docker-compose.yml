@@ -1,22 +1,46 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# 농스닥 docker compose
+# 농스닥 docker compose — db(PostgreSQL) · web(FastAPI) · collector(매일 수집)
 #
-#   지금(1단계): Postgres 만 띄운다. 웹 · 수집은 아직 이 PC 에서 uv 로 돌린다.
-#   2단계에서 web(uvicorn) · collector(매일 수집) 서비스를 여기에 더한다.
+#   이 PC(개발)      : docker compose up -d                 -> db + web
+#                      (수집은 지금처럼 작업 스케줄러 + run_fetch.bat 이 한다)
+#   서버(배포)       : .env 에 COMPOSE_PROFILES=collector    -> db + web + collector
+#                      (서버에는 작업 스케줄러가 없으니 collector 컨테이너가 매일 17:30 에 수집한다)
 #
-#   띄우기   : docker compose up -d db
 #   상태     : docker compose ps
-#   접속     : docker compose exec db psql -U nongsdak -d nongsdak
+#   로그     : docker compose logs -f web            (collector · db 도 같은 방식)
+#   DB 접속  : docker compose exec db psql -U nongsdak -d nongsdak
+#   새로 빌드: docker compose up -d --build
 #   끄기     : docker compose down          (데이터는 pgdata 볼륨에 남는다)
 #   초기화   : docker compose down -v       (⚠ 볼륨까지 지운다 — 데이터가 사라진다)
 #
-# 접속 정보는 .env 에서 읽는다 (DB_USER · DB_PASSWORD · DB_NAME). 없으면 아래 기본값.
+# 접속 정보 · 인증키는 .env 에서 읽는다. 없으면 아래 기본값.
 # ─────────────────────────────────────────────────────────────────────────────
 name: nongsdak
 
+# web · collector 공통 설정
+x-app: &app
+  # 이미지 이름. 서버에서는 GHCR 에서 받은 이미지(IMAGE=ghcr.io/...:버전)를 쓰고,
+  # 이 PC 에서는 아래 build 로 직접 만든다.
+  image: ${IMAGE:-nongsdak:local}
+  build: .
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false          # CI 처럼 .env 가 없는 곳에서도 기본값으로 뜨게
+  environment:
+    # 컨테이너 안에서 DB 는 'db'(서비스 이름)로 찾는다. .env 의 127.0.0.1 은 이 PC 에서 직접 붙을 때용
+    DB_HOST: db
+    DB_PORT: "5432"
+    DB_NAME: ${DB_NAME:-nongsdak}
+    DB_USER: ${DB_USER:-nongsdak}
+    DB_PASSWORD: ${DB_PASSWORD:-nongsdak}
+  depends_on:
+    db:
+      condition: service_healthy   # DB 가 접속을 받을 준비가 된 뒤에 뜬다
+
 services:
   db:
-    # 정확한 버전으로 고정한다 (로컬 · CI · 서버가 같은 버전). 올릴 때는 여기만 바꾼다.
+    # 정확한 버전으로 고정한다 (로컬 · CI · 서버가 같은 버전). 올릴 때는 여기와 ci.yml 을 같이 바꾼다.
     image: postgres:18.7
     restart: unless-stopped
     environment:
@@ -33,11 +57,32 @@ services:
       # 볼륨이 비어 있는 '처음 한 번' 만 실행된다. 이미 데이터가 있으면 건너뛴다.
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
     healthcheck:
-      # 접속을 받을 준비가 됐는지. web · collector 는 이게 통과한 뒤에 뜨게 한다 (2단계).
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 20
+
+  web:
+    <<: *app
+    ports:
+      # 기본은 이 PC 에서만 (127.0.0.1:8080). 서버에서는 .env 의 WEB_BIND 로 바꾼다.
+      # 개발용 uvicorn(8000)과 겹치지 않게 기본 포트를 8080 으로 둔다.
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:8000"
+    healthcheck:
+      # /api/health 는 DB 까지 확인한다. 이미지에 curl 이 없어 파이썬으로 부른다.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  collector:
+    <<: *app
+    # 웹과 같은 이미지, 실행 명령만 다르다. 매일 FETCH_AT(기본 17:30, 한국 시각)에 수집 → 점검.
+    command: ["python", "-u", "-m", "collector.scheduler"]
+    # 이 PC 에서는 작업 스케줄러가 수집하므로 기본으로는 띄우지 않는다 (두 번 수집하지 않게).
+    # 서버에서는 .env 에 COMPOSE_PROFILES=collector 를 넣어 같이 띄운다.
+    profiles: ["collector"]
 
 volumes:
   pgdata:

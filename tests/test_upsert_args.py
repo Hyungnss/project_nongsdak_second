@@ -3,16 +3,16 @@
 작업 스케줄러가 `--days 7` 로 부르므로, 옵션 해석이 틀리면 매일 수집이 엉뚱한 날짜를 받는다.
 """
 
-from datetime import date
-
 import pytest
+
+import config
 
 from collector import kamis, upsert
 
 
 def test_defaults_today_one_day_all_markets():
     day, days, dry, markets = upsert.parse_args([])
-    assert day == date.today().isoformat()
+    assert day == config.now_kst().date().isoformat()   # 한국 날짜 기준
     assert (days, dry, markets) == (1, False, [kamis.RETAIL, kamis.WHOLESALE])
 
 

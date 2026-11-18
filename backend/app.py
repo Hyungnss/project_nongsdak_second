@@ -130,6 +130,20 @@ def briefing(market: Market = MARKET_Q):
     return db.get_briefing(market=db.MARKETS[market])
 
 
+@app.get("/api/health")
+def health():
+    """서버와 DB 가 살아 있는지. 컨테이너 healthcheck 와 배포 직후 확인이 부른다.
+
+    DB 에 SELECT 1 을 보내 본다. 실패하면 503 — 서버만 떠 있고 DB 를 못 보는 상태를
+    '정상' 으로 보지 않기 위해서다.
+    """
+    try:
+        db._query("SELECT 1 AS ok")
+    except Exception as e:
+        raise HTTPException(503, f"DB 에 접속할 수 없어요: {type(e).__name__}")
+    return {"ok": True}
+
+
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "index.html")

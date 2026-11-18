@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.143.1",
-    "oracledb>=26.0.1",
     "pandas>=3.0.6",
     "psycopg-pool>=3.3.3",
     "psycopg[binary]>=3.3.9",
@@ -21,6 +20,9 @@ dev = [
     "httpx2>=2.16.2",
     "pytest>=9.2.0",   # 시험 실행기
     "ruff>=0.17.5",    # 린터 — 코드를 돌리지 않고 읽어서 실수를 찾는다
+]
+migrate = [
+    "oracledb>=26.0.1",
 ]
 
 # ── ruff (린터) ───────────────────────────────────────────────────────────

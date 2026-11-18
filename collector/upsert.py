@@ -57,7 +57,7 @@ NULL 로 덮어쓰지 않는다
 import sys
 import time
 import traceback
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 
@@ -67,6 +67,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 # 변환 규칙(등급 '-' -> '없음', 가격 '-' · 0 -> NULL)과 접속은 loader 의 것을 그대로 쓴다.
 # 같은 규칙을 두 곳에 적어두면 나중에 한쪽만 고쳐져 데이터가 어긋난다.
+import config  # noqa: E402
 from collector import kamis as fetcher  # noqa: E402
 from collector import loader  # noqa: E402
 from collector.notify import notify_slack  # noqa: E402
@@ -248,7 +249,7 @@ def parse_args(argv):
             raise SystemExit(f"날짜는 하나만 적어 주세요 ({day}, {a})")
         i += 1
 
-    day = day or date.today().isoformat()
+    day = day or config.now_kst().date().isoformat()   # 한국 날짜 기준 '오늘'
     try:
         date.fromisoformat(day)
     except ValueError:
@@ -397,7 +398,7 @@ def main():
     span = targets[0] if days == 1 else f"{targets[-1]} ~ {targets[0]} ({days}일치)"
     markets = "·".join(fetcher.MARKETS[c] for c in classes)
     # logs\fetch.log 에 계속 덧붙으므로 실행 구분선을 남긴다.
-    print(f"\n===== {datetime.now():%Y-%m-%d %H:%M:%S} =====")
+    print(f"\n===== {config.now_kst():%Y-%m-%d %H:%M:%S} =====")
     print(f"수집 시작 · 조사일 {span} · {markets}"
           + ("  [dry-run · DB 안 건드림]" if dry else ""))
 

@@ -98,3 +98,17 @@ def test_frontend_files_are_served(client):
     for path in ["/static/auth.js", "/static/cart.js", "/static/auth.css", "/static/cart.css",
                  "/static/logo.png", "/static/favicon.png"]:
         assert client.get(path).status_code == 200, path
+
+
+def test_health_ok(client, monkeypatch):
+    monkeypatch.setattr(db, "_query", lambda *a, **k: [{"ok": 1}])
+    r = client.get("/api/health")
+    assert r.status_code == 200 and r.json() == {"ok": True}
+
+
+def test_health_503_when_db_down(client, monkeypatch):
+    """서버만 떠 있고 DB 를 못 보면 '정상' 이 아니다 — 배포 확인 · 컨테이너 healthcheck 가 이걸 본다."""
+    def down(*a, **k):
+        raise ConnectionError("db down")
+    monkeypatch.setattr(db, "_query", down)
+    assert client.get("/api/health").status_code == 503

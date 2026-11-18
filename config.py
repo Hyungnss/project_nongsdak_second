@@ -17,7 +17,9 @@ KAMIS 인증키에는 기본값을 두지 않는다. 없는 채로 수집기를 
 
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # 표준 출력을 UTF-8 로 고정한다.
 #
@@ -116,6 +118,18 @@ KAMIS_KIND_NAME_MODE = get("KAMIS_KIND_NAME_MODE", "append_unit_except_livestock
 # 수집 완료·실패를 슬랙으로 받을 Incoming Webhook URL. 비워두면 알림을 안 보낸다.
 # 슬랙 api.slack.com/apps 에서 앱 생성 > Incoming Webhooks > 채널 선택 후 발급.
 SLACK_WEBHOOK_URL = get("SLACK_WEBHOOK_URL")
+
+
+# ── 시각 ──────────────────────────────────────────────────────────────────
+# KAMIS 조사일 · 공표 시각(17:00) · 수집 시각(17:30)은 전부 한국 시각이다.
+# 서버나 컨테이너는 보통 UTC 라서 date.today() / datetime.now() 를 그대로 쓰면
+# 밤 0시~9시 사이에 '오늘' 이 하루 어긋난다. 수집기는 이 함수로만 '지금' 을 읽는다.
+KST = ZoneInfo("Asia/Seoul")
+
+
+def now_kst():
+    """지금 한국 시각 (시간대 표시 없는 datetime — 기존 코드와 비교 · 출력 방식을 그대로 쓰려고)."""
+    return datetime.now(KST).replace(tzinfo=None)
 
 
 def require_kamis():
