@@ -143,7 +143,7 @@ PostgreSQL 18 (`docker compose` 의 `db` 서비스). 스키마는 **`database/sc
 | `collector/loader.py` | **전체 적재** — 빈 DB 에 CSV 전량을 넣는다 |
 | `collector/kamis.py` | KAMIS OpenAPI 호출·응답 해석 (소매 01 / 도매 02). 단독 실행하면 소매 하루치를 CSV 로 떨군다 |
 | **`collector/upsert.py`** | **자동 수집의 본체** — 받아서 원문을 `TBL_API_RAW` 에 남기고 `INSERT ... ON CONFLICT` 로 덮어쓴다 |
-| `collector/check.py` | 최근 7일 소매·도매 수집 기록 점검 (빈 날이면 슬랙) |
+| `collector/check.py` | 최근 7일 소매·도매 수집 기록 점검 (빈 날이면 경고 · 종료 코드 1) |
 
 | 테이블 | 담는 것 |
 |---|---|
@@ -176,7 +176,7 @@ uv run python -m collector.upsert [YYYY-MM-DD] [--days N] [--market retail|whole
 | 진입점 | `run_fetch.bat` (**ASCII 전용** — 이유는 [WORKLOG.md](docs/WORKLOG.md)) |
 | 작업 이름 | `KAMIS_fetch_1730` · 매일 **17:30** · 놓친 실행은 PC 가 켜지면 따라잡음 |
 | 받는 범위 | `--days 7` — 오늘부터 거슬러 7일치, **소매·도매 둘 다** (실행 누락 + KAMIS 사후 개정 대응) |
-| 점검 | 수집 직후 `check_fetch.bat` 이 최근 7일 소매·도매 기록을 각각 확인하고, 빈 날이 있으면 슬랙으로 알림 |
+| 점검 | 수집 직후 `check_fetch.bat` 이 최근 7일 소매·도매 기록을 각각 확인하고, 빈 날이 있으면 경고를 남기고 실패(종료 코드 1)로 끝남 |
 | 로그 | `logs\fetch.log` · DB 쪽은 `TBL_FETCH_LOG` |
 
 17:30 인 이유는 **KAMIS 공표가 17:00** 이라서다. 그 전에 받으면 축산물밖에 값이 없다.
@@ -245,7 +245,7 @@ project_nongsdak/
 ├── backend/                     FastAPI 서버 — app.py(라우트) db.py(조회) auth.py(로그인) cart.py(장바구니)
 ├── frontend/                    화면 — index.html · auth.js/css · cart.js/css · 이미지. 주소는 /static/...
 ├── collector/                   KAMIS 수집 — kamis.py(API 호출) loader.py(변환 · CSV 전체 적재)
-│                                upsert.py(매일 수집 본체) check.py(수집 점검) notify.py(슬랙)
+│                                upsert.py(매일 수집 본체) check.py(수집 점검)
 │                                scheduler.py(컨테이너용 매일 17:30 실행기)
 ├── database/                    schema.sql(PostgreSQL 스키마) · migrate_from_oracle.py · oracle/(v1 DDL 보관)
 ├── data/raws/                   원본 CSV (수정 금지)

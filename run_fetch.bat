@@ -39,7 +39,7 @@ set FETCH_RC=%ERRORLEVEL%
 rem The heartbeat check used to be its own 19:00 task. Both tasks carry
 rem -StartWhenAvailable, so after a PC-off night Windows woke them together in
 rem arbitrary order (missed runs get up to a 10 min random delay). When the check
-rem won the race it read the gap the fetch was still filling and Slack-warned
+rem won the race it read the gap the fetch was still filling and warned
 rem about nothing. Calling it here makes the order certain: the check only ever
 rem sees the state the fetch left behind.
 call "%~dp0check_fetch.bat"

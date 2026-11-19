@@ -1,12 +1,15 @@
-r"""최근 며칠치 수집이 실제로 됐는지 확인하고, 빠진 날이 있으면 슬랙으로 경고한다 (8단계).
+r"""최근 며칠치 수집이 실제로 됐는지 확인하고, 빠진 날이 있으면 경고한다 (8단계).
+
+  경고는 화면(로그)에 찍고 종료 코드 1 로 끝난다. 작업 스케줄러의 '마지막 실행 결과',
+  컨테이너 로그(docker compose logs collector)에서 확인한다.
 
   실행:  uv run python -m collector.check [--days N]
          uv run python -m collector.check YYYY-MM-DD
   기본값: 최근 7일
 
 왜 필요한가
-  upsert 의 완료 알림은 'upsert 가 돌았을 때만' 온다. PC 가 꺼져 있거나 작업 스케줄러가
-  걸러 먹거나 스크립트가 시작도 못 하고 죽으면, 수집이 안 됐는데도 슬랙은 조용하다.
+  upsert 의 로그는 'upsert 가 돌았을 때만' 남는다. PC 가 꺼져 있거나 작업 스케줄러가
+  걸러 먹거나 스크립트가 시작도 못 하고 죽으면, 수집이 안 됐는데도 로그는 조용하다.
   침묵을 성공으로 착각하게 되는 것이다. 이 스크립트가 그 침묵을 대신 깬다.
 
 왜 '오늘' 이 아니라 '최근 N 일' 인가
@@ -31,7 +34,7 @@ r"""최근 며칠치 수집이 실제로 됐는지 확인하고, 빠진 날이 �
   upsert 는 하루치를 반영할 때마다 TBL_FETCH_LOG 에 그날의 요약 한 줄
   (CATEGORY_CODE IS NULL) 을 남긴다. 그 요약행을 보고 판단한다.
     · 없음        -> upsert 가 그날 안 돌았다. 경고한다.
-    · STATUS=OK   -> 정상. (완료 알림은 upsert 가 이미 보냈으니) 조용히 넘어간다.
+    · STATUS=OK   -> 정상. 조용히 넘어간다.
     · NO_DATA     -> 주말·공휴일이라 자료가 없는 날. 정상이므로 조용하다.
     · ERROR       -> 실패로 기록됐다. 경고한다.
   DB 에 접속조차 못 하면 그것도 경고한다 (오라클이 죽었을 수 있으므로).
@@ -65,7 +68,6 @@ sys.path.insert(0, str(BASE_DIR))
 
 import config  # noqa: E402
 from collector import loader  # noqa: E402  접속은 loader 의 것을 그대로 쓴다 (upsert 와 같은 규칙)
-from collector.notify import notify_slack  # noqa: E402
 
 # 기본 점검 범위. run_fetch.bat 의 --days 7 백필과 맞춘다.
 DEFAULT_DAYS = 7
@@ -145,10 +147,6 @@ def main():
     except Exception as e:
         msg = f"{type(e).__name__}: {e}"
         print(f"DB 접속 실패 — {msg}")
-        notify_slack(
-            f"⚠️ KAMIS 수집 점검 실패 · {days[0]} ~ {days[-1]}\n"
-            f"DB 에 접속하지 못해 수집 여부를 확인할 수 없습니다.\n{msg}"
-        )
         sys.exit(1)
 
     try:
@@ -190,7 +188,6 @@ def main():
         "logs\\fetch.log 를 확인해 주세요."
     )
     print("\n".join(lines[1:]))
-    notify_slack("\n".join(lines))
     sys.exit(1)
 
 

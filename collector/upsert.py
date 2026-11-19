@@ -70,7 +70,6 @@ sys.path.insert(0, str(BASE_DIR))
 import config  # noqa: E402
 from collector import kamis as fetcher  # noqa: E402
 from collector import loader  # noqa: E402
-from collector.notify import notify_slack  # noqa: E402
 
 # build_rows 가 돌려주는 튜플의 순서 -> UPSERT_SQL 의 바인드 이름
 BIND_NAMES = [
@@ -434,22 +433,8 @@ def main():
 
         if failed_days:
             print(f"실패: {' · '.join(failed_days)}")
-            notify_slack(
-                f"❌ KAMIS 수집 실패 · 조사일 {span} · {markets}\n"
-                f"실패한 날: {' · '.join(failed_days)}\n"
-                f"받은 행 {total_fetched:,} · 반영 {total_upserted:,}"
-            )
             sys.exit(1)
 
-        notify_slack(
-            f"✅ KAMIS 수집 완료 · 조사일 {span} · {markets}\n"
-            f"받은 행 {total_fetched:,} · 반영 {total_upserted:,}\n"
-            f"테이블 전체 {total:,}행 · 최신 조사일 {last:%Y-%m-%d}"
-        )
-
-    except Exception as e:
-        notify_slack(f"❌ KAMIS 수집 오류 · 조사일 {span} · {markets}\n{type(e).__name__}: {e}")
-        raise
     finally:
         if conn:
             conn.close()

@@ -7,7 +7,7 @@ rem
 rem   log  : logs\fetch.log     (appended)
 rem
 rem Verifies the last 7 days actually got collected. For any day with no
-rem TBL_FETCH_LOG summary row, or one marked ERROR, it Slack-alerts so a silent
+rem TBL_FETCH_LOG summary row, or one marked ERROR, it warns (exit 1) so a silent
 rem miss (PC off, scheduler skip, crash) does not pass unnoticed. Today only
 rem counts once CUTOFF_HOUR has passed. Korean notes live in
 rem collector\check.py.
