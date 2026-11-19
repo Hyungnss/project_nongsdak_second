@@ -217,6 +217,12 @@ def get_meta(market=RETAIL):
 # 요청마다 테이블 전체를 GROUP BY 하는 무거운 조회라 짧게 캐시한다.
 # 수집은 하루 세 번뿐이라 이보다 짧게 잡을 이유가 없다.
 PRODUCTS_TTL = 60          # 초
+
+# 화면 조회가 보는 기간 (2026-11-19 가격 10년 백필 뒤 추가). 테이블 전체를 훑으면 6~7배 느려진다.
+#   목록: 최근 2년 안에 조사된 품종만. 그보다 오래 끊긴 품종은 '지금 다루는 품종' 이 아니다.
+#   최근 관측(급등락 · 브리핑): 400일 — 백필 전 데이터 길이(약 14개월)와 같아 결과가 그대로다.
+PRODUCTS_WINDOW_DAYS = 730
+RECENT_WINDOW_DAYS = 400
 _products_cache = {}      # market -> {"at": 시각, "data": 목록}
 
 
@@ -261,8 +267,10 @@ def _list_products_uncached(market=RETAIL):
                         THEN 1 ELSE 0 END) AS obs_recent
         FROM   TBL_DAILY_PRICE
         WHERE  PRICE_TODAY > 0 AND MARKET_TYPE = %(m)s
+          AND  SURVEY_DATE >= (SELECT MAX(SURVEY_DATE) FROM TBL_DAILY_PRICE WHERE MARKET_TYPE = %(m)s)
+                              - %(window)s
         GROUP BY ITEM_CODE, KIND_CODE, RANK_NAME
-    """, {"m": market})
+    """, {"m": market, "window": PRODUCTS_WINDOW_DAYS})
     if not rows:
         return []
     global_latest = max(r["latest"] for r in rows)
@@ -438,6 +446,9 @@ def _recent_by_product(depth=40, market=RETAIL):
 
     품목당 여러 등급이 있어도 여기서는 전부 가져오고, 대표 등급 선별은 파이썬에서 한다.
     (약 170 품종 x 40 = 7천 행이라 부담이 없다.)
+
+    최근 RECENT_WINDOW_DAYS 일만 본다. 쓰는 쪽(_compare_all)은 최근 며칠 안에 조사된 품종만 남기므로
+    그보다 오래된 행은 결과에 영향이 없다. 10년 백필 뒤 전체에 순번을 매기면 6~7배 느려졌다.
     """
     return _query("""
         SELECT * FROM (
@@ -449,9 +460,11 @@ def _recent_by_product(depth=40, market=RETAIL):
                    ) AS rn
             FROM   TBL_DAILY_PRICE
             WHERE  PRICE_TODAY > 0 AND MARKET_TYPE = %(m)s
+              AND  SURVEY_DATE >= (SELECT MAX(SURVEY_DATE) FROM TBL_DAILY_PRICE WHERE MARKET_TYPE = %(m)s)
+                                  - %(window)s
         ) ranked
         WHERE rn <= %(depth)s
-    """, {"depth": depth, "m": market})
+    """, {"depth": depth, "m": market, "window": RECENT_WINDOW_DAYS})
 
 
 def _compare_all(offset=1, max_stale=3, market=RETAIL, rows=None):
