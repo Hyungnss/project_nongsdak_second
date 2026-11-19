@@ -132,3 +132,25 @@ def test_perfect_prediction_has_zero_mase():
     smp["pred_naive"] = smp.y
     t = backtest.metrics(smp, backtest.scales(series, "2024-06-01"), ["naive"])
     assert (t.MASE_mean == 0).all() and (t.MAPE == 0).all()
+
+
+def test_blend_is_half_of_seasonal_change(setup):
+    """기준선 blend = naive 와 계절 프로파일의 평균 — 예년 변화의 절반만큼."""
+    s, smp = setup
+    refits = backtest.refit_dates("2024-06-01", "2024-09-30")
+    by = {s.sid: s}
+    prof = baselines.seasonal_profile(by, smp, refits)
+    got = baselines.blend(by, smp, refits)
+    ok = np.isfinite(prof)
+    assert ok.any()
+    np.testing.assert_allclose(got[ok], (smp.p0.to_numpy()[ok] + prof[ok]) / 2)
+    assert baselines.REFERENCE == "blend" and "blend" in baselines.NEEDS_REFITS
+
+
+def test_blend_does_not_peek(setup):
+    s, smp = setup
+    refits = backtest.refit_dates("2024-06-01", "2024-09-30")
+    row = len(smp) - 1
+    before = baselines.blend({s.sid: s}, smp.loc[[row]].reset_index(drop=True), refits)
+    shocked, one = _future_shocked(s, smp, row)
+    np.testing.assert_allclose(before, baselines.blend({s.sid: shocked}, one, refits))

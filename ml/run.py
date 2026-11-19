@@ -21,13 +21,14 @@ sys.path.insert(0, str(ROOT))
 from ml import backtest, dataset  # noqa: E402
 
 RUNS = ROOT / "ml_runs"
-ALL = ["naive", "seasonal_naive", "seasonal_adjusted", "moving_average", "seasonal_profile", "lgbm"]
+ALL = ["naive", "seasonal_naive", "seasonal_adjusted", "moving_average", "seasonal_profile", "blend", "lgbm"]
+BASELINE_SET = ALL[:-1]   # --models baselines
 
 
 def parse_args(argv):
     p = argparse.ArgumentParser(prog="python -m ml.run")
     p.add_argument("--market", default="소매")
-    p.add_argument("--models", default=",".join(ALL))
+    p.add_argument("--models", default=",".join(ALL), help="쉼표 목록, 또는 baselines (기준선 6종)")
     p.add_argument("--eval-start", default=None, help="기본: 평가 끝 - 2년")
     p.add_argument("--eval-end", default=None, help="기본: 최신 조사일 - 35일")
     p.add_argument("--refit-days", type=int, default=28)
@@ -37,7 +38,7 @@ def parse_args(argv):
 
 def main(argv=None):
     a = parse_args(sys.argv[1:] if argv is None else argv)
-    models = [m for m in a.models.split(",") if m]
+    models = BASELINE_SET if a.models == "baselines" else [m for m in a.models.split(",") if m]
     t0 = time.time()
     series = dataset.load_series(a.market)
     latest = max(s.dates[-1] for s in series)
@@ -70,7 +71,11 @@ def main(argv=None):
 
     RUNS.mkdir(exist_ok=True)
     mlflow.set_tracking_uri(f"sqlite:///{(RUNS / 'mlflow.db').as_posix()}")
-    mlflow.set_experiment(f"price-baseline-{'retail' if a.market == '소매' else 'wholesale'}")
+    # 결과 파일(artifact)도 ml_runs/ 안에 둔다. 지정하지 않으면 지금 폴더의 ./mlruns 에 생긴다.
+    exp_name = f"price-baseline-{'retail' if a.market == '소매' else 'wholesale'}"
+    if mlflow.get_experiment_by_name(exp_name) is None:
+        mlflow.create_experiment(exp_name, artifact_location=(RUNS / "artifacts" / exp_name).resolve().as_uri())
+    mlflow.set_experiment(exp_name)
     with mlflow.start_run(run_name=",".join(models)):
         mlflow.log_params({"market": a.market, "models": ",".join(models), "eval_start": str(start),
                            "eval_end": str(end), "refit_days": a.refit_days, "series": len(series),

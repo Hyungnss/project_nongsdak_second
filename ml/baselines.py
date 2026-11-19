@@ -118,10 +118,29 @@ def seasonal_profile(series, samples, refit_dates):
     return _by_series(series, samples, f)
 
 
+def blend(series, samples, refit_dates):
+    """기준선 (2026-11-19 확정) — naive 와 계절 프로파일의 평균. '예년 계절 변화의 절반만큼 바뀐다'.
+
+      예측 = 기준일 가격 × (1 + 예년 변화율) / 2
+      예) 오늘 3,000원, 예년엔 4주 동안 20% 내림 → (3,000 + 2,400) / 2 = 2,700원 (10% 내림)
+
+    도매 백테스트(2024-10 ~ 2026-10)에서 1 · 2 · 4주 모두 가장 좋거나 거의 같았다.
+    계절이 뚜렷한 채소 · 과실은 계절 프로파일이, 저장 · 수입 품목(곡물 · 건어물 · 냉동 수산)은 naive 가
+    나아서, 둘을 섞으면 어느 쪽에서도 크게 틀리지 않는다. 모델은 이 점수를 넘어야 한다.
+    계절 프로파일을 못 구한 표본(과거 2년 미만)은 naive 그대로다.
+    """
+    p0 = naive(series, samples)
+    prof = seasonal_profile(series, samples, refit_dates)
+    return np.where(np.isfinite(prof), (p0 + prof) / 2, np.nan)
+
+
 BASELINES = {
     "naive": naive,
     "seasonal_naive": seasonal_naive,
     "seasonal_adjusted": seasonal_adjusted,
     "moving_average": moving_average,
     "seasonal_profile": seasonal_profile,      # refit_dates 가 필요하다
+    "blend": blend,                            # 확정 기준선 · refit_dates 가 필요하다
 }
+NEEDS_REFITS = {"seasonal_profile", "blend"}
+REFERENCE = "blend"                            # 모델이 넘어야 할 기준선

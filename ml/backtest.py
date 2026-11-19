@@ -40,8 +40,8 @@ def run(series, eval_start, eval_end, models, horizons=HORIZONS, refit_days=28, 
         t = time.time()
         if name == "lgbm":
             pred = _lgbm(series, by_sid, samples, refits, horizons, lgbm_params or LGBM_PARAMS, log)
-        elif name == "seasonal_profile":
-            pred = baselines.seasonal_profile(by_sid, samples, refits)
+        elif name in baselines.NEEDS_REFITS:
+            pred = baselines.BASELINES[name](by_sid, samples, refits)
         else:
             pred = baselines.BASELINES[name](by_sid, samples)
         fb = ~np.isfinite(pred)
