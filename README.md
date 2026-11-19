@@ -182,6 +182,7 @@ PostgreSQL 18 (`docker compose` 의 `db` 서비스). 처음 모양은 **`databas
 | `collector/kamis.py` | KAMIS OpenAPI 호출·응답 해석 (소매 01 / 도매 02). 단독 실행하면 소매 하루치를 CSV 로 떨군다 |
 | **`collector/upsert.py`** | **자동 수집의 본체** — 받아서 원문을 `TBL_API_RAW` 에 남기고 `INSERT ... ON CONFLICT` 로 덮어쓴다 |
 | `collector/check.py` | 최근 7일 소매·도매 수집 기록 점검 (빈 날이면 경고 · 종료 코드 1) |
+| `collector/backfill.py` | **과거 가격 백필** — KAMIS 기간 API(품목 · 품종 · 등급별 최대 1년)로 지금 다루는 품종의 과거분을 채운다. 기존 행은 덮어쓰지 않고 `DATA_SOURCE='kamis_period'` 로 표시, 진행은 `TBL_BACKFILL_JOB` 에 남겨 이어받는다 |
 
 | 테이블 | 담는 것 |
 |---|---|
@@ -285,7 +286,7 @@ project_nongsdak/
 ├── frontend/                    화면 — index.html · auth.js/css · cart.js/css · 이미지. 주소는 /static/...
 ├── collector/                   KAMIS 수집 — kamis.py(API 호출) loader.py(변환 · CSV 전체 적재)
 │                                upsert.py(매일 수집 본체) check.py(수집 점검)
-│                                scheduler.py(컨테이너용 매일 17:30 실행기)
+│                                scheduler.py(컨테이너용 매일 17:30 실행기) backfill.py(과거 가격 백필)
 ├── database/                    schema.sql(처음 스키마) · migrations/ + migrate.sh(변경분) · migrate_from_oracle.py · oracle/(v1 DDL 보관)
 ├── data/raws/                   원본 CSV (수정 금지)
 ├── logs/                        fetch.log — 자동 수집 로그 (커밋 안 함)

@@ -21,7 +21,7 @@ import config
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = ROOT / "database" / "schema.sql"
 MIGRATIONS = sorted((ROOT / "database" / "migrations").glob("[0-9][0-9][0-9]_*.sql"))
-TABLES = ["TBL_API_USAGE_DAILY", "TBL_API_KEY",
+TABLES = ["TBL_BACKFILL_JOB", "TBL_API_USAGE_DAILY", "TBL_API_KEY",
           "TBL_CART_ITEM", "TBL_USER_SESSION", "TBL_USER",
           "TBL_DAILY_PRICE", "TBL_FETCH_LOG", "TBL_API_RAW"]
 
