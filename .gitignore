@@ -16,3 +16,7 @@ data/raws/kamis_api_*.csv
 .idea/
 .DS_Store
 Thumbs.db
+
+# 실험 기록 (MLflow · 백테스트 결과) — PC 에만 둔다
+ml_runs/
+mlruns/
