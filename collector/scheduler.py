@@ -7,7 +7,7 @@
 작업 스케줄러가 없어서 이 파일이 그 자리를 맡는다. 하는 일은 run_fetch.bat 과 똑같다.
 
   1. python -m collector.upsert --days 7   (지난 7일을 다시 받아 빈 날 · 사후 보정을 메운다)
-  2. python -m collector.check             (빠진 날이 있으면 슬랙 경고)
+  2. python -m collector.check             (빠진 날이 있으면 경고 · 종료 코드 1)
 
   각 단계는 별도 프로세스로 돌린다. 수집이 죽어도(예외 · sys.exit) 스케줄러는 살아서 다음 날을 기다린다.
 

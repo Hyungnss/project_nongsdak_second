@@ -195,34 +195,7 @@ KAMIS 공표가 17:00 이라 17:30 에 돈다. `--days 7` 로 지난 7일을 다
 
 ---
 
-## 7. 수집 알림 — Slack (선택)
-
-매일 수집 결과(완료 · 실패 · 빠진 날 경고)를 Slack 채널로 받으려면 **Incoming Webhook** 주소가 하나 필요하다.
-`.env` 에 `SLACK_WEBHOOK_URL` 이 비어 있으면 알림만 조용히 건너뛰고 수집은 그대로 돈다.
-
-1. 알림 받을 채널을 만든다.
-2. [api.slack.com/apps](https://api.slack.com/apps) → **Create New App → From scratch** → 앱 이름 · 워크스페이스 선택 → **Create App**.
-3. 왼쪽 **Incoming Webhooks** → 스위치 **On** → **Add New Webhook to Workspace** → 채널 선택 → **Allow**.
-4. 생긴 Webhook URL 을 `.env` 에 넣는다.
-
-   ```
-   SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
-   ```
-
-5. PowerShell 에서 테스트한다. `ok` 가 나오고 채널에 글이 뜨면 된 것이다.
-
-   ```powershell
-   $url  = "여기에_복사한_웹훅_URL"
-   $body = [Text.Encoding]::UTF8.GetBytes('{"text":"농스닥 알림 테스트입니다"}')
-   Invoke-RestMethod -Method Post -Uri $url -ContentType "application/json; charset=utf-8" -Body $body
-   ```
-
-> **웹훅 URL 은 비밀번호처럼 다룬다** — 이 주소만 알면 누구나 채널에 글을 쓸 수 있다.
-> `.env` 에만 두고 커밋하지 않는다. 새어 나갔다면 앱 설정에서 그 웹훅을 지우고(**Remove**) 새로 만든다.
-
----
-
-## 8. 검사 돌리기
+## 7. 검사 돌리기
 
 push 하기 전에 로컬에서 CI 와 같은 검사를 돌릴 수 있다.
 
