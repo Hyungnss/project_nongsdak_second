@@ -2,7 +2,8 @@
 
 pg_db : 실제 PostgreSQL 로 도는 시험용 DB.
   · 개발 DB(nongsdak)와 따로 '<DB_NAME>_test' 를 만들어 쓴다. 개발 데이터는 건드리지 않는다.
-  · 시험 세션마다 DB 를 새로 만들고 database/schema.sql 을 적용한다 — 스키마 자체도 검증된다.
+  · 시험 세션마다 DB 를 새로 만들고 database/schema.sql 과 database/migrations/*.sql 을
+    서버와 같은 순서로 적용한다 — 스키마와 마이그레이션 자체도 검증된다.
   · 시험 함수마다 모든 테이블을 비운다 (서로 영향 없게).
   · 로컬에서 Postgres 가 안 떠 있으면 건너뛴다 (docker compose up -d db 로 띄운다).
     CI 에서는(CI=true) 건너뛰지 않고 실패시킨다 — DB 시험이 조용히 빠지면 안 되기 때문이다.
@@ -19,7 +20,9 @@ import config
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = ROOT / "database" / "schema.sql"
-TABLES = ["TBL_CART_ITEM", "TBL_USER_SESSION", "TBL_USER",
+MIGRATIONS = sorted((ROOT / "database" / "migrations").glob("[0-9][0-9][0-9]_*.sql"))
+TABLES = ["TBL_API_USAGE_DAILY", "TBL_API_KEY",
+          "TBL_CART_ITEM", "TBL_USER_SESSION", "TBL_USER",
           "TBL_DAILY_PRICE", "TBL_FETCH_LOG", "TBL_API_RAW"]
 
 
@@ -43,6 +46,9 @@ def pg_test_db():
 
     with psycopg.connect(**{**base, "dbname": test_name}, autocommit=True) as conn:
         conn.execute(SCHEMA.read_text(encoding="utf-8"))
+        for m in MIGRATIONS:
+            with conn.transaction():
+                conn.execute(m.read_text(encoding="utf-8"))
         conn.execute(f"ALTER DATABASE {test_name} SET timezone = 'Asia/Seoul'")
 
     # 앱 · 수집기가 쓰는 접속 정보를 시험 DB 로 돌린다 (config.PG 는 dict 라 제자리에서 바꾼다)
@@ -60,6 +66,8 @@ def pg_db(pg_test_db):
     with psycopg.connect(**config.PG, autocommit=True) as conn:
         conn.execute(f"TRUNCATE {', '.join(TABLES)} RESTART IDENTITY CASCADE")
         db._products_cache.clear()          # 품목 목록 60초 캐시가 앞 시험 값을 들고 있지 않게
+        app_module.api_v1._items_cache.clear()
+        app_module.api_v1.limiter.reset()   # 호출 제한 카운터도 시험마다 새로
         yield conn
     if db._pool is not None:                # 시험 DB 를 가리키던 풀은 닫는다
         db._pool.close()

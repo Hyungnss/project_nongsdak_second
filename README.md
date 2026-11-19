@@ -125,9 +125,44 @@ nongsdaqCart.add(item, kind, rank, name);  // 한 품목 담기
 
 ---
 
+## 공개 API (`/api/v1`)
+
+외부에서 쓰는 API 다. 화면용 `/api/*` 와 **따로** 둔다 — 화면에 맞춰 바꿔도 외부 사용자의 코드가 깨지지 않게.
+v1 이 살아 있는 동안 응답은 필드를 **더하기만** 한다.
+
+| | |
+|---|---|
+| 문서 | `/api/v1/docs` (Swagger) · `/api/v1/redoc`. 화면용 API 문서(`/docs`)는 닫았다 |
+| 인증 | `X-API-Key: nsk_...` 헤더. 키는 회원만 발급 (`/api/keys`, 회원당 3개). DB 에는 SHA-256 만 둔다 |
+| 한도 | 회원당 분당 60회 · 하루 1,000회 (한국 날짜). 넘으면 `429` + `Retry-After`. 남은 횟수는 `X-RateLimit-*` 헤더 |
+| 응답 | `{"data": ..., "meta": {...}}` · 오류는 `{"error": {"code", "message"}}` |
+| CORS | `/api/v1` 만 모든 출처 허용 (쿠키 없이 키로만) |
+| 사용량 | `TBL_API_USAGE_DAILY` — (날짜 · 키 · 엔드포인트 · 상태) 마다 호출 수 · 응답 시간 합계 |
+
+| 엔드포인트 | 내용 |
+|---|---|
+| `GET /api/v1/status` | 시장별 데이터 기간 · 마지막 수집 시각 (**키 없이**) |
+| `GET /api/v1/items` | 품목 · 품종 · 등급 코드 (`market`, `category`) |
+| `GET /api/v1/prices/latest` | 품종 · 등급마다 최신 가격 (최근 30일 안에 조사된 것) |
+| `GET /api/v1/prices/history` | 한 품종의 일별 가격 (`item`, `kind`, `rank`, `start`, `end` · 최대 366일) |
+| `GET /api/v1/changes` | 품목별 등락률 (`period=1d\|1w\|2w\|1m`) |
+
+```bash
+curl -H "X-API-Key: nsk_..." "https://hyungnss.eta.pyhub.kr/api/v1/prices/latest?item=211"
+```
+
+키 관리 API (로그인 쿠키): `GET/POST /api/keys` · `DELETE /api/keys/{key_no}` · `GET /api/keys/usage`.
+코드는 `backend/api_v1.py`(공개 API · 호출 제한 · 사용량) · `backend/apikeys.py`(키).
+
+호출 제한은 **프로세스 메모리**에서 센다 (하루 합계는 처음 볼 때 DB 에서 이어 받는다). 서버 한 대 ·
+uvicorn 프로세스 하나라 충분하다. 프로세스나 서버를 늘리면 Redis 같은 공유 저장소로 옮겨야 한다.
+
+---
+
 ## 데이터베이스
 
-PostgreSQL 18 (`docker compose` 의 `db` 서비스). 스키마는 **`database/schema.sql` 한 파일**이다.
+PostgreSQL 18 (`docker compose` 의 `db` 서비스). 처음 모양은 **`database/schema.sql`**, 그 뒤 변경은
+**`database/migrations/NNN_*.sql`** 이다 (아래 '마이그레이션').
 
 `TBL_DAILY_PRICE` — **128,807행** · `2025-09-01 ~ 2026-11-18` (2026-11-18 기준)
 
@@ -138,7 +173,8 @@ PostgreSQL 18 (`docker compose` 의 `db` 서비스). 스키마는 **`database/sc
 
 | 스크립트 | 하는 일 |
 |---|---|
-| `database/schema.sql` | 테이블 6개 · 인덱스 · 제약 · 컬럼 설명. DB 를 처음 띄울 때 자동 실행 |
+| `database/schema.sql` | 처음 모양 (테이블 6개 · 인덱스 · 제약 · 컬럼 설명). DB 를 처음 띄울 때 자동 실행 |
+| `database/migrations/` · `migrate.sh` | 그 뒤 변경분. 아직 적용 안 한 것만 순서대로 적용 (`TBL_SCHEMA_MIGRATION` 에 기록) |
 | `database/migrate_from_oracle.py` | v1(Oracle) 데이터를 옮기고 모든 행을 비교하는 일회용 도구 |
 | `collector/loader.py` | **전체 적재** — 빈 DB 에 CSV 전량을 넣는다 |
 | `collector/kamis.py` | KAMIS OpenAPI 호출·응답 해석 (소매 01 / 도매 02). 단독 실행하면 소매 하루치를 CSV 로 떨군다 |
@@ -243,11 +279,12 @@ Get-Content logs\fetch.log -Tail 20 -Encoding UTF8
 ```
 project_nongsdak/
 ├── backend/                     FastAPI 서버 — app.py(라우트) db.py(조회) auth.py(로그인) cart.py(장바구니)
+│                                api_v1.py(공개 API · 호출 제한 · 사용량) apikeys.py(API 키)
 ├── frontend/                    화면 — index.html · auth.js/css · cart.js/css · 이미지. 주소는 /static/...
 ├── collector/                   KAMIS 수집 — kamis.py(API 호출) loader.py(변환 · CSV 전체 적재)
 │                                upsert.py(매일 수집 본체) check.py(수집 점검)
 │                                scheduler.py(컨테이너용 매일 17:30 실행기)
-├── database/                    schema.sql(PostgreSQL 스키마) · migrate_from_oracle.py · oracle/(v1 DDL 보관)
+├── database/                    schema.sql(처음 스키마) · migrations/ + migrate.sh(변경분) · migrate_from_oracle.py · oracle/(v1 DDL 보관)
 ├── data/raws/                   원본 CSV (수정 금지)
 ├── logs/                        fetch.log — 자동 수집 로그 (커밋 안 함)
 ├── tests/                       pytest — 순수 로직 · API(가짜 DB) · 실제 PostgreSQL 시험

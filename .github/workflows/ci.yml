@@ -118,8 +118,15 @@ jobs:
 
       # .env 없이 기본값으로 뜬다 (DB 비밀번호도 시험 전용 기본값). --wait 는 healthcheck 가
       # healthy 가 될 때까지 기다린다 — web 의 healthcheck 는 /api/health 로 DB 까지 본다.
-      - name: db + web 띄우기
-        run: docker compose up -d --no-build --wait --wait-timeout 120 db web
+      # db 를 먼저 띄우고 마이그레이션(database/migrations)을 적용한 뒤 web 을 띄운다 — 서버 배포와 같은 순서.
+      - name: db 띄우기 · 마이그레이션
+        run: |
+          docker compose up -d --no-build --wait --wait-timeout 120 db
+          bash database/migrate.sh
+          bash database/migrate.sh          # 두 번 돌려도 아무것도 하지 않아야 한다
+
+      - name: web 띄우기
+        run: docker compose up -d --no-build --wait --wait-timeout 120 web
 
       - name: 화면 · API 불러 보기
         run: |
@@ -131,6 +138,13 @@ jobs:
           done
           # 로그인 없이 장바구니는 401 이어야 한다
           [ "$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/api/cart)" = "401" ]
+          # 공개 API — status 는 키 없이 200, 나머지는 키 없으면 401 · 문서는 200
+          for path in /api/v1/status /api/v1/docs /api/v1/openapi.json; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8080$path")
+            echo "$code  $path"
+            [ "$code" = "200" ] || { echo "::error::$path 가 $code 를 돌려줬습니다"; exit 1; }
+          done
+          [ "$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/api/v1/items)" = "401" ]
 
       # 수집기는 같은 이미지에서 명령만 다르다. 모듈이 다 불러와지는지만 본다 (KAMIS 는 부르지 않는다).
       - name: 수집기 컨테이너 확인
@@ -201,6 +215,8 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:${{ env.VERSION }}
             ${{ env.IMAGE }}:latest
+          build-args: |
+            APP_VERSION=${{ env.VERSION }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.version=${{ env.VERSION }}

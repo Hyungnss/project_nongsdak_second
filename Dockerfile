@@ -58,6 +58,11 @@ COPY collector/ collector/
 # 원본 CSV — 빈 DB 에 처음 넣을 때 쓴다 (python -m collector.loader)
 COPY data/raws/kamis_price_data_20250901_20260818.csv data/raws/
 
+# 버전은 CI 가 빌드할 때 넣는다 (--build-arg APP_VERSION=2.2.0). /api/health · API 문서에 나온다.
+# 맨 끝에 두는 이유: 값이 바뀌어도 위의 층(의존성 · 코드)은 캐시를 그대로 쓰게.
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
+
 USER app
 EXPOSE 8000
 
