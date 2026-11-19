@@ -224,6 +224,28 @@ uv run python -m collector.backfill --status                               # 진
 
 ---
 
+## 6-2. 날씨 · 물가 · 예보 (특성 데이터) — 선택
+
+가격 예측 모델에 쓰는 외부 데이터다. 키가 두 개 필요하다 (`.env` 의 `DATA_GO_KR_KEY` · `ECOS_KEY`).
+
+| 키 | 어디서 | 할 일 |
+|---|---|---|
+| `DATA_GO_KR_KEY` | [공공데이터포털](https://www.data.go.kr) | 가입 → **기상청_지상(종관, ASOS) 일자료 조회서비스** · **기상청_중기예보 조회서비스** 를 각각 활용신청 → 마이페이지의 일반 인증키 (Decoding) |
+| `ECOS_KEY` | [한국은행 ECOS](https://ecos.bok.or.kr/api/) | 가입 → 인증키 신청 |
+
+```
+uv run python -m collector.cpi --start 201501               # 물가 과거분 (1분)
+uv run python -m collector.weather --start 2015-01-01       # 날씨 과거분 — 관측소 97곳 (30분 남짓)
+uv run python -m collector.forecast                         # 최근 24시간 예보 보관 (과거 예보는 받을 수 없다)
+```
+
+- 모든 행에 `AVAILABLE_AT`(그 값을 알 수 있게 된 시각)이 있다. 모델 학습에서 미래 정보가 섞이지 않게 하려는 것이다.
+  매일 수집은 처음 받은 시각, 과거분은 보수적인 규칙(날씨: 다음 날 11시 · 물가: 다음 달 10일)을 쓴다.
+- 기상청은 **전날까지만** 준다. 범위에 오늘이 들어가면 요청 전체가 실패하므로 수집기가 끝을 어제로 자른다.
+- 활용신청 직후에는 `SERVICE_KEY_IS_NOT_REGISTERED_ERROR` 가 날 수 있다. 신청한 서비스 이름(일자료인지)을 확인하고 잠시 뒤 다시 해 본다.
+
+---
+
 ## 서버 DB 백업 — Lightsail 버킷
 
 `.github/workflows/backup.yml` 이 **매일 04:00 (KST)** 서버 runner 에서 `database/backup.sh` 를 돌린다.
