@@ -306,6 +306,7 @@ project_nongsdak/
 ├── README.md
 ├── SETUP.md                     처음 세팅하는 사람용
 ├── docs/WORKLOG.md              날짜별 작업 기록 (무엇을 왜 그렇게 정했는지)
+├── docs/RUNBOOK.md              운영 런북 — 배포 · 되돌리기 · 장애 대응 · 자주 쓰는 확인
 ├── pyproject.toml · uv.lock      의존성 (uv 로 관리 — 설치는 `uv sync`)
 └── .python-version              파이썬 3.11
 ```
