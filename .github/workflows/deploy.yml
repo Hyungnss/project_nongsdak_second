@@ -1,0 +1,152 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# 서버 배포 — AWS Lightsail 의 self-hosted runner 가 직접 돌린다.
+#
+#   v* 태그  ──▶ ci.yml (검사 → GHCR 이미지 · Release) ──▶ 이 파일 (서버 배포)
+#   손으로   ──▶ Actions > deploy > Run workflow > 버전 입력 (예: 2.0.0)
+#                이미 GHCR 에 있는 버전을 다시 올리거나, 이전 버전으로 되돌릴 때 쓴다.
+#
+# runner 는 서버 안에서 돌기 때문에 SSH 가 필요 없다. 서버가 GitHub 에 일감을 받으러 간다.
+#
+# 서버 폴더 /srv/nongsdak
+#   docker-compose.yml · docker-compose.prod.yml · Caddyfile · database/schema.sql  ← 저장소에서 복사
+#   .env                                                                         ← 아래에서 Secrets 로 매번 새로 쓴다
+#
+# 필요한 Secrets   : DB_PASSWORD · KAMIS_CERT_KEY · KAMIS_CERT_ID
+# 필요한 Variables : SITE_DOMAIN (예: nongsdak.example.com — 이 서버 IP 를 가리키는 도메인)
+#   DB_PASSWORD 는 DB 를 '처음' 만들 때만 계정에 들어간다. 나중에 Secret 만 바꾸면
+#   앱과 DB 의 비밀번호가 어긋나 접속이 끊긴다 — 바꿀 때는 DB 안에서도 ALTER USER 로 같이 바꾼다.
+# ─────────────────────────────────────────────────────────────────────────────
+name: deploy
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "배포할 이미지 버전 (예: 2.1.0)"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "배포할 이미지 버전 (예: 2.1.0) — GHCR 에 이미 있는 것"
+        required: true
+        type: string
+
+# 배포는 한 번에 하나만. 도중에 끊으면 서버가 어중간한 상태가 되므로 취소하지 않고 줄을 세운다.
+concurrency:
+  group: deploy-lightsail
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read      # GHCR 에서 비공개 이미지를 받으려면 필요하다
+
+jobs:
+  deploy:
+    name: 서버 배포
+    runs-on: [self-hosted, lightsail]
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://${{ vars.SITE_DOMAIN }}
+    env:
+      APP_DIR: /srv/nongsdak
+      VERSION: ${{ inputs.version }}
+      SITE_DOMAIN: ${{ vars.SITE_DOMAIN }}
+    steps:
+      - name: 버전 형식 확인
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::버전은 2.1.0 처럼 숫자.숫자.숫자 로 적습니다 (받은 값: '$VERSION')"
+            exit 1
+          fi
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/nongsdak:${VERSION}" >> "$GITHUB_ENV"
+
+      # 서버에 필요한 파일만 받는다 (코드 전체는 이미지 안에 있다).
+      - name: 배포 파일 받기
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            docker-compose.yml
+            docker-compose.prod.yml
+            Caddyfile
+            database/schema.sql
+          sparse-checkout-cone-mode: false
+
+      - name: 배포 파일 복사
+        run: |
+          mkdir -p "$APP_DIR/database"
+          cp docker-compose.yml docker-compose.prod.yml Caddyfile "$APP_DIR/"
+          cp database/schema.sql "$APP_DIR/database/"
+
+      # .env 를 Secrets 로 새로 쓴다. 서버에서 손으로 고치지 않는다 — 원본은 GitHub 에 있다.
+      # 값은 환경변수로 넘겨 스크립트 본문에 비밀이 박히지 않게 한다 (로그에는 *** 로 가려진다).
+      - name: .env 쓰기
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          KAMIS_CERT_KEY: ${{ secrets.KAMIS_CERT_KEY }}
+          KAMIS_CERT_ID: ${{ secrets.KAMIS_CERT_ID }}
+        run: |
+          for k in DB_PASSWORD KAMIS_CERT_KEY KAMIS_CERT_ID SITE_DOMAIN; do
+            [ -n "${!k}" ] || { echo "::error::$k 가 비어 있습니다 (Settings > Secrets and variables)"; exit 1; }
+          done
+          umask 077
+          {
+            echo "# 배포 작업(deploy.yml)이 GitHub Secrets 로 매번 새로 쓴다. 손으로 고치지 않는다."
+            echo "COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml"
+            echo "IMAGE=$IMAGE"
+            echo "SITE_DOMAIN=$SITE_DOMAIN"
+            echo "DB_NAME=nongsdak"
+            echo "DB_USER=nongsdak"
+            echo "DB_PASSWORD=$DB_PASSWORD"
+            echo "KAMIS_CERT_KEY=$KAMIS_CERT_KEY"
+            echo "KAMIS_CERT_ID=$KAMIS_CERT_ID"
+          } > "$APP_DIR/.env.new"
+          mv "$APP_DIR/.env.new" "$APP_DIR/.env"
+
+      # 이 작업의 GITHUB_TOKEN 으로 로그인해 받고, 끝나면 바로 로그아웃한다.
+      # 서버에 오래 가는 토큰을 남기지 않는다.
+      - name: 이미지 받기
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null' EXIT
+          docker compose pull --quiet
+
+      # --wait : healthcheck 가 있는 서비스는 healthy 가 될 때까지 기다린다 (web 은 /api/health 로 DB 까지 본다)
+      - name: 띄우기
+        working-directory: ${{ env.APP_DIR }}
+        run: docker compose up -d --wait --wait-timeout 180 --remove-orphans
+
+      # 바깥 문(caddy)을 거쳐 https 로도 되는지 본다. 인증서까지 검사한다 (-k 를 쓰지 않는다).
+      # --resolve 로 도메인을 이 서버(127.0.0.1)로 바로 보낸다. 첫 배포에는 인증서 발급에 몇 초 걸린다.
+      - name: 확인
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          set -e
+          url="https://$SITE_DOMAIN/api/health"
+          for _ in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --resolve "$SITE_DOMAIN:443:127.0.0.1" "$url" || true)
+            [ "$code" = "200" ] && break
+            sleep 3
+          done
+          echo "$url : $code"
+          [ "$code" = "200" ] || { echo "::error::$url 가 $code 를 돌려줬습니다"; exit 1; }
+          # http 로 오면 https 로 보내는지
+          redir=$(curl -s -o /dev/null -w "%{http_code} %{redirect_url}" --resolve "$SITE_DOMAIN:80:127.0.0.1" "http://$SITE_DOMAIN/")
+          echo "http → $redir"
+          case "$redir" in 30[178]\ https://*) ;; *) echo "::error::http 가 https 로 넘어가지 않습니다 ($redir)"; exit 1 ;; esac
+          docker compose ps
+          echo "### 배포 완료 · $IMAGE · https://$SITE_DOMAIN" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 실패하면 로그 보기
+        if: failure()
+        working-directory: ${{ env.APP_DIR }}
+        run: docker compose logs --no-color --tail 100 || true
+
+      # 쓰지 않는 이미지(이름 없는 것)만 지운다. 버전 태그가 붙은 이전 이미지는 되돌리기용으로 남는다.
+      - name: 정리
+        if: always()
+        run: docker image prune -f >/dev/null
