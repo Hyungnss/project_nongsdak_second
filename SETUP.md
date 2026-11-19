@@ -208,6 +208,32 @@ KAMIS 공표가 17:00 이라 17:30 에 돈다. `--days 7` 로 지난 7일을 다
 
 ---
 
+## 서버 DB 백업 — Lightsail 버킷
+
+`.github/workflows/backup.yml` 이 **매일 04:00 (KST)** 서버 runner 에서 `database/backup.sh` 를 돌린다.
+
+| | |
+|---|---|
+| 덤프 | `pg_dump -Fc` (압축 형식) → `s3://<BACKUP_BUCKET>/backup/YYYY/MM/nongsdak_YYYYMMDD_HHMM.dump` |
+| 보관 | 30일. 지난 것은 같은 작업이 지운다 |
+| 복원 시험 | 한국 시각 일요일마다 가장 최근 백업을 임시 DB 에 실제로 복원해 운영 DB 와 행 수를 맞춰 보고 지운다 |
+| 확인 | 실패하면 Actions 에 빨간불 · GitHub 알림 |
+
+버킷 준비 (Lightsail 콘솔)
+1. 스토리지 → 버킷 생성 — 서버와 같은 리전(시드니), 가장 작은 요금제. **모든 객체 비공개**.
+2. 버킷 → 권한 → **리소스 액세스 → 인스턴스 연결**. 서버가 키 없이 버킷에 쓴다 (인스턴스 하나에 버킷 연결 하나 — 다른 버킷과 연결돼 있으면 먼저 끊는다).
+   연결 뒤 서버에 반영되기까지 몇 분 걸린다.
+3. GitHub Variable `BACKUP_BUCKET` 에 버킷 이름.
+
+손으로 되살리기
+```
+aws s3 cp s3://<버킷>/backup/2026/11/nongsdak_20261120_0400.dump /tmp/x.dump        # 서버에서
+docker compose exec -T db sh -c 'pg_restore --clean --if-exists --no-owner -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < /tmp/x.dump
+```
+`--clean` 은 지금 표를 지우고 백업으로 바꾼다. 표 하나만 되살리려면 `-t tbl_user` 처럼 고른다.
+
+---
+
 ## 7. 검사 돌리기
 
 push 하기 전에 로컬에서 CI 와 같은 검사를 돌릴 수 있다.

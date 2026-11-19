@@ -175,6 +175,7 @@ PostgreSQL 18 (`docker compose` 의 `db` 서비스). 처음 모양은 **`databas
 | 스크립트 | 하는 일 |
 |---|---|
 | `database/schema.sql` | 처음 모양 (테이블 6개 · 인덱스 · 제약 · 컬럼 설명). DB 를 처음 띄울 때 자동 실행 |
+| `database/backup.sh` | 서버 DB 백업 — 매일 04:00 pg_dump → Lightsail 버킷(30일 보관), 일요일마다 임시 DB 에 복원 시험 (`.github/workflows/backup.yml`) |
 | `database/migrations/` · `migrate.sh` | 그 뒤 변경분. 아직 적용 안 한 것만 순서대로 적용 (`TBL_SCHEMA_MIGRATION` 에 기록) |
 | `database/migrate_from_oracle.py` | v1(Oracle) 데이터를 옮기고 모든 행을 비교하는 일회용 도구 |
 | `collector/loader.py` | **전체 적재** — 빈 DB 에 CSV 전량을 넣는다 |

@@ -1,0 +1,66 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# 서버 DB 백업 — 매일 04:00 (KST) pg_dump → Lightsail 버킷, 일요일엔 복원 시험까지.
+#
+#   예약     : 매일 19:00 UTC (= 04:00 KST). 예약 작업은 main 에 있는 이 파일로만 돈다.
+#   손으로   : Actions > backup > Run workflow (복원 시험만 따로 돌릴 수도 있다)
+#
+# 서버의 runner 가 돈다 — 실패하면 Actions 에 빨간불이 켜지고 GitHub 알림이 온다
+# (서버 cron 은 조용히 실패해도 모른다). 버킷 접근은 인스턴스에 붙인 역할로 한다 — 키를 두지 않는다.
+# 필요한 Variable: BACKUP_BUCKET
+# ─────────────────────────────────────────────────────────────────────────────
+name: backup
+
+on:
+  schedule:
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+    inputs:
+      restore_test:
+        description: "덤프 뒤에 복원 시험도 할지"
+        type: boolean
+        default: true
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: DB 백업
+    runs-on: [self-hosted, lightsail]
+    timeout-minutes: 30
+    env:
+      BUCKET: ${{ vars.BACKUP_BUCKET }}
+      APP_DIR: /srv/nongsdak
+      KEEP_DAYS: "30"
+    steps:
+      - name: 스크립트 받기
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: database/backup.sh
+          sparse-checkout-cone-mode: false
+
+      - name: 덤프 → 버킷
+        run: bash database/backup.sh dump
+
+      # 복원해 보지 않은 백업은 쓸 수 있는지 모른다. 예약 실행은 한국 시각 일요일에만, 손으로 돌릴 땐 고른 대로.
+      - name: 복원 시험을 할지
+        id: when
+        env:
+          EVENT: ${{ github.event_name }}
+          WANT: ${{ inputs.restore_test }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            echo "run=$WANT" >> "$GITHUB_OUTPUT"
+          elif [ "$(TZ=Asia/Seoul date +%u)" = "7" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 복원 시험
+        if: steps.when.outputs.run == 'true'
+        run: bash database/backup.sh restore
