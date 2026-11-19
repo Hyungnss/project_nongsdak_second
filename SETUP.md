@@ -81,6 +81,19 @@ docker compose up -d db
 처음 뜰 때 `database/schema.sql` 이 자동으로 실행돼 **테이블 6개**(시세 · 수집 이력 · API 원문 ·
 회원 · 로그인 세션 · 장바구니)가 만들어진다. 데이터는 `pgdata` 볼륨에 남아서 껐다 켜도 그대로다.
 
+그다음 **마이그레이션**을 적용한다 (공개 API 키 · 사용량 테이블 등 나중에 더한 것). Git Bash 에서:
+
+```
+bash database/migrate.sh
+```
+
+아직 적용하지 않은 `database/migrations/NNN_*.sql` 만 순서대로 적용하고 `TBL_SCHEMA_MIGRATION` 에 남긴다.
+몇 번을 돌려도 괜찮다. `git pull` 로 새 마이그레이션 파일이 생기면 다시 돌린다.
+서버에서는 배포 작업(`deploy.yml`)이 새 버전을 띄우기 전에 알아서 돌린다.
+
+> 새 마이그레이션을 만들 때: 다음 번호로 **새 파일**을 만든다 (`003_무엇.sql`). 머지된 파일은 고치지 않는다.
+> 기존 코드가 새 DB 에서도 돌도록 **더하기**(테이블 · 컬럼 추가)로 쓴다 — 배포는 DB 를 먼저 바꾸고 앱을 나중에 바꾼다.
+
 ```
 docker compose ps                                       # STATUS 가 healthy 면 준비 완료
 docker compose exec db psql -U nongsdak -d nongsdak     # 직접 들어가 보기 (\dt 로 테이블 목록)

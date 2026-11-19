@@ -23,8 +23,11 @@ from fastapi.staticfiles import StaticFiles
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import api_v1  # noqa: E402
+import apikeys  # noqa: E402
 import auth  # noqa: E402
 import cart  # noqa: E402
+import config  # noqa: E402
 import db  # noqa: E402
 
 # 화면 파일은 루트의 frontend/ 에 있다. 주소는 예전처럼 /static/... 으로 낸다.
@@ -53,13 +56,23 @@ async def lifespan(app):
 app = FastAPI(
     title="농스닥",
     description="KAMIS 소매·도매 시세로 오늘 가격과 최근 변동을 보여주는 서비스",
+    version=config.APP_VERSION,
     lifespan=lifespan,
+    # 화면용 API(/api/*) 문서는 내놓지 않는다 — 화면에 맞춰 언제든 바뀌는 내부 API 라서.
+    # 바깥에 공개하는 API 와 문서는 /api/v1 (api_v1.py) 에 따로 있다: /api/v1/docs
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 # 회원가입 · 로그인 (/api/auth/*). 시세 API 는 로그인 없이 그대로 열려 있다.
 app.include_router(auth.router)
 # 장바구니 (/api/cart/*). 로그인한 회원만 쓴다 (TBL_CART_ITEM).
 app.include_router(cart.router)
+# 공개 API 키 발급 · 폐기 · 사용량 (/api/keys/*). 로그인한 회원만 (TBL_API_KEY).
+app.include_router(apikeys.router)
+# 공개 API (/api/v1/*). API 키로 부른다. 문서는 /api/v1/docs
+app.mount("/api/v1", api_v1.v1)
 
 
 @app.get("/api/meta")
@@ -141,7 +154,7 @@ def health():
         db._query("SELECT 1 AS ok")
     except Exception as e:
         raise HTTPException(503, f"DB 에 접속할 수 없어요: {type(e).__name__}")
-    return {"ok": True}
+    return {"ok": True, "version": config.APP_VERSION}
 
 
 @app.get("/")

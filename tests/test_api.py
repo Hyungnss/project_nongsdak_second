@@ -103,7 +103,7 @@ def test_frontend_files_are_served(client):
 def test_health_ok(client, monkeypatch):
     monkeypatch.setattr(db, "_query", lambda *a, **k: [{"ok": 1}])
     r = client.get("/api/health")
-    assert r.status_code == 200 and r.json() == {"ok": True}
+    assert r.status_code == 200 and r.json()["ok"] is True and r.json()["version"]
 
 
 def test_health_503_when_db_down(client, monkeypatch):

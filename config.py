@@ -114,6 +114,24 @@ KAMIS_CERT_ID = get("KAMIS_CERT_ID")
 KAMIS_KIND_NAME_MODE = get("KAMIS_KIND_NAME_MODE", "append_unit_except_livestock")
 
 
+# ── 버전 ──────────────────────────────────────────────────────────────────
+# 이미지에서는 CI 가 빌드할 때 넣어 준 APP_VERSION(태그 버전)을 쓴다 (Dockerfile ARG).
+# 로컬에서 그냥 돌릴 때는 pyproject.toml 의 version 을 읽는다. 둘 다 없으면 'dev'.
+def _app_version():
+    v = os.environ.get("APP_VERSION")
+    if v:
+        return v
+    try:
+        import tomllib
+        with open(BASE_DIR / "pyproject.toml", "rb") as f:
+            return tomllib.load(f)["project"]["version"]
+    except (OSError, KeyError, ValueError):
+        return "dev"
+
+
+APP_VERSION = _app_version()
+
+
 # ── 시각 ──────────────────────────────────────────────────────────────────
 # KAMIS 조사일 · 공표 시각(17:00) · 수집 시각(17:30)은 전부 한국 시각이다.
 # 서버나 컨테이너는 보통 UTC 라서 date.today() / datetime.now() 를 그대로 쓰면
