@@ -96,8 +96,10 @@ def test_frontend_files_are_served(client):
     r = client.get("/")
     assert r.status_code == 200 and "<html" in r.text.lower()
     for path in ["/static/auth.js", "/static/cart.js", "/static/auth.css", "/static/cart.css",
-                 "/static/logo.png", "/static/favicon.png"]:
+                 "/static/logo.png", "/static/favicon.png", "/static/developers.js"]:
         assert client.get(path).status_code == 200, path
+    r = client.get("/developers")
+    assert r.status_code == 200 and "/static/developers.js" in r.text and "/static/auth.js" in r.text
 
 
 def test_health_ok(client, monkeypatch):

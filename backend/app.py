@@ -162,4 +162,10 @@ def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/developers")
+def developers():
+    """공개 API 소개 · 키 발급 · 사용량 · 문서 (frontend/developers.html)."""
+    return FileResponse(STATIC_DIR / "developers.html")
+
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
