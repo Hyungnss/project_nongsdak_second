@@ -24,6 +24,11 @@ dev = [
 migrate = [
     "oracledb>=26.0.1",
 ]
+ml = [
+    "lightgbm>=4.7.0",
+    "mlflow>=3.18.0",
+    "scikit-learn>=1.9.1",
+]
 
 # ── ruff (린터) ───────────────────────────────────────────────────────────
 # 실행: uv run ruff check .
