@@ -132,6 +132,7 @@ v1 이 살아 있는 동안 응답은 필드를 **더하기만** 한다.
 
 | | |
 |---|---|
+| 개발자 페이지 | **`/developers`** — 소개 · 빠른 시작 · 키 발급/폐기 · 최근 30일 사용량 · 엔드포인트 문서 · 한도/오류. 메인 화면 오른쪽 위 `API` 버튼 (`frontend/developers.html` · `developers.js`) |
 | 문서 | `/api/v1/docs` (Swagger) · `/api/v1/redoc`. 화면용 API 문서(`/docs`)는 닫았다 |
 | 인증 | `X-API-Key: nsk_...` 헤더. 키는 회원만 발급 (`/api/keys`, 회원당 3개). DB 에는 SHA-256 만 둔다 |
 | 한도 | 회원당 분당 60회 · 하루 1,000회 (한국 날짜). 넘으면 `429` + `Retry-After`. 남은 횟수는 `X-RateLimit-*` 헤더 |

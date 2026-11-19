@@ -11,6 +11,7 @@
 .authbtn.primary{background:var(--ink);color:var(--card);border-color:var(--ink)}
 .authbtn.primary:hover{color:var(--card);opacity:.88}
 .authbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a.authbtn{text-decoration:none;display:inline-flex;align-items:center}
 
 /* 팝업 */
 .authdlg{border:1px solid var(--line);border-radius:16px;padding:0;width:min(400px,calc(100vw - 32px));

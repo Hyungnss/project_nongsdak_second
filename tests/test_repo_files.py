@@ -43,17 +43,18 @@ def _node_check(path):
 
 
 @needs_node
-@pytest.mark.parametrize("name", ["auth.js", "cart.js"])
+@pytest.mark.parametrize("name", ["auth.js", "cart.js", "developers.js"])
 def test_frontend_js_syntax(name):
     _node_check(ROOT / "frontend" / name)
 
 
 @needs_node
-def test_index_inline_scripts_syntax(tmp_path):
-    """index.html 안에 들어 있는 <script> 블록을 꺼내 하나씩 검사한다 (src= 로 부르는 것은 위에서 본다)."""
-    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+@pytest.mark.parametrize("page", ["index.html", "developers.html"])
+def test_inline_scripts_syntax(tmp_path, page):
+    """HTML 안에 들어 있는 <script> 블록을 꺼내 하나씩 검사한다 (src= 로 부르는 것은 위에서 본다)."""
+    html = (ROOT / "frontend" / page).read_text(encoding="utf-8")
     scripts = re.findall(r"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", html, re.S)
-    assert scripts, "index.html 에서 스크립트를 못 찾았다"
+    assert scripts, f"{page} 에서 스크립트를 못 찾았다"
     for i, code in enumerate(scripts):
         f = tmp_path / f"inline_{i}.js"
         f.write_text(code, encoding="utf-8")
