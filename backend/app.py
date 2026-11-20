@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import api_v1  # noqa: E402
 import apikeys  # noqa: E402
+import forecast  # noqa: E402
 import auth  # noqa: E402
 import cart  # noqa: E402
 import config  # noqa: E402
@@ -71,6 +72,8 @@ app.include_router(auth.router)
 app.include_router(cart.router)
 # 공개 API 키 발급 · 폐기 · 사용량 (/api/keys/*). 로그인한 회원만 (TBL_API_KEY).
 app.include_router(apikeys.router)
+# 가격 예측 (/api/forecast). 화면용 — collector/predict.py 가 매일 만든 예측을 꺼낸다 (TBL_PRICE_FORECAST).
+app.include_router(forecast.router)
 # 공개 API (/api/v1/*). API 키로 부른다. 문서는 /api/v1/docs
 app.mount("/api/v1", api_v1.v1)
 

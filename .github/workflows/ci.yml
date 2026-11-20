@@ -145,6 +145,9 @@ jobs:
             [ "$code" = "200" ] || { echo "::error::$path 가 $code 를 돌려줬습니다"; exit 1; }
           done
           [ "$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/api/v1/items)" = "401" ]
+          # 예측 API — 공개는 키 없이 401, 화면용은 (빈 DB 라) 없는 품종 404
+          [ "$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8080/api/v1/forecast?item=211&kind=03")" = "401" ]
+          [ "$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8080/api/forecast?item=211&kind=03")" = "404" ]
 
       # 수집기는 같은 이미지에서 명령만 다르다. 모듈이 다 불러와지는지만 본다 (KAMIS 는 부르지 않는다).
       - name: 수집기 컨테이너 확인

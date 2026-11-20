@@ -79,7 +79,8 @@ free -h ; df -h /                                           # 메모리 · 디�
 
 수집 작업을 지금 한 번 돌리기 (예약 시각을 기다리지 않고):
 ```
-docker compose exec collector python -m collector.scheduler --once            # 가격 → 점검
+docker compose exec collector python -m collector.scheduler --once            # 가격 → 점검 → 예측
+docker compose exec collector python -m collector.predict                     # 예측만 다시 (가격을 손으로 고친 뒤 등)
 docker compose exec collector python -m collector.scheduler --once weather    # weather · cpi · forecast_am · forecast_pm
 ```
 
@@ -91,6 +92,7 @@ docker compose exec collector python -m collector.scheduler --once weather    # 
 |---|---|---|
 | 사이트가 안 열림 | `docker compose ps` · `logs caddy` · `logs web` | 멈춘 컨테이너 `docker compose up -d`. 인증서 오류면 caddy 로그 (`caddy_data` 볼륨은 지우지 않는다 — 발급 횟수 제한) |
 | `/api/health` 503 | `logs db` · `df -h` | DB 가 죽었거나 디스크가 찼다 |
+| 예측이 안 바뀜 · 빈 목록 | `SELECT MAX(base_date), model_version, COUNT(*) FROM tbl_price_forecast GROUP BY 2` · `logs collector` | 예측은 17:30 가격 작업의 마지막 단계다. 철 지난 품종(7일 넘게 조사 없음)은 일부러 예측하지 않는다 (빈 목록). 급하면 `collector.predict` |
 | 가격이 안 바뀜 | `logs collector` · `collector.check` | KAMIS 장애면 다음 날 7일치를 다시 받아 메운다. 급하면 `--once` |
 | 날씨 · 물가 수집 실패 | `TBL_INGEST_LOG` 의 ERROR 행 | 키 만료(공공데이터포털 활용기간 · ECOS) → Secrets 갱신 후 재배포 |
 | **예보가 빠짐** | `SELECT TM_FC, COUNT(*) FROM TBL_FCST_RAW GROUP BY 1 ORDER BY 1 DESC LIMIT 5` | 기상청은 **최근 24시간분만** 준다 — 24시간 안이면 `--once forecast_am` 으로 메운다. 지나면 되살릴 수 없다 |

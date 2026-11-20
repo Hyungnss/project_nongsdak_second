@@ -55,6 +55,9 @@ COPY config.py ./
 COPY backend/ backend/
 COPY frontend/ frontend/
 COPY collector/ collector/
+# 예측(collector/predict.py)이 ml/ 의 blend 를 쓴다. 학습 · 실험 코드도 같이 들어오지만 서버에서 돌리지 않는다
+# (lightgbm · mlflow 는 ml 그룹이라 이미지에 설치되지 않는다).
+COPY ml/ ml/
 # 원본 CSV — 빈 DB 에 처음 넣을 때 쓴다 (python -m collector.loader)
 COPY data/raws/kamis_price_data_20250901_20260818.csv data/raws/
 
