@@ -5,7 +5,7 @@ r"""매일 예측 — 가격 수집 뒤 품종 · 등급마다 1 · 2 · 4주 �
 
 스케줄러가 매일 17:30 가격 수집 → 점검 뒤에 부른다 (collector/scheduler.py 의 price 작업).
 같은 기준일 · 품종 · 기간 · 모델은 한 줄이다 — 다시 돌리면 덮어쓴다 (같은 날 정정된 가격으로 다시 예측).
-모델은 ml/predict.py 의 MODEL (지금은 blend).
+모델은 배포된 LightGBM (current.json — collector/train.py 가 매주 학습). 없거나 실패하면 blend (ml/predict.py).
 """
 
 import argparse
@@ -41,8 +41,8 @@ def save(conn, forecasts):
             cur.execute(UPSERT, {
                 "base_date": str(f.base_date), "market": f.market, "item_code": f.item_code,
                 "kind_code": f.kind_code, "rank_name": f.rank_name, "h": f.h, "target_date": str(f.target_date),
-                "base_price": f.base_price, "price": f.price, "model": predict.MODEL,
-                "model_version": predict.MODEL_VERSION, "fallback": f.fallback,
+                "base_price": f.base_price, "price": f.price, "model": f.model,
+                "model_version": f.model_version, "fallback": f.fallback,
             })
     return len(forecasts)
 
@@ -53,7 +53,7 @@ def main(argv=None):
     a = p.parse_args(sys.argv[1:] if argv is None else argv)
     markets = [MARKETS[a.market]] if MARKETS[a.market] else ["소매", "도매"]
 
-    print(f"\n===== {config.now_kst():%Y-%m-%d %H:%M} 가격 예측 · 모델 {predict.MODEL_VERSION} =====")
+    print(f"\n===== {config.now_kst():%Y-%m-%d %H:%M} 가격 예측 =====")
     conn = loader.connect()
     conn.autocommit = True
     errors = 0
@@ -66,12 +66,14 @@ def main(argv=None):
                 series = len({(f.item_code, f.kind_code, f.rank_name) for f in fc})
                 fb = sum(f.fallback for f in fc)
                 base = max((str(f.base_date) for f in fc), default="-")
-                ingest.log(conn, SOURCE, f"{m} {predict.MODEL_VERSION} {base}", "OK" if fc else "NO_DATA", n, n,
+                version = fc[0].model_version if fc else "-"
+                ingest.log(conn, SOURCE, f"{m} {version} {base}", "OK" if fc else "NO_DATA", n, n,
                            f"품종 {series} · naive 로 메움 {fb}")
-                print(f"  {m}: 품종 {series}개 · 예측 {n}행 · naive 로 메움 {fb}행 · 최신 기준일 {base} · {time.time() - t:.1f}s")
+                print(f"  {m}: 모델 {version} · 품종 {series}개 · 예측 {n}행 · naive 로 메움 {fb}행"
+                      f" · 최신 기준일 {base} · {time.time() - t:.1f}s")
             except Exception as ex:
                 errors += 1
-                ingest.log(conn, SOURCE, f"{m} {predict.MODEL_VERSION}", "ERROR", message=f"{type(ex).__name__}: {ex}")
+                ingest.log(conn, SOURCE, f"{m} predict", "ERROR", message=f"{type(ex).__name__}: {ex}")
                 print(f"  {m}: 오류 — {type(ex).__name__}: {ex}")
     finally:
         conn.close()

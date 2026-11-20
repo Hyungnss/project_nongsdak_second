@@ -186,7 +186,8 @@ PostgreSQL 18 (`docker compose` 의 `db` 서비스). 처음 모양은 **`databas
 | `collector/check.py` | 최근 7일 소매·도매 수집 기록 점검 (빈 날이면 경고 · 종료 코드 1) |
 | `collector/weather.py` | **관측 날씨** — 기상청 ASOS 일자료, 전국 관측소 97곳 → `TBL_WEATHER_DAILY` (매일 최근 7일 · `--start` 로 백필) |
 | `collector/cpi.py` | **소비자물가** — 한국은행 ECOS `901Y010` 특수분류(농축수산물 · 채소 · 과실 등 12계열, 월) → `TBL_CPI_MONTHLY` |
-| `collector/predict.py` | **매일 가격 예측** — 17:30 수집 · 점검 뒤 품종 · 등급마다 1 · 2 · 4주 뒤 가격 → `TBL_PRICE_FORECAST` (모델은 `ml/predict.py`, 지금은 blend). 화면용 `/api/forecast` 는 `backend/forecast.py` |
+| `collector/predict.py` | **매일 가격 예측** — 17:30 수집 · 점검 뒤 품종 · 등급마다 1 · 2 · 4주 뒤 가격 → `TBL_PRICE_FORECAST` (배포된 LightGBM, 없거나 실패하면 blend — `ml/predict.py`). 화면용 `/api/forecast` 는 `backend/forecast.py` |
+| `collector/train.py` | **예측 모델 재학습** — 매주 일 03:00 (`.github/workflows/train.yml`) 학습 → 게이트(blend 보다 나은가 · parity) → 통과하면 배포 · `rollback` · `status`. 이력 `TBL_MODEL_RUN` |
 | `collector/forecast.py` | **중기예보 보관** — 기상청이 최근 24시간분만 주므로 발표(06 · 18시)마다 원문과 정리본을 쌓는다 → `TBL_FCST_*` |
 | `collector/scheduler.py` | 컨테이너용 실행기 — 예보 06:40 · 날씨 11:30 · 물가 11:40 · 가격 17:30 · 예보 18:40, 늦게 켜지면 따라잡기 |
 | `collector/backfill.py` | **과거 가격 백필** — KAMIS 기간 API(품목 · 품종 · 등급별 최대 1년)로 지금 다루는 품종의 과거분을 채운다. 기존 행은 덮어쓰지 않고 `DATA_SOURCE='kamis_period'` 로 표시, 진행은 `TBL_BACKFILL_JOB` 에 남겨 이어받는다 |
@@ -310,7 +311,7 @@ project_nongsdak/
 ├── docs/WORKLOG.md              날짜별 작업 기록 (무엇을 왜 그렇게 정했는지)
 ├── docs/RUNBOOK.md              운영 런북 — 배포 · 되돌리기 · 장애 대응 · 자주 쓰는 확인
 ├── docs/ML.md                   가격 예측 모델 — 결과 요약 (자세한 문서: docs/ML_*.md)
-├── ml/                          예측 모델 (PC 전용 — uv sync --group ml)
+├── ml/                          예측 모델 — 운영(model · predict)은 서버, 실험(run · tune)은 PC (uv sync --group ml)
 ├── pyproject.toml · uv.lock      의존성 (uv 로 관리 — 설치는 `uv sync`)
 └── .python-version              파이썬 3.11
 ```
@@ -322,7 +323,8 @@ PostgreSQL 18.7 · Docker 이미지는 `python:3.11.18-slim-bookworm` 기반 · 
 
 ## 가격 예측 모델
 
-품종별 1 · 2 · 4주 뒤 가격을 예측한다. 기준선(`blend`)과 LightGBM 을 시간 순서 백테스트로 비교한다.
+품종별 1 · 2 · 4주 뒤 가격을 예측한다. 기준선(`blend`)과 LightGBM 을 시간 순서 백테스트로 비교 · 튜닝했고,
+운영은 **LightGBM A(가격만)** — 서버가 매주 재학습하고 게이트를 넘은 모델만 배포한다 (`ml/model.py`).
 결과 요약은 [docs/ML.md](docs/ML.md), 전처리 · 평가 방식 · 실험 · 튜닝은 거기서 이어지는 `docs/ML_*.md`.
 
 ## 앞으로

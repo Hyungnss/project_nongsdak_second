@@ -1888,6 +1888,7 @@ version = "2.5.0"
 source = { virtual = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "lightgbm" },
     { name = "pandas" },
     { name = "prometheus-fastapi-instrumentator" },
     { name = "psycopg", extra = ["binary"] },
@@ -1906,7 +1907,6 @@ migrate = [
     { name = "oracledb" },
 ]
 ml = [
-    { name = "lightgbm" },
     { name = "mlflow" },
     { name = "scikit-learn" },
 ]
@@ -1914,6 +1914,7 @@ ml = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.143.1" },
+    { name = "lightgbm", specifier = ">=4.7.0" },
     { name = "pandas", specifier = ">=3.0.6" },
     { name = "prometheus-fastapi-instrumentator", specifier = ">=8.1.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.9" },
@@ -1930,7 +1931,6 @@ dev = [
 ]
 migrate = [{ name = "oracledb", specifier = ">=26.0.1" }]
 ml = [
-    { name = "lightgbm", specifier = ">=4.7.0" },
     { name = "mlflow", specifier = ">=3.18.0" },
     { name = "scikit-learn", specifier = ">=1.9.1" },
 ]

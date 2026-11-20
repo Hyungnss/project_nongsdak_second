@@ -16,7 +16,7 @@ KAMIS 일별 가격으로 **품종별 1주 · 2주 · 4주 뒤 가격**을 예�
 | ③ 외부 특성 실험 | A 에 날씨 · 물가 · 산지 날씨를 더한 B~E 비교 | **효과 없음** → A 유지. 지난 날씨는 이미 가격에 반영돼 있다 (튜닝한 설정으로 다시 봐도 같음) | [외부 특성 실험](ML_외부특성실험.md) |
 | ④ 튜닝 1차 | A 의 학습 설정 4가지를 하나씩 바꿔 9개를 검증 기간에서 비교 | **기본 설정(base)이 이미 최적에 가깝다** — 두 시장 모두에서 확실히 나은 설정 없음 | [1차 튜닝](ML_LightGBM_1차튜닝.md) |
 | ⑤ 튜닝 2차 | 1차에서 안 건드린 설정 6개 (특성 · 표본 골라 쓰기, 규제, 더 천천히) | 역시 두 시장 모두에서 이긴 설정 없음 → **base 유지** | [2차 튜닝](ML_LightGBM_2차튜닝.md) |
-| ⑥ 서비스 | v2.4.0 부터 **blend** 로 매일 예측 · API · 화면 | 튜닝된 LightGBM 이 시험 기간에서도 이기면 교체 (v2.6.0) | [서빙](ML_서빙.md) |
+| ⑥ 서비스 | v2.4.0 **blend** 로 매일 예측 · API · 화면 → v2.6.0 **LightGBM A** 로 교체 | 서버가 매주 재학습 → 게이트(blend 보다 나은가 · parity) → 통과한 모델만 배포 · 롤백 가능 | [서빙](ML_서빙.md) |
 
 ### 이름 사전 — 처음 보는 사람용
 
@@ -129,12 +129,13 @@ uv run --group ml mlflow ui --backend-store-uri sqlite:///ml_runs/mlflow.db
 | `ml/backtest.py` | 시간 순서를 지키는 백테스트 · 지표 |
 | `ml/run.py` | 실행 → 결과표 → MLflow 기록 |
 | `ml/tune.py` | 튜닝 — 설정 여러 개를 검증 기간에서 비교 |
-| `ml/predict.py` | 서빙용 매일 예측 (지금 blend) |
+| `ml/model.py` | 운영 모델 — 매주 학습 · 게이트 · 저장 · 롤백 (`collector/train.py` · `.github/workflows/train.yml`) |
+| `ml/predict.py` | 서빙용 매일 예측 — 배포된 LightGBM, 없거나 실패하면 blend |
 | `tests/test_ml.py` · `test_ml_external.py` | 목표일 규칙 · 지표 · **누수 방지** 시험 |
 
 ## 다음
 
 1. 튜닝 결과 base 유지 → 시험 기간 성적(위 표 — base = LightGBM A)이 최종 성적
-2. 이기면 LightGBM 서빙 (v2.6.0) — 서버 이미지에 lightgbm · 모델 파일(버킷 `models/`) · 매주 재학습(champion/challenger)
+2. LightGBM 서빙 (v2.6.0) — 매주 재학습 · 게이트 · 롤백 ([서빙](ML_서빙.md))
 3. 매일 예측 오차 기록 → Grafana
 4. 나중에 — 긴 예측 기간(8~12주) · 품목별 모델 · 예보 모델 · 기간별 설정

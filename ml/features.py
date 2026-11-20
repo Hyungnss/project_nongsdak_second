@@ -35,10 +35,13 @@ def _vol(logp, i, w):
 
 
 def build(series, samples):
-    """표본마다 특성 행을 만든다. samples 와 같은 순서의 DataFrame."""
+    """표본마다 특성 행을 만든다. samples 와 같은 순서의 DataFrame.
+
+    메모리를 아낀다 (서버 2GB 에서 매주 학습하려고 — 표본 73만 행 기준 최대 944MB → 측정값은 docs/ML_서빙.md):
+    전체 표를 여러 번 복사하지 않고(무한대 → NaN 은 열마다 제자리에서), 품목코드는 품종 수(약 300)만큼만 쪼갠다.
+    """
     n = len(samples)
     cols = {}
-    feats = pd.DataFrame(index=samples.index)
     pos_of = pd.Series(np.arange(n), index=samples.index)
     for sid, g in samples.groupby("sid", sort=False):
         s = series[sid]
@@ -67,13 +70,16 @@ def build(series, samples):
         pos = pos_of[g.index].to_numpy()
         for k, v in f.items():
             cols.setdefault(k, np.full(n, np.nan))[pos] = v
-    for k, v in cols.items():
-        feats[k] = v
-    feats["h"] = samples.h.astype(float)
+    for v in cols.values():
+        v[np.isinf(v)] = np.nan
+    cols["h"] = samples.h.to_numpy(dtype=float)
+    feats = pd.DataFrame(cols, index=samples.index, copy=False)
+    del cols
+    item_of = {sid: sid.split("/")[0] for sid in samples["sid"].unique()}
     for c in CATEGORICAL:
-        src = samples["sid"].str.split("/").str[0] if c == "item_code" else samples[c]
+        src = samples["sid"].map(item_of) if c == "item_code" else samples[c]
         feats[c] = src.astype("category")
-    return feats.replace([np.inf, -np.inf], np.nan)
+    return feats
 
 
 def target(samples):

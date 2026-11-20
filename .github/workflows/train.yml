@@ -1,0 +1,100 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# 운영 모델 재학습 — 매주 일요일 03:00 (한국 시각). AWS Lightsail 의 self-hosted runner 가 직접 돌린다.
+#
+#   새 데이터(매일 17:30 수집) → 학습 → 게이트 → 배포(current.json) → 버킷 models/ → 새 모델로 예측
+#
+#   게이트 (ml/model.py) — 최근 8주를 떼어 두고 그 전까지로 학습해 채점한다
+#     · 성능   : 같은 8주에서 기준선 blend 보다 나아야 한다
+#     · parity : 저장했다 다시 읽은 모델이 똑같이 예측해야 한다
+#     · 정상   : 예측이 모두 유한한 값
+#     못 넘으면 모델은 저장만 하고 지금 모델을 그대로 쓴다 (TBL_MODEL_RUN 에 이유가 남는다).
+#
+#   손으로   ──▶ Actions > train > Run workflow
+#     action = train     지금 학습
+#              rollback  이전 버전으로 되돌리기 (market 은 소매 또는 도매, to 를 비우면 바로 이전)
+#              status    지금 쓰는 모델만 보기
+#
+# 학습은 collector 컨테이너 안에서 돈다 (같은 이미지 · 같은 DB 접속). 시장을 하나씩 — 서버 메모리(2GB)에서
+# 한 번에 하나만 올라가게 (전체 기간 학습 최대 약 670MB, docs/ML_서빙.md).
+# 버킷 접근은 백업과 같이 인스턴스 역할(Lightsail 리소스 액세스)을 쓴다 — 키를 저장하지 않는다.
+# 04:00 백업(backup.yml)보다 먼저 끝나게 03:00 에 돈다.
+# ─────────────────────────────────────────────────────────────────────────────
+name: train
+
+on:
+  schedule:
+    - cron: "0 18 * * 6"      # UTC 토 18:00 = 한국 일 03:00
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "할 일"
+        type: choice
+        options: [train, rollback, status]
+        default: train
+      market:
+        description: "시장 (rollback 은 소매 · 도매 중 하나)"
+        type: choice
+        options: [all, 소매, 도매]
+        default: all
+      to:
+        description: "rollback: 되돌릴 버전 (비우면 바로 이전 버전)"
+        type: string
+        required: false
+
+concurrency:
+  group: train
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  train:
+    name: 모델 학습 · 게이트 · 배포
+    runs-on: [self-hosted, lightsail]
+    timeout-minutes: 40
+    env:
+      APP_DIR: /srv/nongsdak
+      BUCKET: ${{ vars.BACKUP_BUCKET }}
+      ACTION: ${{ inputs.action || 'train' }}
+      MARKET: ${{ inputs.market || 'all' }}
+      TO: ${{ inputs.to }}
+    defaults:
+      run:
+        working-directory: /srv/nongsdak
+    steps:
+      - name: 서버 메모리
+        run: free -m
+
+      - name: 학습 → 게이트 → 배포
+        if: env.ACTION == 'train'
+        run: docker compose exec -T collector python -u -m collector.train train --market "$MARKET"
+
+      - name: 롤백
+        if: env.ACTION == 'rollback'
+        run: |
+          [ "$MARKET" != "all" ] || { echo "::error::rollback 은 market 을 소매 또는 도매로 골라 주세요"; exit 1; }
+          if [ -n "$TO" ]; then
+            docker compose exec -T collector python -u -m collector.train rollback --market "$MARKET" --to "$TO"
+          else
+            docker compose exec -T collector python -u -m collector.train rollback --market "$MARKET"
+          fi
+
+      - name: 지금 쓰는 모델
+        run: docker compose exec -T collector python -u -m collector.train status
+
+      # 볼륨이 지워져도 되살릴 수 있게 버킷에도 둔다 (버전별 폴더 + current.json)
+      - name: 모델 → 버킷 models/
+        if: env.ACTION != 'status'
+        run: |
+          [ -n "$BUCKET" ] || { echo "::warning::BACKUP_BUCKET 이 없어 버킷에 올리지 않습니다"; exit 0; }
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          docker compose cp collector:/app/models/. "$tmp/"
+          aws s3 sync --only-show-errors "$tmp" "s3://$BUCKET/models/"
+          echo "버킷 models/ — $(aws s3 ls "s3://$BUCKET/models/" --recursive | wc -l)개 파일"
+
+      # 다음 17:30 을 기다리지 않고 바로 새(또는 되돌린) 모델로 예측을 다시 만든다
+      - name: 새 모델로 예측
+        if: env.ACTION != 'status'
+        run: docker compose exec -T collector python -u -m collector.predict
