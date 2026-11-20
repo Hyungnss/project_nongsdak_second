@@ -16,6 +16,8 @@ from tests.test_pg_forecast import _fill
 @pytest.fixture
 def conn(pg_db, tmp_path, monkeypatch):
     monkeypatch.setenv("MODEL_DIR", str(tmp_path))
+    # 앞선 시험이 같은 프로세스에서 lightgbm(OpenMP)을 이미 돌렸다 — fork 한 자식이 멈출 수 있어 깨끗한 프로세스로
+    monkeypatch.setenv("MODEL_MP_CONTEXT", "spawn")
     for n, item in enumerate(["211", "212", "213"]):
         _fill(pg_db, item=item, kind="01", base=1500.0 + 500 * n)
     return pg_db

@@ -211,13 +211,16 @@ def _isolated(fn, *args):
 
     학습 한 번에 최대 약 700MB 를 쓰는데, 파이썬은 쓴 메모리를 운영체제에 잘 돌려주지 않는다. 게이트 · 최종 학습을
     한 프로세스에서 차례로 하면 최대치가 쌓여 960MB 까지 오른다(서버 여유 약 840MB). 자식이 끝나면 메모리가 전부 돌아온다.
-    리눅스(서버)는 fork — 부모가 읽어 둔 시계열을 복사 없이 같이 본다. 부모는 lightgbm 을 돌리지 않는다 (OpenMP + fork 주의).
+    리눅스(서버)는 fork — 부모가 읽어 둔 시계열을 복사 없이 같이 본다. 단 fork 는 부모가 lightgbm(OpenMP)을 한 번도
+    돌리지 않았을 때만 안전하다 (GNU OpenMP 는 쓴 뒤 fork 하면 자식이 멈춘다). collector.train 의 부모는 자료만 읽으므로
+    괜찮다. 같은 프로세스에서 lightgbm 을 이미 돌린 곳(pytest 등)은 MODEL_MP_CONTEXT=spawn 으로 깨끗한 프로세스를 띄운다.
     """
     import multiprocessing as mp  # noqa: PLC0415
     import sys  # noqa: PLC0415
     from concurrent.futures import ProcessPoolExecutor  # noqa: PLC0415
 
-    ctx = mp.get_context("fork" if sys.platform.startswith("linux") else "spawn")
+    method = os.environ.get("MODEL_MP_CONTEXT") or ("fork" if sys.platform.startswith("linux") else "spawn")
+    ctx = mp.get_context(method)
     with ProcessPoolExecutor(max_workers=1, mp_context=ctx) as ex:
         return ex.submit(fn, *args).result()
 
