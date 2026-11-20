@@ -15,7 +15,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from ml import baselines, features
+from ml import baselines, external, features
 from ml.dataset import HORIZONS, make_samples
 
 LGBM_PARAMS = {
@@ -36,10 +36,17 @@ def run(series, eval_start, eval_end, models, horizons=HORIZONS, refit_days=28, 
     refits = refit_dates(eval_start, eval_end, refit_days)
     log(f"평가 표본 {len(samples):,}개 · 품종 {samples.sid.nunique()}개 · 재학습 {len(refits)}번")
     naive = baselines.naive(by_sid, samples)
+    samples.attrs["importance"] = {}
+    ext = None
     for name in models:
         t = time.time()
-        if name == "lgbm":
-            pred = _lgbm(series, by_sid, samples, refits, horizons, lgbm_params or LGBM_PARAMS, log)
+        if name in external.FEATURE_SETS:
+            parts = external.FEATURE_SETS[name]
+            if parts and ext is None:
+                ext = external.External(external.db_query())
+            pred, imp = _lgbm(series, by_sid, samples, refits, horizons, lgbm_params or LGBM_PARAMS, log,
+                              ext=ext, parts=parts)
+            samples.attrs["importance"][name] = imp
         elif name in baselines.NEEDS_REFITS:
             pred = baselines.BASELINES[name](by_sid, samples, refits)
         else:
@@ -51,7 +58,11 @@ def run(series, eval_start, eval_end, models, horizons=HORIZONS, refit_days=28, 
     return samples
 
 
-def _lgbm(series, by_sid, samples, refits, horizons, params, log):
+def _lgbm(series, by_sid, samples, refits, horizons, params, log, ext=None, parts=()):
+    """LightGBM. parts 가 있으면 외부 특성(날씨 · 물가 · 실험용 oracle)을 가격 특성 옆에 붙인다.
+
+    돌려주는 것: (예측, 마지막 모델의 특성 중요도(gain) Series)
+    """
     import lightgbm as lgb   # noqa: PLC0415 — ml 그룹에만 있다
 
     # 학습 표본: 평가 시작 전부터 쌓인 모든 기준일 (목표일이 refit 이전인 것만 그때그때 쓴다)
@@ -59,6 +70,9 @@ def _lgbm(series, by_sid, samples, refits, horizons, params, log):
     xf_all = features.build(by_sid, train_all)
     y_all = features.target(train_all)
     xf_eval = features.build(by_sid, samples)
+    if parts:
+        xf_all = pd.concat([xf_all, ext.build(train_all, parts)], axis=1)
+        xf_eval = pd.concat([xf_eval, ext.build(samples, parts)], axis=1)
     cats = {c: xf_all[c].cat.categories for c in features.CATEGORICAL}
     for c in features.CATEGORICAL:
         xf_eval[c] = pd.Categorical(xf_eval[c].astype(str), categories=cats[c])
@@ -76,7 +90,8 @@ def _lgbm(series, by_sid, samples, refits, horizons, params, log):
         out[k] = samples.p0.to_numpy()[k] * np.exp(m.predict(xf_eval[k]))
         if r % 6 == 0:
             log(f"    재학습 {r + 1}/{len(refits)} · {str(when)} · 학습 {tr.sum():,}행")
-    return out
+    imp = pd.Series(m.booster_.feature_importance("gain"), index=m.booster_.feature_name()).sort_values(ascending=False)
+    return out, imp / imp.sum()
 
 
 # ── 지표 ──────────────────────────────────────────────────────────────────
