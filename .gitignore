@@ -19,4 +19,6 @@ Thumbs.db
 
 # 실험 기록 (MLflow · 백테스트 결과) — PC 에만 둔다
 ml_runs/
+# 운영 모델 (서버 Docker 볼륨 · 로컬에서 collector.train 을 돌렸을 때)
+/models/
 mlruns/

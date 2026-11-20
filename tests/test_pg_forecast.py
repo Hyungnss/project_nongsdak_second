@@ -27,8 +27,9 @@ def _fill(conn, item="211", kind="03", rank="상품", end=date(2026, 11, 18), ye
 
 
 @pytest.fixture
-def conn(pg_db):
+def conn(pg_db, tmp_path, monkeypatch):
     pg_db.execute("TRUNCATE TBL_PRICE_FORECAST")
+    monkeypatch.setenv("MODEL_DIR", str(tmp_path))      # 배포된 LightGBM 없음 → blend (LightGBM 경로는 test_pg_train)
     return pg_db
 
 

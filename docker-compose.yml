@@ -83,6 +83,10 @@ services:
     # 이 PC 에서는 작업 스케줄러가 수집하므로 기본으로는 띄우지 않는다 (두 번 수집하지 않게).
     # 서버에서는 .env 에 COMPOSE_PROFILES=collector 를 넣어 같이 띄운다.
     profiles: ["collector"]
+    # 운영 모델 (매주 collector.train 이 쓰고, 매일 collector.predict 가 읽는다). 컨테이너를 새로 띄워도 남는다.
+    volumes:
+      - models:/app/models
 
 volumes:
   pgdata:
+  models:

@@ -154,7 +154,10 @@ jobs:
 
       # 수집기는 같은 이미지에서 명령만 다르다. 모듈이 다 불러와지는지만 본다 (KAMIS 는 부르지 않는다).
       - name: 수집기 컨테이너 확인
-        run: docker compose run --rm --no-deps collector python -c "import collector.scheduler, collector.upsert, collector.check; print('collector ok')"
+        # 학습 · 예측 모듈과 lightgbm(libgomp)까지 불러와지는지, 모델 볼륨에 app 사용자가 쓸 수 있는지
+        run: |
+          docker compose run --rm --no-deps collector python -c "import collector.scheduler, collector.upsert, collector.check, collector.predict, collector.train, lightgbm; print('collector ok', lightgbm.__version__)"
+          docker compose run --rm --no-deps collector sh -c 'touch /app/models/.write_test && rm /app/models/.write_test && echo "models 볼륨 쓰기 ok"'
 
       - name: 실패하면 로그 보기
         if: failure()

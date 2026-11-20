@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.143.1",
+    # 운영 모델 — 서버가 매주 학습하고 매일 예측한다 (ml/model.py). 실험용 mlflow · scikit-learn 은 ml 그룹
+    "lightgbm>=4.7.0",
     "pandas>=3.0.6",
     "prometheus-fastapi-instrumentator>=8.1.0",
     "psycopg-pool>=3.3.3",
@@ -26,7 +28,6 @@ migrate = [
     "oracledb>=26.0.1",
 ]
 ml = [
-    "lightgbm>=4.7.0",
     "mlflow>=3.18.0",
     "scikit-learn>=1.9.1",
 ]

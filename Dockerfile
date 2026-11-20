@@ -38,9 +38,18 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ── 2. runtime ──────────────────────────────────────────────────────────────
 FROM ${PYTHON_IMAGE} AS runtime
 
+# lightgbm 이 쓰는 OpenMP 런타임 (slim 이미지에는 없다)
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libgomp1 \
+ && rm -rf /var/lib/apt/lists/*
+
 # 컨테이너 안에서 root 로 돌지 않는다
 RUN useradd --create-home --uid 10001 app
 WORKDIR /app
+
+# 운영 모델 폴더 (collector/train.py 가 쓰고 collector/predict.py 가 읽는다). Docker 볼륨 models 를 여기에 붙인다 —
+# 볼륨이 처음 만들어질 때 이 폴더의 주인(app)을 그대로 물려받아야 app 사용자가 쓸 수 있다.
+RUN mkdir -p /app/models && chown app:app /app/models
 
 # PYTHONUNBUFFERED : 출력을 바로 내보낸다 (docker logs 에 바로 보이게, 죽어도 로그가 남게)
 # PYTHONUTF8       : 한글 출력 · 파일을 UTF-8 로
@@ -55,8 +64,8 @@ COPY config.py ./
 COPY backend/ backend/
 COPY frontend/ frontend/
 COPY collector/ collector/
-# 예측(collector/predict.py)이 ml/ 의 blend 를 쓴다. 학습 · 실험 코드도 같이 들어오지만 서버에서 돌리지 않는다
-# (lightgbm · mlflow 는 ml 그룹이라 이미지에 설치되지 않는다).
+# 운영 모델 학습(collector/train.py → ml/model.py) · 매일 예측(ml/predict.py). 실험 코드(ml/run.py · tune.py)도
+# 같이 들어오지만 서버에서 돌리지 않는다 (mlflow · scikit-learn 은 ml 그룹이라 이미지에 없다).
 COPY ml/ ml/
 # 원본 CSV — 빈 DB 에 처음 넣을 때 쓴다 (python -m collector.loader)
 COPY data/raws/kamis_price_data_20250901_20260818.csv data/raws/
