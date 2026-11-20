@@ -5,8 +5,29 @@
 #   · http(80) 로 온 요청을 https(443) 로 보낸다
 #
 # 도메인은 GitHub Variable SITE_DOMAIN → 배포 작업이 쓰는 .env → 여기 {$SITE_DOMAIN} 으로 들어온다.
+#
+# 경로 나누기 (위에서부터 먼저 맞는 handle 하나만 돈다)
+#   /metrics    → 404. 운영 지표는 prometheus 가 내부망에서 web:8000/metrics 로 직접 긁는다.
+#   /grafana/metrics 도 404 (grafana 쪽에서도 꺼 두었지만 한 번 더 막는다)
+#                 인터넷에서는 '없는 주소' 로 보이게 한다 (docs/MONITORING.md)
+#   /grafana/*  → grafana:3000 (운영자 전용 대시보드 — 로그인 필요, 익명 접근 꺼짐)
+#   그 밖       → web:8000
 
 {$SITE_DOMAIN} {
 	encode zstd gzip
-	reverse_proxy web:8000
+
+	@metrics path /metrics /metrics/* /grafana/metrics /grafana/metrics/*
+	handle @metrics {
+		respond 404
+	}
+
+	# grafana 는 /grafana 아래에서 뜨도록 설정돼 있다 (serve_from_sub_path) — 앞부분을 떼지 않고 그대로 넘긴다.
+	redir /grafana /grafana/ 308
+	handle /grafana/* {
+		reverse_proxy grafana:3000
+	}
+
+	handle {
+		reverse_proxy web:8000
+	}
 }

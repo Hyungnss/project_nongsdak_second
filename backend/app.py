@@ -20,6 +20,7 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from prometheus_fastapi_instrumentator import Instrumentator
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -65,6 +66,17 @@ app = FastAPI(
     redoc_url=None,
     openapi_url=None,
 )
+
+# 운영 지표 (/metrics) — 요청 수 · 지연 · 상태 코드. 서버의 prometheus 가 내부망(web:8000)에서 긁어 간다.
+# 바깥(인터넷)에서는 caddy 가 /metrics 를 404 로 막는다 (Caddyfile). 자세한 건 docs/MONITORING.md.
+#   · 주소는 경로 '틀'(/api/detail, /api/v1/items/{item_code})로 묶는다. 없는 주소는 handler="none" 하나로
+#     모아서, 아무 주소나 두드리는 스캐너가 지표 종류를 끝없이 늘리지 못하게 한다.
+#   · 상태 코드는 묶지 않는다 (404 · 429 · 503 을 따로 본다).
+#   · /api/health 는 컨테이너 healthcheck 가 10초마다 부르므로 빼고 센다 (실제 방문이 묻히지 않게).
+Instrumentator(
+    should_group_status_codes=False,
+    excluded_handlers=["/metrics", "/api/health"],
+).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 # 회원가입 · 로그인 (/api/auth/*). 시세 API 는 로그인 없이 그대로 열려 있다.
 app.include_router(auth.router)

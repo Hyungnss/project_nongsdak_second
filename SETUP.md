@@ -270,6 +270,8 @@ docker compose exec -T db sh -c 'pg_restore --clean --if-exists --no-owner -U "$
 ```
 `--clean` 은 지금 표를 지우고 백업으로 바꾼다. 표 하나만 되살리려면 `-t tbl_user` 처럼 고른다.
 
+서버 운영 모니터링(Prometheus + Grafana, `https://<도메인>/grafana/`)은 [docs/MONITORING.md](docs/MONITORING.md) 를 본다.
+
 ---
 
 ## 7. 검사 돌리기
