@@ -47,7 +47,7 @@
 /* 차트의 예상 구간 */
 .fc-zone{fill:var(--brand);fill-opacity:.06}
 .fc-now{stroke:var(--muted);stroke-width:1;stroke-dasharray:2 3}
-.fc-zlbl{font-size:11px;font-weight:700;fill:var(--brand)}
+.fc-zlbl{font-size:12px;font-weight:700;fill:var(--brand)}
 .fc-line{fill:none;stroke-width:2;stroke-dasharray:5 4;stroke-linecap:round;stroke:var(--muted)}
 .fc-line.up{stroke:var(--up)} .fc-line.down{stroke:var(--down)}
 .fc-dot{stroke:var(--card);stroke-width:1.5;fill:var(--muted)}
