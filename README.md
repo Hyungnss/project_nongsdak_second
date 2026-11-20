@@ -176,12 +176,17 @@ PostgreSQL 18 (`docker compose` 의 `db` 서비스). 처음 모양은 **`databas
 |---|---|
 | `database/schema.sql` | 처음 모양 (테이블 6개 · 인덱스 · 제약 · 컬럼 설명). DB 를 처음 띄울 때 자동 실행 |
 | `database/backup.sh` | 서버 DB 백업 — 매일 04:00 pg_dump → Lightsail 버킷(30일 보관), 일요일마다 임시 DB 에 복원 시험 (`.github/workflows/backup.yml`) |
+| `database/transfer.py` | 로컬에서 받은 백필(가격 · 날씨 · 물가 · 예보)을 서버 DB 로 옮긴다 — `export` → `push --ssh <호스트>` → `verify`. 서버에 있는 행은 덮어쓰지 않는다 |
 | `database/migrations/` · `migrate.sh` | 그 뒤 변경분. 아직 적용 안 한 것만 순서대로 적용 (`TBL_SCHEMA_MIGRATION` 에 기록) |
 | `database/migrate_from_oracle.py` | v1(Oracle) 데이터를 옮기고 모든 행을 비교하는 일회용 도구 |
 | `collector/loader.py` | **전체 적재** — 빈 DB 에 CSV 전량을 넣는다 |
 | `collector/kamis.py` | KAMIS OpenAPI 호출·응답 해석 (소매 01 / 도매 02). 단독 실행하면 소매 하루치를 CSV 로 떨군다 |
 | **`collector/upsert.py`** | **자동 수집의 본체** — 받아서 원문을 `TBL_API_RAW` 에 남기고 `INSERT ... ON CONFLICT` 로 덮어쓴다 |
 | `collector/check.py` | 최근 7일 소매·도매 수집 기록 점검 (빈 날이면 경고 · 종료 코드 1) |
+| `collector/weather.py` | **관측 날씨** — 기상청 ASOS 일자료, 전국 관측소 97곳 → `TBL_WEATHER_DAILY` (매일 최근 7일 · `--start` 로 백필) |
+| `collector/cpi.py` | **소비자물가** — 한국은행 ECOS `901Y010` 특수분류(농축수산물 · 채소 · 과실 등 12계열, 월) → `TBL_CPI_MONTHLY` |
+| `collector/forecast.py` | **중기예보 보관** — 기상청이 최근 24시간분만 주므로 발표(06 · 18시)마다 원문과 정리본을 쌓는다 → `TBL_FCST_*` |
+| `collector/scheduler.py` | 컨테이너용 실행기 — 예보 06:40 · 날씨 11:30 · 물가 11:40 · 가격 17:30 · 예보 18:40, 늦게 켜지면 따라잡기 |
 | `collector/backfill.py` | **과거 가격 백필** — KAMIS 기간 API(품목 · 품종 · 등급별 최대 1년)로 지금 다루는 품종의 과거분을 채운다. 기존 행은 덮어쓰지 않고 `DATA_SOURCE='kamis_period'` 로 표시, 진행은 `TBL_BACKFILL_JOB` 에 남겨 이어받는다 |
 
 | 테이블 | 담는 것 |
@@ -286,7 +291,8 @@ project_nongsdak/
 ├── frontend/                    화면 — index.html · auth.js/css · cart.js/css · 이미지. 주소는 /static/...
 ├── collector/                   KAMIS 수집 — kamis.py(API 호출) loader.py(변환 · CSV 전체 적재)
 │                                upsert.py(매일 수집 본체) check.py(수집 점검)
-│                                scheduler.py(컨테이너용 매일 17:30 실행기) backfill.py(과거 가격 백필)
+│                                scheduler.py(컨테이너용 작업 실행기) backfill.py(과거 가격 백필)
+│                                weather.py(날씨) cpi.py(물가) forecast.py(예보 보관) ingest.py(공용)
 ├── database/                    schema.sql(처음 스키마) · migrations/ + migrate.sh(변경분) · migrate_from_oracle.py · oracle/(v1 DDL 보관)
 ├── data/raws/                   원본 CSV (수정 금지)
 ├── logs/                        fetch.log — 자동 수집 로그 (커밋 안 함)
@@ -300,6 +306,7 @@ project_nongsdak/
 ├── README.md
 ├── SETUP.md                     처음 세팅하는 사람용
 ├── docs/WORKLOG.md              날짜별 작업 기록 (무엇을 왜 그렇게 정했는지)
+├── docs/RUNBOOK.md              운영 런북 — 배포 · 되돌리기 · 장애 대응 · 자주 쓰는 확인
 ├── pyproject.toml · uv.lock      의존성 (uv 로 관리 — 설치는 `uv sync`)
 └── .python-version              파이썬 3.11
 ```

@@ -11,7 +11,7 @@
 #   docker-compose.yml · docker-compose.prod.yml · Caddyfile · database/(schema · migrations · migrate.sh)  ← 저장소에서 복사
 #   .env                                                                         ← 아래에서 Secrets 로 매번 새로 쓴다
 #
-# 필요한 Secrets   : DB_PASSWORD · KAMIS_CERT_KEY · KAMIS_CERT_ID
+# 필요한 Secrets   : DB_PASSWORD · KAMIS_CERT_KEY · KAMIS_CERT_ID · DATA_GO_KR_KEY(기상청) · ECOS_KEY(한국은행)
 # 필요한 Variables : SITE_DOMAIN (예: nongsdak.example.com — 이 서버 IP 를 가리키는 도메인)
 #   DB_PASSWORD 는 DB 를 '처음' 만들 때만 계정에 들어간다. 나중에 Secret 만 바꾸면
 #   앱과 DB 의 비밀번호가 어긋나 접속이 끊긴다 — 바꿀 때는 DB 안에서도 ALTER USER 로 같이 바꾼다.
@@ -90,8 +90,10 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           KAMIS_CERT_KEY: ${{ secrets.KAMIS_CERT_KEY }}
           KAMIS_CERT_ID: ${{ secrets.KAMIS_CERT_ID }}
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          ECOS_KEY: ${{ secrets.ECOS_KEY }}
         run: |
-          for k in DB_PASSWORD KAMIS_CERT_KEY KAMIS_CERT_ID SITE_DOMAIN; do
+          for k in DB_PASSWORD KAMIS_CERT_KEY KAMIS_CERT_ID DATA_GO_KR_KEY ECOS_KEY SITE_DOMAIN; do
             [ -n "${!k}" ] || { echo "::error::$k 가 비어 있습니다 (Settings > Secrets and variables)"; exit 1; }
           done
           umask 077
@@ -105,6 +107,8 @@ jobs:
             echo "DB_PASSWORD=$DB_PASSWORD"
             echo "KAMIS_CERT_KEY=$KAMIS_CERT_KEY"
             echo "KAMIS_CERT_ID=$KAMIS_CERT_ID"
+            echo "DATA_GO_KR_KEY=$DATA_GO_KR_KEY"
+            echo "ECOS_KEY=$ECOS_KEY"
           } > "$APP_DIR/.env.new"
           mv "$APP_DIR/.env.new" "$APP_DIR/.env"
 
