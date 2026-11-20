@@ -1,6 +1,6 @@
 /* 품목 상세의 '다음 1 · 2 · 4주 예상 가격' (forecast.js 가 그린다).
    색 · 간격은 index.html 의 :root 토큰을 쓴다 — 오르면 --up(빨강), 내리면 --down(파랑).
-   바로 위 '지금 가격'(진한 초록 칸)과 한 덩어리로 읽히도록 붙여 두고,
+   바로 위 '지금 가격'(검은 칸)과 한 덩어리로 읽히도록 붙여 두고,
    예측은 확정값이 아니므로 흰 칸 · 점선 · 라임 '예상' 꼬리표로 실제 가격보다 한 단계 옅게 보인다. */
 
 /* 상세 안의 자리 — 비어 있으면(404 · 오류) 자리를 차지하지 않는다 */
@@ -11,7 +11,7 @@
 .fc-head h3{margin:0;font-size:var(--fs-ui);font-weight:700;color:var(--ink2)}
 .fc-tag{font-size:var(--fs-micro);font-weight:700;padding:1px 8px;border-radius:var(--r-lg);
   background:var(--lime);color:var(--forest);line-height:1.6}
-:root[data-theme="dark"] .fc-tag{color:#0b2a1e}
+:root[data-theme="dark"] .fc-tag{color:#0a0a0a}
 
 .fc-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-2)}
 .fc-c{display:flex;flex-direction:column;gap:1px;min-width:0;padding:var(--sp-2) var(--sp-3);
@@ -52,5 +52,5 @@
 .fc-line.up{stroke:var(--up)} .fc-line.down{stroke:var(--down)}
 .fc-dot{stroke:var(--card);stroke-width:1.5;fill:var(--muted)}
 .fc-dot.up{fill:var(--up)} .fc-dot.down{fill:var(--down)}
-.legend.fcst{color:var(--ink2)}
+.legend.fcst{color:var(--ink2)}   /* index.html 의 chart() 가 예상 방향 색으로 덮어쓴다 */
 .legend.fcst i{border-top-width:2px;border-top-style:dashed}

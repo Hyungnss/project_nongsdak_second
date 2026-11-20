@@ -11,33 +11,34 @@
 <link rel="stylesheet" href="/static/forecast.css">
 <style>
 /* ── 디자인 토큰 ──────────────────────────────────────────────────────
-   NerdWallet 계열(getdesign 'nerdwallet')을 농스닥에 맞게 옮겼다.
-   · 브랜드 초록은 버튼 · 고른 상태 · 강조 띠에만 쓴다. 가격의 오르내림에는 절대 쓰지 않는다
-     (오름 = 빨강 --up, 내림 = 파랑 --down. 국내 시세 관례).
-   · 그림자 대신 가는 선(--line)과 옅은 민트 바탕(--mint-*)으로 구역을 나눈다.
+   모노톤(검정 · 흰색 · 회색) + 라임 강조. 틀은 NerdWallet 계열에서 왔지만 숲초록 · 민트는 걷어냈다.
+   · 색이 있는 것은 가격의 오르내림(오름 = 빨강 --up, 내림 = 파랑 --down. 국내 시세 관례)과
+     라임 강조뿐이다. 그래서 빨강 · 파랑 숫자가 화면에서 가장 먼저 눈에 들어온다.
+   · 버튼 · 고른 상태는 검정(--brand). 라임은 검은 면 위의 작은 강조에만 쓴다 (흰 바탕 위 라임은 안 읽힌다).
+   · 그림자 대신 가는 선(--line)과 옅은 회색 바탕(--mint-*, 이름은 옛 것 그대로)으로 구역을 나눈다.
    · 글꼴은 기기 기본 글꼴만 쓴다 (외부 글꼴을 받지 않는다). 숫자는 자릿수 폭만 맞춘다(tabular-nums).
    이름이 같은 옛 토큰(--bg · --card · --ink …)은 auth.css · cart.css 가 그대로 쓰므로 남겨 둔다. */
 :root{
   color-scheme:light;
-  /* 브랜드 */
-  --brand:#008254;          /* 글자 · 선 · 고른 상태 */
-  --brand-fill:#008254;     /* 채운 버튼 바탕 (흰 글자와 4.9:1) */
-  --brand-deep:#006642;     /* '지금 가격' 칸 */
-  --forest:#00482f;
-  --on-brand:#fff;
-  --lime:#e8fdac;           /* 초록 바탕 위 강조 (초록 위 초록은 안 보인다) */
-  --mint-50:#effcf8; --mint-100:#e3faf2; --mint-200:#b7ecda;
-  --hero-bg:linear-gradient(100deg,#00482f 0%,#006642 55%,#008254 100%);
+  /* 브랜드 — 검정 */
+  --brand:#111111;          /* 글자 · 선 · 고른 상태 */
+  --brand-fill:#111111;     /* 채운 버튼 바탕 */
+  --brand-deep:#111111;     /* '지금 가격' 칸 */
+  --forest:#111111;
+  --on-brand:#fff;          /* 채운 버튼 위 글자 */
+  --lime:#d7ff3e;           /* 검은 면 위 강조 · '예상' 꼬리표 바탕 */
+  --mint-50:#fafafa; --mint-100:#f4f4f5; --mint-200:#e4e4e7;   /* 옅은 회색 바탕 (옛 이름) */
+  --hero-bg:#0a0a0a;
   /* 바탕 · 글자 */
-  --bg:#ffffff; --card:#ffffff; --card2:#f7f7f7;
-  --ink:#000000; --ink2:#3d4045; --muted:#64666a; --faint:#b1b3b5;
-  --line:#ebebec; --line-strong:#d8d9da; --grid:#ebebec; --hair:#ebebec;
+  --bg:#ffffff; --card:#ffffff; --card2:#fafafa;
+  --ink:#0a0a0a; --ink2:#3f3f46; --muted:#71717a; --faint:#a1a1aa;
+  --line:#ececee; --line-strong:#dcdce0; --grid:#ececee; --hair:#ececee;
   --accent:var(--brand);    /* 초점 테두리 · 강조 (auth.css · cart.css 도 쓴다) */
   /* 뜻이 있는 색 */
   --up:#d02b32; --down:#006eda;
   /* 옅게 칠한 배지 위 글자 — 바탕이 같은 색으로 물들어 대비가 4.5:1 밑으로 떨어지므로 한 단계 진하게 */
   --up-ink:#b0222a; --down-ink:#0058b3;
-  --teal:#7262c8;           /* 평년선 — 실제(빨강 · 파랑) · 브랜드(초록)와 겹치지 않는 보라 */
+  --teal:#71717a;           /* 평년선 — 실제(빨강 · 파랑)와 겹치지 않는 회색 점선 */
   --amber:#b8730a;          /* 조사 끊김 · 수집 멈춤 경고 */
   --shadow:0 4px 16px rgba(100,102,106,.05),0 16px 40px rgba(100,102,104,.05);
   --shadow-pop:0 10px 28px rgba(0,0,0,.14);
@@ -47,8 +48,8 @@
   --fs-h3:18px; --fs-h2:22px; --fs-stat:24px; --fs-hero:40px;
   /* 간격 (8px 기준) */
   --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-7:32px; --sp-8:40px;
-  /* 모서리 — 버튼은 거의 네모, 카드 8px, 민트 구역 16px. 고르는 버튼(소매 · 도매 · 칩)은 알약 */
-  --r-xs:4px; --r-sm:6px; --r-md:8px; --r-lg:12px; --r-xl:16px; --r-full:999px;
+  /* 모서리 — 버튼은 거의 네모, 카드 12px, 회색 구역 20px. 고르는 버튼(소매 · 도매 · 칩)은 알약 */
+  --r-xs:4px; --r-sm:6px; --r-md:12px; --r-lg:14px; --r-xl:20px; --r-full:999px;
 
   --font:system-ui,-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
   --maxw:1240px;
@@ -61,19 +62,19 @@
   --slip-border:rgba(0,0,0,.12); --slip-dash:rgba(0,0,0,.18);
 }
 /* 기본은 라이트 모드다. 기기가 다크 모드여도 따라가지 않고, 다크는 버튼으로 고를 때만 쓴다.
-   어두운 화면도 같은 초록 계열 — 바탕에 초록 기운을 살짝 섞는다. */
+   어두운 화면은 반대로 — 버튼 · 고른 상태가 흰 바탕에 검은 글자다. */
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --brand:#4cc995; --brand-fill:#14774f; --brand-deep:#0f3d2c; --forest:#0b2a1e; --on-brand:#fff;
-  --lime:#d8f58a;
-  --mint-50:#111c18; --mint-100:#15241e; --mint-200:#1d3a2d;
-  --hero-bg:linear-gradient(100deg,#0a2219 0%,#0e3527 60%,#12422f 100%);
-  --bg:#0b0e0d; --card:#141917; --card2:#1b2220;
-  --ink:#f3f6f4; --ink2:#c4cbc8; --muted:#8f9995; --faint:#5b6561;
-  --line:#252e2b; --line-strong:#34403b; --grid:#222a27; --hair:#252e2b;
+  --brand:#f4f4f5; --brand-fill:#f4f4f5; --brand-deep:#1c1c1f; --forest:#0a0a0a; --on-brand:#0a0a0a;
+  --lime:#d7ff3e;
+  --mint-50:#141416; --mint-100:#1c1c1f; --mint-200:#2a2a2e;
+  --hero-bg:#141416;
+  --bg:#09090b; --card:#111113; --card2:#18181b;
+  --ink:#f4f4f5; --ink2:#c8c8cd; --muted:#a1a1aa; --faint:#5c5c63;
+  --line:#26262a; --line-strong:#36363c; --grid:#222226; --hair:#26262a;
   --up:#f4514f; --down:#3b95ff;
   --up-ink:#ff6b69; --down-ink:#5aa6ff;
-  --teal:#a99bf0; --amber:#d99a2b;
+  --teal:#a1a1aa; --amber:#d99a2b;
   --shadow:none; --shadow-pop:0 10px 28px rgba(0,0,0,.5);
   /* 채도를 올리면 초코가 아니라 주황이 된다. 낮추고 어둡게 해야 초콜릿이 된다. */
   --cookie-bake:brightness(.46) saturate(.68) hue-rotate(-6deg) contrast(1.12);
@@ -153,7 +154,7 @@ header h1.logo img{display:block;height:48px;width:auto}
   .themebtn .lbl{display:none}
 }
 
-/* ── 초록 띠 (hero) ── 화면에서 유일하게 진한 면. 소매 · 도매 전환과 검색을 여기 둔다.
+/* ── 검은 띠 (hero) ── 화면에서 유일하게 진한 면. 소매 · 도매 전환과 검색을 여기 둔다.
    오른쪽은 흰 요약 카드(등락 막대 · 상한가 · 하한가). 띠 아래는 다시 흰 바탕이다. */
 .hero{background:var(--hero-bg);color:#fff}
 .hero-inner{max-width:var(--maxw);margin:0 auto;padding:var(--sp-7) 20px;
@@ -199,6 +200,8 @@ select,input[type=search]{font:inherit;font-size:var(--fs-md);height:44px;paddin
   border-radius:var(--r-xs);background:var(--card);color:var(--ink);min-width:180px;max-width:100%}
 select{font-size:var(--fs-body);height:40px}
 .hero input[type=search]{border-color:transparent}
+/* 다크에서는 띠와 입력칸이 같은 검정이라 칸을 한 단계 밝히고 테두리를 둔다 */
+:root[data-theme="dark"] .hero input[type=search]{background:#232327;border-color:var(--line-strong)}
 select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .hero input[type=search]:focus-visible{outline-color:var(--lime);outline-offset:2px}
 .results{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 6px);color:var(--ink);
@@ -269,7 +272,7 @@ select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--ac
   margin-right:6px;vertical-align:1px;background:var(--mint-100);color:var(--brand-deep)}
 :root[data-theme="dark"] .mtag{color:var(--brand)}
 
-/* ── 지금 사기 좋아요 ── 옅은 민트 구역 안에 흰 카드. 가격을 가장 크게 */
+/* ── 지금 사기 좋아요 ── 옅은 회색 구역 안에 흰 카드. 가격을 가장 크게 */
 .brief{display:flex;flex-direction:column;background:var(--mint-50);border-radius:var(--r-xl);
   padding:var(--sp-6)}
 .bcards{display:grid;gap:var(--sp-3);grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -445,7 +448,7 @@ select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--ac
 .dhead .name{font-size:var(--fs-h3);font-weight:700;letter-spacing:-.3px;line-height:1.3}
 .dhead .sub{font-size:var(--fs-cap);color:var(--muted);margin-top:2px}
 
-/* 지금 가격 — 진한 초록 칸에 흰 큰 숫자. 바로 아래 예상 가격(forecast.css)과 한 덩어리로 읽힌다 */
+/* 지금 가격 — 검은 칸에 흰 큰 숫자. 바로 아래 예상 가격(forecast.css)과 한 덩어리로 읽힌다 */
 .nowbox{margin-top:var(--sp-3);background:var(--brand-deep);color:#fff;border-radius:var(--r-md);
   padding:var(--sp-4) var(--sp-5);display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--sp-1) var(--sp-4)}
 .nowbox .nlab{font-size:var(--fs-cap);font-weight:700;color:var(--lime);width:100%}
@@ -501,13 +504,14 @@ svg{display:block;width:100%;min-width:560px}
 .series.down{stroke:var(--down)} .area.down{fill:var(--down)} .dot.down{fill:var(--down)}
 .series.flat{stroke:var(--muted)} .area.flat{fill:var(--muted)} .dot.flat{fill:var(--muted)}
 /* 평년선은 비교용 배경이라 점선에 가늘게 */
-.series.norm{stroke:var(--teal);stroke-width:1.5;stroke-dasharray:5 4;opacity:.85}
+/* 평년은 동그란 점선(·····), 예상은 긴 점선(- - -) — 둘 다 회색 계열이라 선 모양으로 가른다 */
+.series.norm{stroke:var(--teal);stroke-width:2;stroke-dasharray:0 5;stroke-linecap:round;opacity:.9}
 .lbl{font-size:12px;font-weight:700;fill:var(--ink)}
 .lbl.norm{fill:var(--teal);font-weight:600}
 .legend{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--ink2)}
 .legend i{width:15px;border-top:2.5px solid currentColor;display:block}
 .legend.norm{color:var(--teal)}
-.legend.norm i{border-top-width:2px;border-top-style:dashed}
+.legend.norm i{border-top-width:3px;border-top-style:dotted}
 .chart-legend{display:flex;justify-content:center;gap:16px;margin-top:6px}
 
 /* ── 포춘쿠키 ── 쿠키를 눌러 깨면 안에서 종이가 나온다 */
@@ -622,7 +626,7 @@ try{
   </header></div>
 </div>
 
-<!-- 초록 띠: 왼쪽에 소매 · 도매 전환과 검색, 오른쪽에 오늘 시세 요약(등락 막대 · 상한가 · 하한가) -->
+<!-- 검은 띠: 왼쪽에 소매 · 도매 전환과 검색, 오른쪽에 오늘 시세 요약(등락 막대 · 상한가 · 하한가) -->
 <section class="hero" aria-label="오늘의 장바구니 시세">
   <div class="hero-inner">
     <div class="hero-main">
@@ -850,10 +854,13 @@ function chart(points, width, fc){
 
   const fcLayer = hasFc ? NF.chartLayer(fc, {x0: lx, y0: ly, xEnd, R, T, B, ys,
     hMax: Math.max(...fc.points.map(p => p.h)), tickDy: phone ? 20 : 16}) : '';
+  // 예상 범례는 차트의 예상 선과 같은 색 (4주 뒤가 오르면 빨강, 내리면 파랑)
+  const fcLast = hasFc ? fc.points[fc.points.length - 1].change_pct : 0;
+  const fcDir = fcLast > 0.05 ? 'up' : (fcLast < -0.05 ? 'down' : 'muted');
   const legend = (hasNorm || hasFc)
     ? `<span class="legend" style="color:var(--${dir === 'flat' ? 'muted' : dir})"><i></i>실제</span>
        ${hasNorm ? '<span class="legend norm"><i></i>평년</span>' : ''}
-       ${hasFc ? '<span class="legend fcst"><i></i>예상</span>' : ''}`
+       ${hasFc ? `<span class="legend fcst" style="color:var(--${fcDir})"><i></i>예상</span>` : ''}`
     : '';
   // 평년 글자는 선의 왼쪽 끝에 붙인다 — 오른쪽엔 오늘 가격 글자가 이미 있다
   const normLbl = hasNorm
