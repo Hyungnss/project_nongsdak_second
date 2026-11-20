@@ -1,6 +1,6 @@
 [project]
 name = "nongsdak"
-version = "2.2.0"
+version = "2.3.0"
 description = "농스닥 — KAMIS 일별 소매·도매 시세를 평년 대비로 보여주는 웹서비스"
 readme = "README.md"
 requires-python = ">=3.11"
