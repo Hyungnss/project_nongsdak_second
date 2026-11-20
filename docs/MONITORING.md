@@ -17,7 +17,10 @@
 | `grafana` | `grafana/grafana:13.3.1` | 대시보드 (운영자 전용, 로그인 필요) | 256m |
 | `node-exporter` | `prom/node-exporter:v1.13.1` | 서버 CPU · 메모리 · 디스크를 내보냄 | 64m |
 
-셋을 합쳐 많아야 **576MB**. 보통은 그보다 훨씬 적게 쓴다 (작은 서비스라 지표 종류가 몇백 개 정도).
+셋을 합쳐 많아야 **576MB**. 로컬에서 재 보니 prometheus 약 135MB · node-exporter 약 14MB 였고, grafana 는
+`docker stats` 로는 한도(256MB) 가까이 보이지만 실제로 쓰는 힙은 110MB 남짓이다 — 나머지는 Go 가 늦게 돌려주는
+메모리(`GOMEMLIMIT=200MiB` 근처에서 GC 가 거둔다)와 내부 DB 파일 캐시라 모자라면 버려진다.
+grafana 는 처음 뜰 때 내부 DB 를 만드느라 1~2분 걸린다.
 한도를 넘으면 그 컨테이너만 죽고(`restart: unless-stopped`) 다시 뜬다 — 웹 · DB 는 영향이 없다.
 
 세 서비스 모두 **포트를 열지 않는다.** 바깥에서 들어오는 길은 caddy 의 `/grafana/` 하나뿐이다.
@@ -110,9 +113,11 @@ prometheus 자체 화면(9090)은 바깥에 열지 않는다. 필요하면 내 P
 
 `/metrics` 는 web 에 그대로 열려 있지만, 서버에서 web 은 포트를 열지 않고 caddy 만 말을 건다.
 caddy 는 `Caddyfile` 에서 `/metrics` · `/metrics/*` 를 **web 으로 넘기기 전에 404** 로 끊는다.
+grafana 도 자기 지표를 `/metrics` 에 인증 없이 내놓기 때문에 `GF_METRICS_ENABLED=false` 로 끄고,
+caddy 에서 `/grafana/metrics` 도 404 로 한 번 더 막는다.
 prometheus 는 caddy 를 거치지 않고 docker 내부망에서 `web:8000/metrics` 를 직접 긁는다.
 
-- 배포 작업(`deploy.yml` 의 확인 단계)이 매번 `https://<도메인>/metrics` 가 404 인지, `/grafana/api/health` 가 200 인지 본다.
+- 배포 작업(`deploy.yml` 의 확인 단계)이 매번 `https://<도메인>/metrics` · `/grafana/metrics` 가 404 인지, `/grafana/api/health` 가 200 인지 본다.
 - 이 PC 의 `docker compose up -d` 에서는 `http://127.0.0.1:8080/metrics` 로 보인다 (이 PC 안에서만 열린 포트).
 
 ---

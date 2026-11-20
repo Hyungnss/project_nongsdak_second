@@ -73,7 +73,7 @@ def _caddy_site_block():
 def test_caddy_hides_metrics_before_proxying_to_web():
     """/metrics 는 인터넷에 내놓지 않는다 — web 으로 넘기는 handle 보다 먼저 404 로 끊어야 한다."""
     c = _caddy_site_block()
-    m = re.search(r"@metrics\s+path\s+/metrics\s+/metrics/\*", c)
+    m = re.search(r"@metrics\s+path\s+/metrics\s+/metrics/\*\s+/grafana/metrics\s+/grafana/metrics/\*", c)
     assert m, "Caddyfile 에 @metrics 매처가 없다"
     block = re.search(r"handle\s+@metrics\s*\{([^}]*)\}", c)
     assert block and "respond 404" in block.group(1), "/metrics 를 404 로 막지 않는다"
@@ -110,6 +110,7 @@ def test_monitoring_services_are_limited_and_private():
     assert "--storage.tsdb.retention.time=15d" in text
     assert 'GF_AUTH_ANONYMOUS_ENABLED: "false"' in text
     assert 'GF_SERVER_SERVE_FROM_SUB_PATH: "true"' in text
+    assert 'GF_METRICS_ENABLED: "false"' in text      # grafana 자신의 /metrics 는 인증 없이 열린다
     assert "GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?" in text
 
 

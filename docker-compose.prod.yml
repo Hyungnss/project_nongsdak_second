@@ -98,6 +98,8 @@ services:
       GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
       GF_NEWS_NEWS_FEED_ENABLED: "false"
       GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      # grafana 자신의 /metrics 는 인증 없이 열려 /grafana/metrics 로 바깥에 보인다. 긁지 않으므로 끈다.
+      GF_METRICS_ENABLED: "false"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/nongsdak.json
       GF_LOG_LEVEL: warn
       # Go 의 GC 가 mem_limit 보다 조금 앞에서 메모리를 돌려주게
@@ -108,6 +110,8 @@ services:
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
+    # 실제로 쓰는 힙은 110MB 남짓 (로컬 측정). 한도 근처까지 차 보이는 것은 대부분 Go 가 늦게 돌려주는 메모리와
+    # 내부 DB 파일 캐시라 버려도 된다. 넘으면 grafana 만 다시 뜬다.
     mem_limit: 256m
 
   # 서버 자체(CPU · 메모리 · 디스크)를 내보낸다. 호스트의 / 를 읽기 전용으로 들여다본다.

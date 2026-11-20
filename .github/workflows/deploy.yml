@@ -173,11 +173,14 @@ jobs:
           echo "http → $redir"
           case "$redir" in 30[178]\ https://*) ;; *) echo "::error::http 가 https 로 넘어가지 않습니다 ($redir)"; exit 1 ;; esac
           # 운영 지표는 바깥에서 보이면 안 된다 (caddy 가 404). grafana 는 /grafana/ 아래에서 떠야 한다.
-          m=$(curl -s -o /dev/null -w "%{http_code}" --resolve "$SITE_DOMAIN:443:127.0.0.1" "https://$SITE_DOMAIN/metrics")
-          echo "/metrics (바깥) : $m"
-          [ "$m" = "404" ] || { echo "::error::/metrics 가 바깥에 열려 있습니다 ($m) — Caddyfile 확인"; exit 1; }
+          # grafana 는 처음 뜰 때 내부 DB 를 만드느라 1~2분 걸린다 (그래서 3분까지 기다린다).
+          for p in /metrics /grafana/metrics; do
+            m=$(curl -s -o /dev/null -w "%{http_code}" --resolve "$SITE_DOMAIN:443:127.0.0.1" "https://$SITE_DOMAIN$p")
+            echo "$p (바깥) : $m"
+            [ "$m" = "404" ] || { echo "::error::$p 가 바깥에 열려 있습니다 ($m) — Caddyfile 확인"; exit 1; }
+          done
           g=""
-          for _ in $(seq 1 20); do
+          for _ in $(seq 1 60); do
             g=$(curl -s -o /dev/null -w "%{http_code}" --resolve "$SITE_DOMAIN:443:127.0.0.1" "https://$SITE_DOMAIN/grafana/api/health" || true)
             [ "$g" = "200" ] && break
             sleep 3
