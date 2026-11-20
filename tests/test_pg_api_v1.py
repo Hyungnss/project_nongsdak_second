@@ -213,5 +213,5 @@ def test_internal_docs_hidden_and_v1_docs_public(client):
     assert client.get("/docs").status_code == 404
     assert client.get("/openapi.json").status_code == 404
     spec = client.get("/api/v1/openapi.json").json()
-    assert set(spec["paths"]) == {"/status", "/items", "/prices/latest", "/prices/history", "/changes"}
+    assert set(spec["paths"]) == {"/status", "/items", "/prices/latest", "/prices/history", "/changes", "/forecast"}
     assert client.get("/api/v1/docs").status_code == 200

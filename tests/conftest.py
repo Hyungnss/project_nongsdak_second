@@ -21,7 +21,7 @@ import config
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = ROOT / "database" / "schema.sql"
 MIGRATIONS = sorted((ROOT / "database" / "migrations").glob("[0-9][0-9][0-9]_*.sql"))
-TABLES = ["TBL_INGEST_LOG", "TBL_WEATHER_DAILY", "TBL_WEATHER_STATION", "TBL_CPI_MONTHLY",
+TABLES = ["TBL_PRICE_FORECAST", "TBL_INGEST_LOG", "TBL_WEATHER_DAILY", "TBL_WEATHER_STATION", "TBL_CPI_MONTHLY",
           "TBL_FCST_RAW", "TBL_FCST_MID_TA", "TBL_FCST_MID_LAND",
           "TBL_BACKFILL_JOB", "TBL_API_USAGE_DAILY", "TBL_API_KEY",
           "TBL_CART_ITEM", "TBL_USER_SESSION", "TBL_USER",

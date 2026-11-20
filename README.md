@@ -147,6 +147,7 @@ v1 이 살아 있는 동안 응답은 필드를 **더하기만** 한다.
 | `GET /api/v1/prices/latest` | 품종 · 등급마다 최신 가격 (최근 30일 안에 조사된 것) |
 | `GET /api/v1/prices/history` | 한 품종의 일별 가격 (`item`, `kind`, `rank`, `start`, `end` · 최대 366일) |
 | `GET /api/v1/changes` | 품목별 등락률 (`period=1d\|1w\|2w\|1m`) |
+| `GET /api/v1/forecast` | 한 품종의 **1 · 2 · 4주 뒤 예상 가격** (`item`, `kind`, `rank`). `meta.model` 은 예측한 모델 |
 
 ```bash
 curl -H "X-API-Key: nsk_..." "https://hyungnss.eta.pyhub.kr/api/v1/prices/latest?item=211"
@@ -185,6 +186,7 @@ PostgreSQL 18 (`docker compose` 의 `db` 서비스). 처음 모양은 **`databas
 | `collector/check.py` | 최근 7일 소매·도매 수집 기록 점검 (빈 날이면 경고 · 종료 코드 1) |
 | `collector/weather.py` | **관측 날씨** — 기상청 ASOS 일자료, 전국 관측소 97곳 → `TBL_WEATHER_DAILY` (매일 최근 7일 · `--start` 로 백필) |
 | `collector/cpi.py` | **소비자물가** — 한국은행 ECOS `901Y010` 특수분류(농축수산물 · 채소 · 과실 등 12계열, 월) → `TBL_CPI_MONTHLY` |
+| `collector/predict.py` | **매일 가격 예측** — 17:30 수집 · 점검 뒤 품종 · 등급마다 1 · 2 · 4주 뒤 가격 → `TBL_PRICE_FORECAST` (모델은 `ml/predict.py`, 지금은 blend). 화면용 `/api/forecast` 는 `backend/forecast.py` |
 | `collector/forecast.py` | **중기예보 보관** — 기상청이 최근 24시간분만 주므로 발표(06 · 18시)마다 원문과 정리본을 쌓는다 → `TBL_FCST_*` |
 | `collector/scheduler.py` | 컨테이너용 실행기 — 예보 06:40 · 날씨 11:30 · 물가 11:40 · 가격 17:30 · 예보 18:40, 늦게 켜지면 따라잡기 |
 | `collector/backfill.py` | **과거 가격 백필** — KAMIS 기간 API(품목 · 품종 · 등급별 최대 1년)로 지금 다루는 품종의 과거분을 채운다. 기존 행은 덮어쓰지 않고 `DATA_SOURCE='kamis_period'` 로 표시, 진행은 `TBL_BACKFILL_JOB` 에 남겨 이어받는다 |

@@ -8,7 +8,8 @@
   forecast_am  06:40  python -m collector.forecast      중기예보 보관 (06시 발표분)
   weather      11:30  python -m collector.weather       관측 날씨 — 전 관측소 최근 7일
   cpi          11:40  python -m collector.cpi           소비자물가 — 최근 6개월 (새 달이 나왔는지)
-  price        17:30  python -m collector.upsert --days 7 → python -m collector.check
+  price        17:30  python -m collector.upsert --days 7 → python -m collector.check → python -m collector.predict
+                      (예측은 그날 정정된 가격까지 반영하려고 수집 · 점검 뒤에 돈다)
   forecast_pm  18:40  python -m collector.forecast      중기예보 보관 (18시 발표분)
 
   이 PC(Windows)에서는 가격 수집을 작업 스케줄러 + run_fetch.bat 이 한다. 서버 컨테이너에는 작업 스케줄러가
@@ -61,7 +62,8 @@ JOBS = [
     Job("forecast_am", time(6, 40), [["collector.forecast"]], "forecast"),
     Job("weather", time(11, 30), [["collector.weather", "--days", "7"]], "weather"),
     Job("cpi", time(11, 40), [["collector.cpi"]], "cpi"),
-    Job("price", FETCH_AT, [["collector.upsert", "--days", str(FETCH_DAYS)], ["collector.check"]]),
+    Job("price", FETCH_AT, [["collector.upsert", "--days", str(FETCH_DAYS)], ["collector.check"],
+                            ["collector.predict"]]),
     Job("forecast_pm", time(18, 40), [["collector.forecast"]], "forecast"),
 ]
 
