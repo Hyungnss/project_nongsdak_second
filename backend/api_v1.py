@@ -39,7 +39,7 @@ API_VERSION = "v1"
 SOURCE = "KAMIS 농산물유통정보 (한국농수산식품유통공사)"
 MAX_HISTORY_DAYS = 366
 LATEST_WINDOW_DAYS = 30      # prices/latest 는 최근 이만큼 안에 조사된 품종만
-ITEMS_TTL = 60               # 초. 품목 목록은 테이블 전체를 묶는 조회라 짧게 캐시한다
+ITEMS_TTL = 600              # 초. 전체 기간(10년)을 묶는 무거운 조회라 10분 캐시한다 — 자료는 하루 한 번 바뀐다
 
 Market = Literal["retail", "wholesale"]
 MARKET_Q = Query("retail", description="retail=소매 · wholesale=도매")

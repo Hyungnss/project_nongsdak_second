@@ -208,6 +208,22 @@ KAMIS 공표가 17:00 이라 17:30 에 돈다. `--days 7` 로 지난 7일을 다
 
 ---
 
+## 6-1. 과거 가격 채우기 (백필) — 선택
+
+매일 수집은 최근 7일만 받는다. 모델 학습처럼 몇 년 치 가격이 필요하면 KAMIS 기간 API 로 과거분을 채운다.
+
+```
+uv run python -m collector.backfill --start 2016-01-01 --end 2025-12-31     # 10년 · 약 4,600번 호출 · 2시간 남짓
+uv run python -m collector.backfill --status                               # 진행 상황
+```
+
+- 대상은 지금 DB 에 있는 (시장, 품목, 품종, 등급) 조합이다. 조합 × 1년이 호출 한 번이다.
+- 이미 있는 날은 덮어쓰지 않는다. 백필 행은 `DATA_SOURCE='kamis_period'` 이고 당일가격 · 평년가격만 있다.
+- 중간에 멈춰도 다시 같은 명령을 돌리면 남은 구간만 받는다 (`TBL_BACKFILL_JOB`). 오류 구간도 다시 시도한다.
+- 호출 사이를 1초 쉰다 (`--sleep`). 일부만 받으려면 `--market retail` · `--limit 50`.
+
+---
+
 ## 서버 DB 백업 — Lightsail 버킷
 
 `.github/workflows/backup.yml` 이 **매일 04:00 (KST)** 서버 runner 에서 `database/backup.sh` 를 돌린다.
