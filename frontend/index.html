@@ -8,6 +8,7 @@
 <link rel="icon" type="image/png" href="/static/favicon.png">
 <link rel="stylesheet" href="/static/auth.css">
 <link rel="stylesheet" href="/static/cart.css">
+<link rel="stylesheet" href="/static/forecast.css">
 <style>
 :root{
   color-scheme:light;
@@ -730,7 +731,8 @@ const PHONE_Q = matchMedia('(max-width:620px)');
 // width: 차트가 들어갈 칸의 실제 너비(px). 그 너비 그대로 판을 잡아 1 단위 = 화면 1px 이 되게 한다.
 //   고정 판(1000 등)을 칸에 맞춰 줄이면 칸이 좁을수록 글자가 작아졌다
 //   (휴대폰 · 오른쪽 상세 칸 · 태블릿에서 눈금이 3~7px 로 읽을 수 없었다).
-function chart(points, width){
+// fc: 예측(forecast.js 의 응답). 있으면 오른쪽에 '예상' 구간을 두고 실제 선에 이어 점선으로 그린다.
+function chart(points, width, fc){
   if(!points || points.length < 2) return '<p class="loading">추이를 그릴 자료가 부족해요.</p>';
 
   // 구간 시작 대비 끝을 보고 색을 정한다. 눈에 보이는 선의 방향과 색이 일치해야
@@ -751,11 +753,16 @@ function chart(points, width){
   // 평년선도 눈금 안에 들어와야 한다. 실제 가격만으로 세로 범위를 잡으면
   // 평년가가 위아래로 잘려 나간다.
   const nvs = points.map(p => p.normal).filter(v => v != null);
-  const all = vs.concat(nvs);
+  const NF = window.nongsdaqForecast;
+  const hasFc = !!(NF && fc && fc.points && fc.points.length);
+  const all = vs.concat(nvs, hasFc ? NF.prices(fc) : []);
   const lo = Math.min(...all), hi = Math.max(...all);
   const pad = (hi - lo) * 0.15 || Math.max(hi * 0.05, 1);
   const y0 = lo - pad, y1 = hi + pad;
-  const xs = i => L + i / (points.length - 1) * (W - L - R);
+  // 예측이 있으면 판 오른쪽 일부(휴대폰 28% · 넓은 판 22%)를 '예상' 구간으로 비워 둔다
+  const xEnd = W - R;
+  const xHist = hasFc ? L + (xEnd - L) * (phone ? 0.72 : 0.78) : xEnd;
+  const xs = i => L + i / (points.length - 1) * (xHist - L);
   const ys = v => B - (v - y0) / (y1 - y0) * (B - T);
 
   const line = points.map((p, i) => `${xs(i).toFixed(1)},${ys(p.price).toFixed(1)}`).join('L');
@@ -779,7 +786,7 @@ function chart(points, width){
   // 데스크톱은 눈금선 5개, 휴대폰은 좁아서 3개 (5개면 숫자끼리 붙는다)
   (phone ? [0, 0.5, 1] : [0, 0.25, 0.5, 0.75, 1]).forEach(f => {
     const v = y0 + (y1 - y0) * f, y = ys(v);
-    g += `<line class="grid-l" x1="${L}" y1="${y.toFixed(1)}" x2="${W - R}" y2="${y.toFixed(1)}"/>`;
+    g += `<line class="grid-l" x1="${L}" y1="${y.toFixed(1)}" x2="${xEnd}" y2="${y.toFixed(1)}"/>`;
     g += `<text class="tick" x="${L - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end">${Math.round(v).toLocaleString()}</text>`;
   });
   // 가로축은 시작·중간·끝 세 곳만 (촘촘하면 읽기 어렵다).
@@ -795,9 +802,12 @@ function chart(points, width){
   const days = points.length;
   const span = `${points[0].date.slice(5).replace('-','/')} ~ ${last.date.slice(5).replace('-','/')}`;
 
-  const legend = hasNorm
+  const fcLayer = hasFc ? NF.chartLayer(fc, {x0: lx, y0: ly, xEnd, R, T, B, ys,
+    hMax: Math.max(...fc.points.map(p => p.h)), tickDy: phone ? 20 : 16}) : '';
+  const legend = (hasNorm || hasFc)
     ? `<span class="legend" style="color:var(--${dir === 'flat' ? 'muted' : dir})"><i></i>실제</span>
-       <span class="legend norm"><i></i>평년</span>`
+       ${hasNorm ? '<span class="legend norm"><i></i>평년</span>' : ''}
+       ${hasFc ? '<span class="legend fcst"><i></i>예상</span>' : ''}`
     : '';
   // 평년 글자는 선의 왼쪽 끝에 붙인다 — 오른쪽엔 오늘 가격 글자가 이미 있다
   const normLbl = hasNorm
@@ -808,10 +818,10 @@ function chart(points, width){
   // 차트 위 설명 줄('최근 가격 추이 … (조사 60일) … 이 기간 올랐어요')은 두지 않는다.
   // 같은 내용은 화면 낭독기가 읽도록 aria-label 에 남기고, 범례는 그래프 아래에 둔다.
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img"
-      aria-label="최근 가격 추이 ${span}, 조사 ${days}일, 이 기간 ${signed(periodChg)} ${dirWord}${hasNorm ? ', 평년 가격을 점선으로 함께 표시' : ''}">
+      aria-label="최근 가격 추이 ${span}, 조사 ${days}일, 이 기간 ${signed(periodChg)} ${dirWord}${hasNorm ? ', 평년 가격을 점선으로 함께 표시' : ''}${hasFc ? `, 오른쪽에 앞으로 ${Math.max(...fc.points.map(p => p.h))}일 예상 가격을 점선으로 표시` : ''}">
     <path class="area ${dir}" d="${area}"/>${g}
     <path class="series norm" d="${normPath}"/>
-    <path class="series ${dir}" d="M${line}"/>
+    <path class="series ${dir}" d="M${line}"/>${fcLayer}
     <circle class="dot ${dir}" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="5"/>
     <text class="lbl" x="${(lx - 10).toFixed(1)}" y="${(ly - 12).toFixed(1)}"
       text-anchor="end">${won(last.price)}</text>${normLbl}
@@ -898,14 +908,28 @@ async function showDetail(item, kind, rank){
           <div class="unit${m === 'wholesale' ? ' wh' : ''}">${esc(d.unit)} 기준</div>
         </div>
       </div>
+      <div id="fcbox"></div>
       ${addCartRow(d, m)}
       <div class="cmp">${cards}${extra.join('')}</div>
-      ${chart(d.chart, box.clientWidth)}`;
+      <div id="dchart">${chart(d.chart, box.clientWidth)}</div>`;
 
     // 품종 칸에 적힌 등급이 실제로 쓰인 등급과 다를 수 있다(급등락에서 넘어온 경우).
     // 화면이 거짓말하지 않도록 실제 값으로 맞춘다.
     const opt = selKind.selectedOptions[0];
     if(opt) opt.textContent = `${d.kind_name} · ${d.rank_name}`;
+
+    // 예측은 상세를 먼저 그린 뒤 따로 받아 붙인다. 늦거나 없어도(404 · 오류) 상세는 그대로다.
+    const NF = window.nongsdaqForecast;
+    if(NF){
+      const token = LAST_DETAIL;
+      const fc = await NF.load({item: d.item_code, kind: d.kind_code, rank: d.rank_name, market: m},
+                               {unit: d.unit, base_date: d.date, base_price: d.price});
+      // 기다리는 사이 다른 품목 · 시장으로 바꿨으면 버린다
+      if(fc && token === LAST_DETAIL && m === MARKET && box.contains(document.getElementById('fcbox'))){
+        document.getElementById('fcbox').innerHTML = NF.panel(fc, m);
+        if(fc.points.length) document.getElementById('dchart').innerHTML = chart(d.chart, box.clientWidth, fc);
+      }
+    }
   }catch(e){
     if(m !== MARKET) return;
     box.innerHTML = `<div class="err">${e.message}</div>`;
@@ -1833,6 +1857,7 @@ document.querySelectorAll('#mkt .mbtn').forEach(b =>
 paintMarketTabs();
 loadMarket();
 </script>
+<script src="/static/forecast.js"></script>
 <script src="/static/auth.js"></script>
 <!-- 장바구니는 auth.js 의 window.nongsdaqAuth 를 쓰므로 그 다음에 불러온다 -->
 <script src="/static/cart.js"></script>

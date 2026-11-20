@@ -43,7 +43,7 @@ def _node_check(path):
 
 
 @needs_node
-@pytest.mark.parametrize("name", ["auth.js", "cart.js", "developers.js"])
+@pytest.mark.parametrize("name", ["auth.js", "cart.js", "developers.js", "forecast.js"])
 def test_frontend_js_syntax(name):
     _node_check(ROOT / "frontend" / name)
 
