@@ -154,3 +154,14 @@ def test_blend_does_not_peek(setup):
     before = baselines.blend({s.sid: s}, smp.loc[[row]].reset_index(drop=True), refits)
     shocked, one = _future_shocked(s, smp, row)
     np.testing.assert_allclose(before, baselines.blend({s.sid: shocked}, one, refits))
+
+
+def test_profile_works_for_seasonal_kind():
+    """철에만 조사되는 품종(한 해 40일 남짓 — 가을 배추)도 계절 모양을 만든다 (PROFILE_MIN_OBS)."""
+    s = _series(years=4)
+    m = (s.dates.astype("datetime64[M]").astype(int) % 12) >= 10        # 11 · 12월만 남긴다
+    seasonal = Series(**{**s.__dict__, "dates": s.dates[m], "prices": s.prices[m], "normals": s.normals[m]})
+    per_year = np.unique(seasonal.dates.astype("datetime64[Y]"), return_counts=True)[1]
+    assert per_year.max() < 100                                          # 예전 기준(100)이면 탈락했을 품종
+    prof = baselines.season_profile(seasonal, seasonal.dates[-1] + 1)
+    assert prof is not None and np.isfinite(prof[320]) and np.isnan(prof[150])   # 11월은 있고 6월은 없다

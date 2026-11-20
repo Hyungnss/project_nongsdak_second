@@ -13,6 +13,10 @@ YEAR = np.timedelta64(364, "D")       # 52주 — 같은 요일끼리 맞춘다
 MA_WINDOW = 20                        # 최근 20 조사일 ≈ 4주
 PROFILE_SMOOTH = 7                    # 계절 프로파일은 연중 일자 ±7일로 부드럽게
 PROFILE_MIN_YEARS = 2
+# 그 해 평균을 믿으려면 그 해에 최소 이만큼은 조사돼 있어야 한다. 처음엔 100 이었는데, 가을 배추처럼
+# 철에만 조사되는 품종(한 해 30~48일)은 모든 해가 탈락해 계절 모양을 못 만들고 naive 로 메워졌다.
+# 20 으로 낮추니 메운 표본이 도매 7.7%→2.6% · 소매 10.3%→4.8%, 정확도는 거의 같다 (2026-11-20).
+PROFILE_MIN_OBS = 20
 
 
 def _by_series(series, samples, fn):
@@ -77,7 +81,7 @@ def season_profile(s, cutoff):
     acc, cnt, n_years = np.zeros(365), np.zeros(365), 0
     for y in np.unique(years):
         k = years == y
-        if k.sum() < 100:             # 한 해에 100 조사일은 있어야 그 해 평균을 믿는다
+        if k.sum() < PROFILE_MIN_OBS:  # 그 해 조사일이 너무 적으면 그 해 평균을 믿지 않는다
             continue
         n_years += 1
         doy = _doy(d[k])
