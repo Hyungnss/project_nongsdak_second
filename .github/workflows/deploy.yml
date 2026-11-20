@@ -9,9 +9,12 @@
 #
 # 서버 폴더 /srv/nongsdak
 #   docker-compose.yml · docker-compose.prod.yml · Caddyfile · database/(schema · migrations · migrate.sh)  ← 저장소에서 복사
+#   monitoring/ (prometheus 설정 · grafana 프로비저닝 · 대시보드)                                     ← 저장소에서 복사
 #   .env                                                                         ← 아래에서 Secrets 로 매번 새로 쓴다
 #
-# 필요한 Secrets   : DB_PASSWORD · KAMIS_CERT_KEY · KAMIS_CERT_ID · DATA_GO_KR_KEY(기상청) · ECOS_KEY(한국은행)
+# 필요한 Secrets   : DB_PASSWORD · KAMIS_CERT_KEY · KAMIS_CERT_ID · DATA_GO_KR_KEY(기상청) · ECOS_KEY(한국은행) · GRAFANA_ADMIN_PASSWORD
+#   GRAFANA_ADMIN_PASSWORD 는 https://<도메인>/grafana/ 의 admin 비밀번호 (docs/MONITORING.md).
+#   grafana 를 '처음' 띄울 때만 들어간다 — 나중에 Secret 만 바꾸면 반영되지 않는다.
 # 필요한 Variables : SITE_DOMAIN (예: nongsdak.example.com — 이 서버 IP 를 가리키는 도메인)
 #   DB_PASSWORD 는 DB 를 '처음' 만들 때만 계정에 들어간다. 나중에 Secret 만 바꾸면
 #   앱과 DB 의 비밀번호가 어긋나 접속이 끊긴다 — 바꿀 때는 DB 안에서도 ALTER USER 로 같이 바꾼다.
@@ -73,6 +76,7 @@ jobs:
             database/schema.sql
             database/migrate.sh
             database/migrations/
+            monitoring/
           sparse-checkout-cone-mode: false
 
       - name: 배포 파일 복사
@@ -82,6 +86,9 @@ jobs:
           # migrations 는 통째로 바꿔 넣는다 (저장소에서 지운 파일이 서버에 남지 않게)
           rm -rf "$APP_DIR/database/migrations"
           cp -r database/schema.sql database/migrate.sh database/migrations "$APP_DIR/database/"
+          # monitoring 도 통째로 바꿔 넣는다. 데이터는 볼륨(prometheus_data · grafana_data)에 있어 지워지지 않는다.
+          rm -rf "$APP_DIR/monitoring"
+          cp -r monitoring "$APP_DIR/"
 
       # .env 를 Secrets 로 새로 쓴다. 서버에서 손으로 고치지 않는다 — 원본은 GitHub 에 있다.
       # 값은 환경변수로 넘겨 스크립트 본문에 비밀이 박히지 않게 한다 (로그에는 *** 로 가려진다).
@@ -92,8 +99,9 @@ jobs:
           KAMIS_CERT_ID: ${{ secrets.KAMIS_CERT_ID }}
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           ECOS_KEY: ${{ secrets.ECOS_KEY }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
         run: |
-          for k in DB_PASSWORD KAMIS_CERT_KEY KAMIS_CERT_ID DATA_GO_KR_KEY ECOS_KEY SITE_DOMAIN; do
+          for k in DB_PASSWORD KAMIS_CERT_KEY KAMIS_CERT_ID DATA_GO_KR_KEY ECOS_KEY GRAFANA_ADMIN_PASSWORD SITE_DOMAIN; do
             [ -n "${!k}" ] || { echo "::error::$k 가 비어 있습니다 (Settings > Secrets and variables)"; exit 1; }
           done
           umask 077
@@ -109,6 +117,7 @@ jobs:
             echo "KAMIS_CERT_ID=$KAMIS_CERT_ID"
             echo "DATA_GO_KR_KEY=$DATA_GO_KR_KEY"
             echo "ECOS_KEY=$ECOS_KEY"
+            echo "GRAFANA_ADMIN_PASSWORD=$GRAFANA_ADMIN_PASSWORD"
           } > "$APP_DIR/.env.new"
           mv "$APP_DIR/.env.new" "$APP_DIR/.env"
 
@@ -163,6 +172,18 @@ jobs:
           redir=$(curl -s -o /dev/null -w "%{http_code} %{redirect_url}" --resolve "$SITE_DOMAIN:80:127.0.0.1" "http://$SITE_DOMAIN/")
           echo "http → $redir"
           case "$redir" in 30[178]\ https://*) ;; *) echo "::error::http 가 https 로 넘어가지 않습니다 ($redir)"; exit 1 ;; esac
+          # 운영 지표는 바깥에서 보이면 안 된다 (caddy 가 404). grafana 는 /grafana/ 아래에서 떠야 한다.
+          m=$(curl -s -o /dev/null -w "%{http_code}" --resolve "$SITE_DOMAIN:443:127.0.0.1" "https://$SITE_DOMAIN/metrics")
+          echo "/metrics (바깥) : $m"
+          [ "$m" = "404" ] || { echo "::error::/metrics 가 바깥에 열려 있습니다 ($m) — Caddyfile 확인"; exit 1; }
+          g=""
+          for _ in $(seq 1 20); do
+            g=$(curl -s -o /dev/null -w "%{http_code}" --resolve "$SITE_DOMAIN:443:127.0.0.1" "https://$SITE_DOMAIN/grafana/api/health" || true)
+            [ "$g" = "200" ] && break
+            sleep 3
+          done
+          echo "/grafana : $g"
+          [ "$g" = "200" ] || { echo "::error::grafana 가 응답하지 않습니다 ($g)"; exit 1; }
           docker compose ps
           echo "### 배포 완료 · $IMAGE · https://$SITE_DOMAIN" >> "$GITHUB_STEP_SUMMARY"
 

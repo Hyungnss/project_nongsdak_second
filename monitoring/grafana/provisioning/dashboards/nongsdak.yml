@@ -1,0 +1,13 @@
+# 저장소의 대시보드 JSON(monitoring/grafana/dashboards/)을 grafana 에 자동으로 올린다.
+# 화면에서 고쳐도 저장되지 않는다 (allowUiUpdates: false) — 고치려면 JSON 을 내보내 저장소에서 바꾼다.
+apiVersion: 1
+
+providers:
+  - name: nongsdak
+    folder: 농스닥
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 60
+    options:
+      path: /var/lib/grafana/dashboards

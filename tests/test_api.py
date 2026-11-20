@@ -114,3 +114,47 @@ def test_health_503_when_db_down(client, monkeypatch):
         raise ConnectionError("db down")
     monkeypatch.setattr(db, "_query", down)
     assert client.get("/api/health").status_code == 503
+
+
+# ── 운영 지표 (/metrics) ────────────────────────────────────────────────
+# 서버의 prometheus 가 web:8000/metrics 를 긁는다. 바깥에서는 caddy 가 막는다 (test_repo_files.py).
+
+def _metric_lines(client, name):
+    r = client.get("/metrics")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/plain")
+    return [line for line in r.text.splitlines() if line.startswith(name + "{")]
+
+
+def test_metrics_counts_requests_by_route_and_status(client):
+    client.get("/api/meta")
+    client.get("/api/cart")                      # 로그인 없음 → 401
+    lines = _metric_lines(client, "http_requests_total")
+    assert any('handler="/api/meta"' in s and 'status="200"' in s for s in lines), lines
+    # 상태 코드를 2xx/4xx 로 묶지 않고 그대로 센다
+    assert any('handler="/api/cart"' in s and 'status="401"' in s for s in lines), lines
+
+
+def test_metrics_has_latency_histogram(client):
+    client.get("/api/meta")
+    # 대시보드의 p95 지연이 쓰는 히스토그램 (버킷이 촘촘한 것)
+    assert _metric_lines(client, "http_request_duration_highr_seconds_bucket")
+    assert _metric_lines(client, "http_request_duration_seconds_bucket")
+
+
+def test_metrics_groups_unknown_paths(client):
+    """없는 주소는 handler="none" 하나로 모은다 — 스캐너가 지표 종류를 끝없이 늘리지 못하게."""
+    client.get("/wp-login.php")
+    client.get("/no/such/path/12345")
+    lines = _metric_lines(client, "http_requests_total")
+    assert not any("wp-login" in s or "12345" in s for s in lines), lines
+    assert any('handler="none"' in s and 'status="404"' in s for s in lines), lines
+
+
+def test_metrics_skips_health_and_itself(client, monkeypatch):
+    """healthcheck(10초마다)와 prometheus 의 긁기는 방문자 요청 수에 넣지 않는다."""
+    monkeypatch.setattr(db, "_query", lambda *a, **k: [{"ok": 1}])
+    client.get("/api/health")
+    client.get("/metrics")
+    lines = _metric_lines(client, "http_requests_total")
+    assert not any('handler="/api/health"' in s or 'handler="/metrics"' in s for s in lines), lines

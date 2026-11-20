@@ -1,0 +1,25 @@
+# prometheus 설정 — docker-compose.prod.yml 의 prometheus 서비스가 읽는다.
+# 대상은 모두 docker 내부망의 서비스 이름으로 찾는다 (바깥에 열린 포트가 아니다).
+# 보존 기간(15일) · 용량 상한은 docker-compose.prod.yml 의 command 에 있다.
+
+global:
+  scrape_interval: 30s       # 작은 서버라 촘촘히 긁지 않는다 (대시보드 rate 는 5분 창)
+  scrape_timeout: 10s
+  evaluation_interval: 30s
+
+scrape_configs:
+  # 농스닥 웹 — 요청 수 · 지연 · 상태 코드 (backend/app.py 의 Instrumentator)
+  - job_name: web
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["web:8000"]
+
+  # 서버 자체 — CPU · 메모리 · 디스크 (node-exporter)
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # prometheus 자신 (긁기가 실패하는지 · 저장 용량)
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
