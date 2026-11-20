@@ -23,6 +23,7 @@ from ml import backtest, dataset  # noqa: E402
 RUNS = ROOT / "ml_runs"
 ALL = ["naive", "seasonal_naive", "seasonal_adjusted", "moving_average", "seasonal_profile", "blend", "lgbm"]
 BASELINE_SET = ALL[:-1]   # --models baselines
+FEATURE_SET_RUN = ["blend", "lgbm", "lgbm_ext", "lgbm_oracle"]   # --models features (③-1 비교)
 
 
 def parse_args(argv):
@@ -33,12 +34,14 @@ def parse_args(argv):
     p.add_argument("--eval-end", default=None, help="기본: 최신 조사일 - 35일")
     p.add_argument("--refit-days", type=int, default=28)
     p.add_argument("--no-mlflow", action="store_true")
+    p.add_argument("--note", default="", help="MLflow 에 남길 메모 (무엇을 왜 돌렸는지)")
     return p.parse_args(argv)
 
 
 def main(argv=None):
     a = parse_args(sys.argv[1:] if argv is None else argv)
-    models = BASELINE_SET if a.models == "baselines" else [m for m in a.models.split(",") if m]
+    models = {"baselines": BASELINE_SET, "features": FEATURE_SET_RUN}.get(
+        a.models, [m for m in a.models.split(",") if m])
     t0 = time.time()
     series = dataset.load_series(a.market)
     latest = max(s.dates[-1] for s in series)
@@ -62,6 +65,9 @@ def main(argv=None):
     print(show.round(3).to_string(index=False))
     print(f"\n── 가장 많이 틀린 품종 ({best}) ──")
     print(worst.round(3).to_string())
+    for m, imp in samples.attrs.get("importance", {}).items():
+        print(f"\n── 특성 중요도 상위 15 ({m}, gain 비율) ──")
+        print((imp.head(15) * 100).round(1).to_string())
     print(f"\n걸린 시간 {time.time() - t0:.0f}s")
 
     if a.no_mlflow:
@@ -76,7 +82,12 @@ def main(argv=None):
     if mlflow.get_experiment_by_name(exp_name) is None:
         mlflow.create_experiment(exp_name, artifact_location=(RUNS / "artifacts" / exp_name).resolve().as_uri())
     mlflow.set_experiment(exp_name)
+    from ml import external  # noqa: PLC0415
     with mlflow.start_run(run_name=",".join(models)):
+        # 나중에 MLflow 화면에서 골라 보기 쉽게 — 시장 · 입력 조합 · 메모
+        mlflow.set_tags({"market": a.market, "note": a.note,
+                         **{f"features.{m}": "+".join(["price", *external.FEATURE_SETS[m]])
+                            for m in models if m in external.FEATURE_SETS}})
         mlflow.log_params({"market": a.market, "models": ",".join(models), "eval_start": str(start),
                            "eval_end": str(end), "refit_days": a.refit_days, "series": len(series),
                            "data_first": str(first), "data_latest": str(latest), "target": "daily",
@@ -92,6 +103,8 @@ def main(argv=None):
         table.to_csv(out / "metrics.csv", index=False)
         by_cat.to_csv(out / "metrics_by_category.csv", index=False)
         worst.to_csv(out / f"worst_{best}.csv")
+        for m, imp in samples.attrs.get("importance", {}).items():
+            imp.rename("gain_share").to_csv(out / f"importance_{m}.csv")
         samples.to_csv(out / "predictions.csv.gz", index=False)
         mlflow.log_artifacts(str(out))
     print(f"MLflow 기록 완료 → {RUNS / 'mlflow.db'}")
