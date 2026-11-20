@@ -309,7 +309,7 @@ project_nongsdak/
 ├── SETUP.md                     처음 세팅하는 사람용
 ├── docs/WORKLOG.md              날짜별 작업 기록 (무엇을 왜 그렇게 정했는지)
 ├── docs/RUNBOOK.md              운영 런북 — 배포 · 되돌리기 · 장애 대응 · 자주 쓰는 확인
-├── docs/ML.md                   가격 예측 모델 — 전처리 · 기준선(blend) · 백테스트 · 결과
+├── docs/ML.md                   가격 예측 모델 — 결과 요약 (자세한 문서: docs/ML_*.md)
 ├── ml/                          예측 모델 (PC 전용 — uv sync --group ml)
 ├── pyproject.toml · uv.lock      의존성 (uv 로 관리 — 설치는 `uv sync`)
 └── .python-version              파이썬 3.11
@@ -323,7 +323,7 @@ PostgreSQL 18.7 · Docker 이미지는 `python:3.11.18-slim-bookworm` 기반 · 
 ## 가격 예측 모델
 
 품종별 1 · 2 · 4주 뒤 가격을 예측한다. 기준선(`blend`)과 LightGBM 을 시간 순서 백테스트로 비교한다.
-전처리 · 평가 방식 · 결과는 [docs/ML.md](docs/ML.md).
+결과 요약은 [docs/ML.md](docs/ML.md), 전처리 · 평가 방식 · 실험 · 튜닝은 거기서 이어지는 `docs/ML_*.md`.
 
 ## 앞으로
 
