@@ -143,7 +143,11 @@ jobs:
       # --wait : healthcheck 가 있는 서비스는 healthy 가 될 때까지 기다린다 (web 은 /api/health 로 DB 까지 본다)
       - name: 띄우기
         working-directory: ${{ env.APP_DIR }}
-        run: docker compose up -d --wait --wait-timeout 180 --remove-orphans
+        run: |
+          docker compose up -d --wait --wait-timeout 180 --remove-orphans
+          # Caddyfile 은 파일로 붙여 둔 것이라 바뀌어도 compose 가 caddy 를 다시 띄우지 않는다 → 설정만 다시 읽힌다 (끊김 없음).
+          # (v2.5.0 배포 때 /metrics 막기가 이것 때문에 안 먹었다)
+          docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
 
       # 바깥 문(caddy)을 거쳐 https 로도 되는지 본다. 인증서까지 검사한다 (-k 를 쓰지 않는다).
       # --resolve 로 도메인을 이 서버(127.0.0.1)로 바로 보낸다. 첫 배포에는 인증서 발급에 몇 초 걸린다.
