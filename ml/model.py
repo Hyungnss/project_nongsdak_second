@@ -48,11 +48,14 @@ def lgb_params(n_jobs=2, **override):
     return p
 
 
-def fit(series, samples, params):
-    """series: {sid: Series}. 학습 표본으로 Booster 하나. 특성 표는 학습 뒤 버린다 (메모리)."""
+def fit(series, samples, params, wholesale=None):
+    """series: {sid: Series}. 학습 표본으로 Booster 하나. 특성 표는 학습 뒤 버린다 (메모리).
+
+    wholesale: 도매 시계열 목록 (소매 모델만 — 도매 특성 3개를 더한다, features.WHOLESALE).
+    """
     import lightgbm as lgb  # noqa: PLC0415
 
-    x = features.build(series, samples)
+    x = features.build(series, samples, wholesale)
     y = features.target(samples)
     ds = lgb.Dataset(x, y, categorical_feature=features.CATEGORICAL, free_raw_data=True)
     booster = lgb.train(params, ds)
@@ -61,9 +64,14 @@ def fit(series, samples, params):
     return booster
 
 
-def predict_prices(booster, series, samples):
+def uses_wholesale(booster):
+    """이 모델이 도매 특성으로 학습됐나 (예전 소매 모델 · 도매 모델은 아니다)."""
+    return features.WHOLESALE[0] in booster.feature_name()
+
+
+def predict_prices(booster, series, samples, wholesale=None):
     """표본마다 예측 가격 = 기준일 가격 × exp(예측한 로그 변화율)."""
-    x = features.build(series, samples)
+    x = features.build(series, samples, wholesale if uses_wholesale(booster) else None)
     return samples.p0.to_numpy(dtype=float) * np.exp(booster.predict(x))
 
 
@@ -81,7 +89,7 @@ def holdout_range(series):
     return end - np.timedelta64(HOLDOUT_DAYS - 1, "D"), end
 
 
-def gate(series_list, params, log=print):
+def gate(series_list, params, log=print, wholesale=None):
     """게이트 모델을 학습해 떼어 둔 8주에서 blend 와 겨룬다. 돌려주는 것: 점수 · 통과 여부 · 이유 dict."""
     by = {s.sid: s for s in series_list}
     start, end = holdout_range(series_list)
@@ -89,18 +97,18 @@ def gate(series_list, params, log=print):
     hold = backtest.run(series_list, start, end, ["blend"], log=lambda *_: None)
     train = make_samples(series_list)
     train = train[train.target_date.to_numpy() < start].reset_index(drop=True)   # 떼어 둔 기간의 정답은 못 본다
-    booster = fit(by, train, params)
+    booster = fit(by, train, params, wholesale)
     rows = len(train)
     del train
     gc.collect()
 
-    pred = predict_prices(booster, by, hold)
+    pred = predict_prices(booster, by, hold, wholesale)
     hold["pred_lgbm"], hold["fb_lgbm"] = pred, ~np.isfinite(pred)
     table = backtest.metrics(hold, backtest.scales(series_list, start), ["blend", "lgbm"])
     score = {m: float(table[table.model == m].MASE_median.mean()) for m in ("blend", "lgbm")}
 
     # parity — 파일로 저장했다 다시 읽은 모델이 똑같이 예측하는가
-    again = predict_prices(load_booster(booster.model_to_string()), by, hold)
+    again = predict_prices(load_booster(booster.model_to_string()), by, hold, wholesale)
     parity = float(np.nanmax(np.abs(again - pred))) if len(pred) else 0.0
     finite = bool(np.isfinite(pred).all())
 
@@ -192,14 +200,14 @@ def load_current(market, root=None):
 
 
 # ── 한 번에: 게이트 → 최종 학습 → 저장 → (통과하면) 배포 ─────────────────────
-def _final(series_list, params, meta, root):
+def _final(series_list, params, meta, root, wholesale=None):
     """전체 자료로 최종 학습 → 저장. 돌려주는 것: 채운 meta."""
     import lightgbm as lgb  # noqa: PLC0415
 
     by = {s.sid: s for s in series_list}
     train = make_samples(series_list)          # 목표일이 있는 표본 = 정답이 나온 전부
     meta = {**meta, "train_rows": len(train), "lightgbm": lgb.__version__}
-    booster = fit(by, train, params)
+    booster = fit(by, train, params, wholesale)
     del train
     meta["features"] = booster.feature_name()
     save(booster, meta, root)
@@ -225,36 +233,42 @@ def _isolated(fn, *args):
         return ex.submit(fn, *args).result()
 
 
-def _gate_quiet(series_list, params):
+def _gate_quiet(series_list, params, wholesale=None):
     lines = []
-    out = gate(series_list, params, log=lines.append)
+    out = gate(series_list, params, log=lines.append, wholesale=wholesale)
     return out, lines
 
 
 def train_market(market, series_list, n_jobs=2, root=None, now=None, params_override=None, isolate=False,
-                 log=print):
-    """isolate=True 면 게이트 · 최종 학습을 각각 자식 프로세스에서 (서버 — collector.train)."""
+                 log=print, wholesale=None):
+    """isolate=True 면 게이트 · 최종 학습을 각각 자식 프로세스에서 (서버 — collector.train).
+
+    wholesale: 도매 시계열 목록 — 소매 모델에 도매 특성을 더한다 (collector.train 이 소매일 때 넘긴다).
+    """
     params = lgb_params(n_jobs, **(params_override or {}))
     now = now or datetime.now()
     root = root or model_dir()
     version = f"{MODEL_NAME}-{MARKET_EN[market]}-{now:%Y%m%d-%H%M}"
     latest = max(s.dates[-1] for s in series_list)
-    log(f"\n[{market}] {version} · 품종 {len(series_list)}개 · 자료 끝 {latest}")
+    log(f"\n[{market}] {version} · 품종 {len(series_list)}개 · 자료 끝 {latest}"
+        + (f" · 도매 특성 (도매 {len(wholesale)}품종)" if wholesale is not None else ""))
 
     if isolate:
-        g, lines = _isolated(_gate_quiet, series_list, params)
+        g, lines = _isolated(_gate_quiet, series_list, params, wholesale)
         for line in lines:
             log(line)
     else:
-        g = gate(series_list, params, log)
+        g = gate(series_list, params, log, wholesale)
     gc.collect()
 
     meta = {
         "version": version, "market": market, "model": MODEL_NAME, "trained_at": now.isoformat(timespec="seconds"),
         "data_end": str(latest), "series": len(series_list),
+        "inputs": "price+wholesale" if wholesale is not None else "price",
         "params": {k: v for k, v in params.items() if k != "n_jobs"}, "gate": g,
     }
-    meta = _isolated(_final, series_list, params, meta, root) if isolate else _final(series_list, params, meta, root)
+    meta = (_isolated(_final, series_list, params, meta, root, wholesale) if isolate
+            else _final(series_list, params, meta, root, wholesale))
     gc.collect()
     if g["passed"]:
         promote(market, version, root)

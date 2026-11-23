@@ -126,3 +126,69 @@ def test_forecast_market_uses_current_model_then_falls_back(root, monkeypatch):
     seen = []
     fc = predict.forecast_market(None, "도매", log=seen.append)
     assert {f.model for f in fc} == {"blend"} and "blend 로 대신" in seen[0]
+
+
+# ── 소매 모델의 도매 특성 (features.WHOLESALE) ───────────────────────────────
+def _pair():
+    """같은 (품목, 품종)의 소매 · 도매 시계열 (도매가 조금 싸고 따로 흔들린다)."""
+    r = _series(sid="211/01/상품", item="211", seed=1)
+    w = _series(sid="211/01/상품", item="211", seed=2)
+    w = Series(**{**w.__dict__, "kind_code": r.kind_code, "prices": (w.prices * 0.6).round()})
+    return r, w
+
+
+def test_wholesale_columns_use_only_wholesale_up_to_origin():
+    r, w = _pair()
+    smp = make_samples([r])
+    smp = smp[smp.origin == r.dates[300]].reset_index(drop=True)
+    cols = features.wholesale_columns({r.sid: r}, smp, [w])
+    pos = features.asof_position(w, smp.origin.to_numpy())[0]
+    assert w.dates[pos] <= r.dates[300]                                   # 기준일 당일까지의 도매
+    assert cols["wh_ret5"][0] == pytest.approx(np.log(w.prices[pos] / w.prices[pos - 5]))
+    assert cols["wh_gap20"][0] == pytest.approx(np.log(r.prices[300] / w.prices[pos - 19:pos + 1].mean()))
+    # 기준일 뒤의 도매 가격을 10배로 바꿔도 그대로 (누수 없음)
+    shocked = Series(**{**w.__dict__, "prices": np.where(w.dates > r.dates[300], w.prices * 10, w.prices)})
+    again = features.wholesale_columns({r.sid: r}, smp, [shocked])
+    for c in features.WHOLESALE:
+        np.testing.assert_array_equal(cols[c], again[c])
+    # 도매가 없는 품종은 NaN
+    other = features.wholesale_columns({r.sid: r}, smp, [Series(**{**w.__dict__, "kind_code": "99"})])
+    assert all(np.isnan(other[c]).all() for c in features.WHOLESALE)
+
+
+def test_retail_model_with_wholesale_trains_serves_and_keeps_parity(root, monkeypatch):
+    r, w = _pair()
+    retail = [r, *_market()[1:]]
+    meta = model.train_market("소매", retail, n_jobs=1, now=NOW, params_override=FAST, log=lambda *_: None,
+                              wholesale=[w])
+    assert meta["inputs"] == "price+wholesale" and meta["features"][-3:] == features.WHOLESALE
+    assert meta["gate"]["parity_max_diff"] < 1e-9
+    model.promote("소매", meta["version"])
+
+    # 서빙: 도매를 따로 읽어 같은 특성으로 — 메모리 모델로 직접 예측한 값과 같다
+    monkeypatch.setattr(predict, "load_all_series", lambda q, m: retail)
+    monkeypatch.setattr(predict, "load_wholesale", lambda: [w])
+    fc = predict.forecast_market(None, "소매", log=lambda *_: None)
+    assert {f.model_version for f in fc} == {meta["version"]}
+    booster, _ = model.load_current("소매")
+    direct = model.predict_prices(booster, {s.sid: s for s in retail}, predict.serving_samples(retail), [w])
+    np.testing.assert_allclose([f.price for f in fc], np.round(direct, 2))
+    # 서빙 특성에 도매 값이 실제로 채워진다 (도매가 있는 품종 211 만 — 나머지 품종은 NaN)
+    x = features.build({s.sid: s for s in retail}, predict.serving_samples(retail), [w])
+    has = x.item_code.astype(str) == "211"
+    assert x.loc[has, features.WHOLESALE].notna().all().all() and x.loc[~has, features.WHOLESALE].isna().all().all()
+
+
+def test_serving_wholesale_features_equal_training_features():
+    """서빙(마지막 조사일까지만 있는 소매) 과 학습 표의 도매 특성이 같은 기준일에서 똑같다."""
+    r, w = _pair()
+    k = 400
+    while ((r.dates[k - 1].astype(int) + 3) % 7) != 0:
+        k += 1
+    cut = _cut(r, k)
+    serve = predict.serving_samples([cut])
+    train = make_samples([r])
+    train = train[train.origin == cut.dates[-1]].sort_values("h").reset_index(drop=True)
+    fs = features.build({cut.sid: cut}, serve, [w])
+    ft = features.build({r.sid: r}, train, [w])
+    np.testing.assert_array_equal(fs[features.WHOLESALE].to_numpy(), ft[features.WHOLESALE].to_numpy())

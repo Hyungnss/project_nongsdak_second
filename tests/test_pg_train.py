@@ -55,3 +55,16 @@ def test_rollback_and_status(conn, capsys):
     assert "소매: lgbm-retail-20261115-0300 · 이력 2개" in capsys.readouterr().out
     with pytest.raises(SystemExit):
         job.main(["rollback"])                          # 시장을 정하지 않으면 거절
+
+
+def test_retail_model_uses_wholesale_when_db_has_it(conn):
+    """도매 가격이 있으면 소매 모델이 도매 특성까지 넣어 학습하고, 매일 예측도 그 모델로 낸다."""
+    for n, item in enumerate(["211", "212"]):
+        _fill(conn, item=item, kind="01", market="도매", base=900.0 + 300 * n)
+    job.main(["train", "--market", "소매", "--n-jobs", "1"])
+    meta = conn.execute("SELECT META FROM TBL_MODEL_RUN WHERE MARKET_TYPE = '소매'").fetchone()[0]
+    assert meta["inputs"] == "price+wholesale" and meta["features"][-3:] == ["wh_ret5", "wh_ret20", "wh_gap20"]
+    if meta["gate"]["passed"]:
+        predict_job.main(["--market", "소매"])
+        got = {r[0] for r in conn.execute("SELECT DISTINCT MODEL_VERSION FROM TBL_PRICE_FORECAST").fetchall()}
+        assert got == {meta["version"]}

@@ -50,6 +50,8 @@ def load_series(market="소매", min_obs=60):
         WHERE  MARKET_TYPE = %(m)s AND PRICE_TODAY > 0
         ORDER  BY ITEM_CODE, KIND_CODE, RANK_NAME, SURVEY_DATE
     """, {"m": market})
+    if not rows:
+        return []                      # 그 시장 자료가 없다 (예: 도매를 아직 안 받은 DB)
     df = pd.DataFrame(rows)
     df = df[[reps.get((i, k)) == r for i, k, r in zip(df.item_code, df.kind_code, df.rank_name)]]
     return frame_to_series(df, min_obs)

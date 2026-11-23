@@ -57,8 +57,12 @@ def train(markets, n_jobs):
         for m in markets:
             try:
                 series = dataset.load_series(m)
-                meta = model.train_market(m, series, n_jobs=n_jobs, now=config.now_kst(), isolate=True)
-                del series
+                # 소매 모델은 같은 품종의 도매 가격도 본다 (소매는 도매를 늦게 따라간다 — features.WHOLESALE)
+                # (도매 자료가 없으면 None — 예전처럼 가격만)
+                wholesale = (dataset.load_series("도매") or None) if m == "소매" else None
+                meta = model.train_market(m, series, n_jobs=n_jobs, now=config.now_kst(), isolate=True,
+                                          wholesale=wholesale)
+                del series, wholesale
                 gc.collect()
                 record(conn, meta)
                 g = meta["gate"]
