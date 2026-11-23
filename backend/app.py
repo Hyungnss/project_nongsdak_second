@@ -31,6 +31,7 @@ import auth  # noqa: E402
 import cart  # noqa: E402
 import config  # noqa: E402
 import db  # noqa: E402
+import model_metrics  # noqa: E402
 
 # 화면 파일은 루트의 frontend/ 에 있다. 주소는 예전처럼 /static/... 으로 낸다.
 STATIC_DIR = Path(__file__).resolve().parent.parent / "frontend"
@@ -77,6 +78,8 @@ Instrumentator(
     should_group_status_codes=False,
     excluded_handlers=["/metrics", "/api/health"],
 ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+# 예측 모델 지표도 같은 /metrics 에 — 지금 모델 · 게이트 점수 · 예측 신선도 · 예측 vs 실제 (backend/model_metrics.py)
+model_metrics.register()
 
 # 회원가입 · 로그인 (/api/auth/*). 시세 API 는 로그인 없이 그대로 열려 있다.
 app.include_router(auth.router)
