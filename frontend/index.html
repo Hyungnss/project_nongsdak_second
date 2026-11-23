@@ -11,7 +11,8 @@
 <link rel="stylesheet" href="/static/forecast.css">
 <style>
 /* ── 디자인 토큰 ──────────────────────────────────────────────────────
-   모노톤(검정 · 흰색 · 회색) + 라임 강조. 틀은 NerdWallet 계열에서 왔지만 숲초록 · 민트는 걷어냈다.
+   처음엔 모노톤(검정 · 흰색 · 회색) + 라임 강조였고, 지금은 그 위에 파스텔 연두를 덮어 쓴다 (아래 '색 — 파스텔 연두').
+   아래 설명의 '검정' · '검은 면' 은 모노톤 시절 이름이다 — 지금은 초록 버튼 · 옅은 연두 칸.
    · 색이 있는 것은 가격의 오르내림(오름 = 빨강 --up, 내림 = 파랑 --down. 국내 시세 관례)과
      라임 강조뿐이다. 그래서 빨강 · 파랑 숫자가 화면에서 가장 먼저 눈에 들어온다.
    · 버튼 · 고른 상태는 검정(--brand). 라임은 검은 면 위의 작은 강조에만 쓴다 (흰 바탕 위 라임은 안 읽힌다).
@@ -82,6 +83,28 @@
   --slip-ink:#f3ebdf; --slip-ink2:#c3b5a2; --slip-muted:#9c8e7d;
   --slip-up:#f4514f; --slip-down:#3b95ff;
   --slip-border:rgba(255,255,255,.13); --slip-dash:rgba(255,255,255,.17);
+}
+/* 색 — 파스텔 연두. 위 모노톤 값 위에 덮는다 (2026-11-23 시안 비교 뒤 확정)
+   큰 칸 · '지금 가격' 칸은 옅은 연두 바탕에 짙은 글자, 버튼만 흰 글자가 읽히게 중간 초록. 오름 · 내림 빨강 · 파랑은 그대로 */
+:root{
+  --brand:#3f7a22; --brand-fill:#4a8a2a; --brand-deep:#e3f2d0; --forest:#2c5418; --on-brand:#fff;
+  --lime:#d6f0a4;
+  --mint-50:#f6faef; --mint-100:#eef6e3; --mint-200:#dcebc8;
+  --hero-bg:#eaf5dc;
+  --bg:#fbfdf7; --card:#ffffff; --card2:#f6faef;
+  --ink:#1b2418; --ink2:#414d3c; --muted:#6c7866; --faint:#a0ab99;
+  --line:#e7eedf; --line-strong:#d6e2c9; --grid:#e7eedf; --hair:#e7eedf;
+  --teal:#8a9585;
+}
+:root[data-theme="dark"]{
+  --brand:#bfe3a0; --brand-fill:#bfe3a0; --brand-deep:#1f2d1a; --forest:#11190d; --on-brand:#11190d;
+  --lime:#d6f0a4;
+  --mint-50:#131a11; --mint-100:#1a2317; --mint-200:#263322;
+  --hero-bg:#182214;
+  --bg:#0c110b; --card:#121a10; --card2:#172015;
+  --ink:#eef4ea; --ink2:#c6d1c1; --muted:#97a391; --faint:#5a6655;
+  --line:#222e1f; --line-strong:#2f3d2b; --grid:#1d281a; --hair:#222e1f;
+  --teal:#97a391;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55;font-family:var(--font);
@@ -180,6 +203,24 @@ header h1.logo img{display:block;height:48px;width:auto}
   .wrap{padding-top:var(--sp-4)}
 }
 
+/* 밝은 화면은 큰 칸 · '지금 가격' 칸이 옅은 색이라 흰 글자 → 짙은 글자로 바꾼다 */
+:root:not([data-theme="dark"]) .hero{color:var(--ink)}
+:root:not([data-theme="dark"]) .hero .eyebrow,
+:root:not([data-theme="dark"]) .topsearch label{color:var(--brand)}
+:root:not([data-theme="dark"]) .mkt{background:rgba(255,255,255,.7);border-color:var(--line-strong)}
+:root:not([data-theme="dark"]) .mbtn{color:var(--ink2)}
+:root:not([data-theme="dark"]) .mbtn:hover{color:var(--ink)}
+:root:not([data-theme="dark"]) .mbtn.on{background:var(--brand-fill);color:#fff}
+:root:not([data-theme="dark"]) .hero input[type=search]{border-color:var(--line-strong)}
+:root:not([data-theme="dark"]) .nowbox{color:var(--ink)}
+:root:not([data-theme="dark"]) .nowbox .nlab,
+:root:not([data-theme="dark"]) .nowbox .unit.wh{color:var(--brand)}
+:root:not([data-theme="dark"]) .nowbox .unit{color:var(--ink2)}
+:root:not([data-theme="dark"]) .mtag{color:var(--forest)}
+/* 맨 위 시세 띠 — 파스텔 하늘색 (연두 큰 칸과 겹치지 않게 띠만 따로) */
+.ticker{background:#e4f2fc;border-bottom-color:#cde4f5}
+:root[data-theme="dark"] .ticker{background:#13202a;border-bottom-color:#1f3240}
+
 /* 소매 · 도매 전환. 화면 전체가 이 값을 따른다. 한 덩어리 버튼이라 '둘 중 하나'라는 게 모양으로 드러난다 */
 .mkt{display:inline-flex;padding:3px;border-radius:var(--r-full);flex:none;
   background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.18)}
@@ -275,30 +316,51 @@ select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--ac
 /* ── 지금 사기 좋아요 ── 옅은 회색 구역 안에 흰 카드. 가격을 가장 크게 */
 .brief{display:flex;flex-direction:column;background:var(--mint-50);border-radius:var(--r-xl);
   padding:var(--sp-6)}
-.bcards{display:grid;gap:var(--sp-3);grid-template-columns:repeat(4,minmax(0,1fr))}
-@media (max-width:900px){.bcards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* 평년보다 싼 품목 전부 — 옆으로 넘기는 한 줄 (손가락으로 밀거나 ‹ › 단추) */
+.bhead{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-3)}
+.bcount{font-size:var(--fs-ui);font-weight:600;color:var(--ink2);margin-left:6px}
+.bnav{display:flex;gap:8px;flex:none}
+.bnav button{font:inherit;font-size:22px;line-height:1;width:40px;height:40px;cursor:pointer;color:var(--ink);
+  background:var(--card);border:1px solid var(--line-strong);border-radius:var(--r-full)}
+.bnav button:hover{border-color:var(--brand)}
+.bnav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bnav button:disabled{opacity:.35;cursor:default}
+.bcards{display:flex;gap:var(--sp-3);overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;
+  overscroll-behavior-x:contain;padding:2px 2px 10px;scrollbar-width:thin}
+.bcards:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bcards > .bcard{flex:0 0 250px;scroll-snap-align:start}
+/* 마우스로 끌어 넘기기 — 끄는 동안은 칸 맞춤 · 부드러운 이동 · 글자 선택을 끈다 */
+@media (hover:hover) and (pointer:fine){.bcards{cursor:grab}}
+.bcards.dragging{cursor:grabbing;scroll-snap-type:none;scroll-behavior:auto;user-select:none}
+.bcards.dragging .bcard{pointer-events:none}
+/* 두 번째 줄(지금은 비싸요)은 위 카드들과 띄운다 */
+.bhead2{margin-top:var(--sp-6)}
+@media (max-width:560px){.bcards > .bcard{flex-basis:78%} .bnav{display:none}}   /* 휴대폰은 손가락으로 민다 */
+/* 오늘 가격을 그때 가격과 나란히 — 등락은 '오늘이 그때보다' 몇 % 인지 */
+.bcmp{display:grid;grid-template-columns:auto 1fr auto;gap:1px 8px;margin-top:2px;line-height:1.4;
+  font-size:var(--fs-cap);align-items:baseline;border-top:1px solid var(--line);padding-top:6px}
+.bcmp .l{color:var(--muted)}
+.bcmp .v{text-align:right;color:var(--ink2);font-variant-numeric:tabular-nums}
+.bcmp .p{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;min-width:56px}
+.bcmp .p.down{color:var(--down-ink)} .bcmp .p.up{color:var(--up-ink)} .bcmp .p.flat{color:var(--muted)}
+/* 1주 뒤 예상 — 지난 가격들과 점선으로 나누고 '예상' 은 강조색 · 기울임 */
+.bcmp .sep{grid-column:1/-1;border-top:1px dashed var(--line-strong);margin:3px 0 1px}
+.bcmp .l.fc{color:var(--ink);font-weight:700;font-style:italic}
+.bcmp .v.fc{color:var(--ink);font-weight:600;font-style:italic}
 .bcard{font:inherit;color:inherit;text-align:left;cursor:pointer;min-width:0;
-  background:var(--card);border:1px solid var(--line-strong);border-radius:var(--r-md);padding:var(--sp-4);
-  display:flex;flex-direction:column;gap:6px}
+  background:var(--card);border:1px solid var(--line-strong);border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);
+  display:flex;flex-direction:column;gap:4px}
+.bcard .top{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0}
+.bcard .top .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.bcard .top .pill{flex:none;font-size:12px;padding:1px 8px}
 .bcard:hover{border-color:var(--brand)}
 .bcard:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .bcard .nm{font-size:var(--fs-md);font-weight:700}
-.bcard .kd{font-size:var(--fs-cap);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bcard .pr{font-size:var(--fs-stat);font-weight:700;letter-spacing:-.6px;line-height:1.2;
   display:flex;align-items:baseline;flex-wrap:wrap;gap:0 6px}
 .bcard .pr small{font-size:var(--fs-ui);font-weight:600;color:var(--ink2);letter-spacing:0}
-.bcard .pill{align-self:flex-start}
-.bcard .spark{width:100%;height:30px}
 .bnone{color:var(--ink2);font-size:var(--fs-body);background:var(--card);border:1px solid var(--line-strong);
   border-radius:var(--r-md);padding:var(--sp-4);grid-column:1/-1}
-.dear{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;margin-top:var(--sp-4);font-size:var(--fs-ui)}
-.dear:empty{display:none}
-.dear > b{font-weight:700;margin-right:2px}
-.dear button{font:inherit;font-size:var(--fs-ui);color:var(--ink);cursor:pointer;
-  background:var(--card);border:1px solid var(--line-strong);border-radius:var(--r-full);
-  padding:4px 6px 4px 12px;display:inline-flex;align-items:center;gap:8px}
-.dear button:hover{border-color:var(--brand)}
-.dear button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (max-width:560px){
   .brief{padding:var(--sp-4) var(--sp-3);border-radius:var(--r-lg)}
   .brief .lead .more{display:none}
@@ -349,7 +411,8 @@ select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--ac
 .bd-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-6);align-items:start}
 .bd-side{display:none}
 @media (min-width:1000px){
-  .bd-grid{grid-template-columns:minmax(0,1fr) 390px}
+  /* 표와 상세를 반반 — 상세의 그래프 · 예상 · 비교가 넉넉하게 보이게 (예전 390px 고정) */
+  .bd-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .bd-side{display:block;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto;
     border-left:1px solid var(--line);padding-left:var(--sp-6)}
 }
@@ -359,16 +422,16 @@ select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--ac
 /* 줄 하나 = 품목 하나. 품목은 왼쪽, 숫자는 오른쪽 정렬로 자릿수가 세로로 맞는다.
    맨 오른쪽 칸은 장바구니 담기 버튼. 도매에서는 담지 않으므로 그 칸을 뺀다 (.nocart). */
 .lcolh,.lrow{display:grid;gap:12px;align-items:center;
-  grid-template-columns:minmax(0,1.5fr) 104px 76px 76px 80px 84px 40px}
+  grid-template-columns:minmax(0,1.5fr) 104px 76px 76px 80px 40px}
 @media (min-width:621px){
-  .nocart .lcolh,.nocart .lrow{grid-template-columns:minmax(0,1.5fr) 104px 76px 76px 80px 84px}
+  .nocart .lcolh,.nocart .lrow{grid-template-columns:minmax(0,1.5fr) 104px 76px 76px 80px}
 }
-.nocart .lcolh > :nth-child(7){display:none}
+.nocart .lcolh > :nth-child(6){display:none}
 .lcolh{padding:8px 10px;font-size:var(--fs-cap);font-weight:700;color:var(--muted);background:var(--card2);
   border-radius:var(--r-sm)}
 .lcolh > *{text-align:right}
 .lcolh > :first-child{text-align:left}
-.lcolh > :nth-child(6),.lcolh > :nth-child(7){text-align:center}
+.lcolh > :nth-child(6){text-align:center}
 /* 어제 · 1주 · 평년 대비 머리는 누르면 그 기준으로 정렬된다 */
 .lcolh .sorth{font:inherit;font-size:var(--fs-cap);font-weight:700;color:inherit;background:none;border:0;padding:2px 0;
   cursor:pointer;text-align:right;white-space:nowrap}
@@ -404,14 +467,13 @@ select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--ac
 /* 등락 % 아래의 그때 가격 */
 .lrow .num small{display:block;font-size:var(--fs-micro);font-weight:500;color:var(--muted);margin-top:2px}
 .num.up{color:var(--up)} .num.down{color:var(--down)} .num.flat{color:var(--muted)}
-.lrow .spark{width:84px;height:22px;justify-self:center}
 /* 휴대폰에서는 품목 · 지금 정렬 기준 숫자 · 가격만 남긴다. 장바구니 칸은 가격 아래 둘째 줄로 내린다 */
 @media (max-width:620px){
   /* 담기 버튼을 둘째 줄로 내리면 한 줄이 95px 로 커져 한 화면에 7개밖에 안 보였다. 맨 오른쪽 칸에 둔다 */
   .lcolh,.lrow{grid-template-columns:minmax(0,1fr) auto auto 32px;gap:4px 12px}
   .nocart .lcolh,.nocart .lrow{grid-template-columns:minmax(0,1fr) auto auto}
   .lrow{padding:10px 6px}
-  .lrow .spark,.lrow .num:not(.on),.lcolh > :nth-child(6),.lcolh > :nth-child(7),
+  .lrow .num:not(.on),.lcolh > :nth-child(6),
   .lcolh .sorth:not(.on){display:none}
   .lrow .nmbtn{grid-column:1;grid-row:1}
   .lrow .num.on,.lcolh .sorth.on{grid-column:2;grid-row:1}
@@ -457,7 +519,7 @@ select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--ac
 .nowbox .unit{font-size:var(--fs-body);font-weight:600;color:rgba(255,255,255,.88);padding-bottom:4px}
 /* 도매는 단위를 가격만큼 크게 — '14,600원' 을 한 포기 값으로 읽지 않도록 */
 .nowbox .unit.wh{font-size:var(--fs-md);font-weight:800;color:var(--lime)}
-.bd-side .nowbox .big{font-size:36px}
+.bd-side .nowbox .big{font-size:44px}
 @media (max-width:620px){ .nowbox{padding:var(--sp-3) var(--sp-4)} .nowbox .big{font-size:34px} }
 
 /* 상세의 '장바구니에 담기' (모양은 cart.css, 이 화면에서는 각진 바깥선 버튼으로) */
@@ -488,7 +550,6 @@ select:focus-visible,input[type=search]:focus-visible{outline:2px solid var(--ac
   font-variant-numeric:tabular-nums}
 .c .p:empty{display:none}
 @media (max-width:620px){ .c .v{font-size:var(--fs-body);letter-spacing:-.5px} }
-.bd-side .c .v{font-size:var(--fs-body);letter-spacing:-.5px}
 
 /* 상세 차트 — 칸 너비 그대로의 판으로 그린다(chart()). 1 단위 = 화면 1px 이라 글자가 늘 제 크기다 */
 .chart{overflow-x:auto;margin-top:var(--sp-4)}
@@ -667,10 +728,31 @@ try{
   <!-- 장보기 브리핑 — 첫 화면이 '오늘 뭘 사면 좋지?'에 바로 답한다.
        기준은 평년 대비다. 어제보다 3% 내린 것보다 평년보다 38% 싼 것이 장 볼 때 더 쓸모 있다. -->
   <section class="brief" aria-labelledby="h-good">
-    <h2 id="h-good">지금 사기 좋아요</h2>
-    <p class="lead">평년 같은 때보다 많이 싼 품목이에요.<span class="more"> 누르면 아래 목록에서 자세히 보여드려요.</span></p>
-    <div class="bcards" id="good"><div class="loading">불러오는 중…</div></div>
-    <div class="dear" id="dear"></div>
+    <div class="bhead">
+      <div>
+        <h2 id="h-good">지금 사기 좋아요 <span class="bcount" id="good-count"></span></h2>
+        <p class="lead">평년 같은 때보다 많이 싼 품목이에요.<span class="more"> 옆으로 넘겨 모두 보고, 누르면 아래 목록에서 자세히 보여드려요.</span></p>
+      </div>
+      <!-- 옆으로 넘기기. 휴대폰은 손가락으로, 컴퓨터는 끌거나 단추로 -->
+      <div class="bnav" id="good-nav" hidden>
+        <button type="button" data-dir="-1" aria-label="이전 품목들">‹</button>
+        <button type="button" data-dir="1" aria-label="다음 품목들">›</button>
+      </div>
+    </div>
+    <div class="bcards" id="good" tabindex="0" aria-label="평년보다 싼 품목 — 옆으로 넘겨 보기"><div class="loading">불러오는 중…</div></div>
+
+    <!-- 지금은 비싸요 — 같은 모양, 평년보다 많이 비싼 품목 전부 -->
+    <div class="bhead bhead2" id="dear-head" hidden>
+      <div>
+        <h2 id="h-dear">지금은 비싸요 <span class="bcount" id="dear-count"></span></h2>
+        <p class="lead">평년 같은 때보다 많이 비싼 품목이에요.<span class="more"> 급하지 않다면 조금 기다려 보세요.</span></p>
+      </div>
+      <div class="bnav" id="dear-nav" hidden>
+        <button type="button" data-dir="-1" aria-label="이전 품목들">‹</button>
+        <button type="button" data-dir="1" aria-label="다음 품목들">›</button>
+      </div>
+    </div>
+    <div class="bcards" id="dear" tabindex="0" aria-label="평년보다 비싼 품목 — 옆으로 넘겨 보기" hidden></div>
   </section>
 
   <!-- 제목은 화면에 두지 않는다. 화면 낭독기는 aria-label 로 이 영역 이름을 읽는다. -->
@@ -692,7 +774,7 @@ try{
           <button type="button" class="sorth" data-sort="day">어제</button>
           <button type="button" class="sorth" data-sort="week">1주</button>
           <button type="button" class="sorth" data-sort="normal">평년 대비</button>
-          <span>최근 추이</span><span>담기</span>
+          <span>담기</span>
         </div>
         <div id="list"><div class="loading">불러오는 중…</div></div>
         <nav class="pager" id="pager" aria-label="모든 품목 페이지" hidden></nav>
@@ -792,12 +874,12 @@ function chart(points, width, fc){
   const dir = periodChg > 0.5 ? 'up' : (periodChg < -0.5 ? 'down' : 'flat');
   const dirWord = dir === 'up' ? '올랐어요' : (dir === 'down' ? '내렸어요' : '거의 그대로예요');
 
-  // 판 너비 = 칸 너비. 높이는 좁은 칸 250px, 넓은 칸 300px 로 고정한다
+  // 판 너비 = 칸 너비. 높이는 좁은 칸 250px, 넓은 칸 340px 로 고정한다
   // (860x420 비율로 늘리던 때는 넓은 화면에서 540px 까지 커졌다).
   // 칸이 아직 화면에 없어 너비를 못 재면(0) 데스크톱 기준 1000 으로 그린다.
   const W = Math.round(Math.min(Math.max(width || 1000, 280), 1200));
   const phone = W < 520;     // 좁은 판: 눈금선 3개, 왼쪽 여백 조금 좁게
-  const [H, L, R, T] = phone ? [250, 50, 12, 14] : [300, 60, 16, 16];
+  const [H, L, R, T] = phone ? [250, 50, 12, 14] : [340, 60, 16, 16];
   const B = H - (phone ? 32 : 36);
   const vs = points.map(p => p.price);
   // 평년선도 눈금 안에 들어와야 한다. 실제 가격만으로 세로 범위를 잡으면
@@ -997,7 +1079,6 @@ async function showDetail(item, kind, rank){
 let BRIEF = [];
 // 평년 대비 이만큼 넘게 벌어져야 '싸요 / 비싸요'라고 말한다. 그 안쪽은 평년 수준.
 const VERDICT_PCT = 10;
-const GOOD_CARDS = 4, DEAR_CHIPS = 3;
 // 분류 칩 이름. KAMIS 부류명을 짧게 줄인다. 모르는 부류가 와도 원래 이름으로 보인다.
 const CAT_SHORT = {'채소류':'채소','과실류':'과일','수산물':'수산','축산물':'축산',
                    '식량작물':'곡물','특용작물':'특용'};
@@ -1018,6 +1099,9 @@ function verdict(c){
   return {t: '평년 수준', c: 'flat'};
 }
 const pill = c => { const v = verdict(c); return `<span class="pill ${v.c}">${v.t}</span>`; };
+// 카드용 짧은 배지 — 이름과 한 줄에 두려고 '평년보다' 를 뺀다 (전체 문구는 마우스를 올리면 보인다)
+const shortPill = c => { const v = verdict(c);
+  return `<span class="pill ${v.c}" title="${v.t}">${v.t.replace('평년보다 ', '')}</span>`; };
 
 // 작은 추이선. v 는 색을 정할 기준값(정렬 기준의 등락 · 평년 대비 %) — 음수 파랑, 양수 빨강, 0 회색.
 function spark(c, w, h, v){
@@ -1036,25 +1120,114 @@ function spark(c, w, h, v){
 const keyAttrs = c =>
   `data-item="${c.item_code}" data-kind="${c.kind_code}" data-rank="${esc(c.rank_name)}"`;
 
+// '지금 사기 좋아요' 카드의 비교 칸 — 오늘 가격을 어제 · 1주 · 1달 전 · 평년 가격과 나란히.
+// 오른쪽 % 는 '오늘이 그때보다' 몇 % 싸거나(▼ 파랑) 비싼지(▲ 빨강). 그때 조사가 없으면 '—'.
+function priceCompareRows(c){
+  const rows = [['어제', c.prev_price], ['1주 전', c.week_price], ['1달 전', c.month_price], ['평년', c.normal]];
+  return `<span class="bcmp" title="오늘 가격을 그때 가격과 비교 — ▼ 그때보다 쌈 · ▲ 그때보다 비쌈">` +
+    rows.map(([label, then]) => {
+      if(!then) return `<span class="l">${label}</span><span class="v">—</span><span class="p flat"></span>`;
+      const p = (c.price / then - 1) * 100;
+      const tone = Math.abs(p) < 0.5 ? 'flat' : (p < 0 ? 'down' : 'up');
+      const txt = tone === 'flat' ? '그대로' : `${p < 0 ? '▼' : '▲'}${Math.abs(p).toFixed(1)}%`;
+      return `<span class="l">${label}</span><span class="v">${won(then)}</span><span class="p ${tone}">${txt}</span>`;
+    }).join('') + forecastRow(c) + `</span>`;
+}
+
+const fmtMD = s => `${+s.slice(5, 7)}/${+s.slice(8, 10)}`;   // '2026-11-30' → '11/30'
+
+// 1주 뒤 예상 — 위의 지난 가격들과 구분되게 점선 아래 '예상' 으로. % 는 '오늘보다' 오를지(▲) 내릴지(▼).
+// 예측이 없는 품목(철 지난 품종 등)은 줄을 두지 않는다.
+function forecastRow(c){
+  if(!c.fc_7d) return '';
+  const p = (c.fc_7d / c.price - 1) * 100;
+  const tone = Math.abs(p) < 0.5 ? 'flat' : (p < 0 ? 'down' : 'up');
+  const txt = tone === 'flat' ? '그대로' : `${p < 0 ? '▼' : '▲'}${Math.abs(p).toFixed(1)}%`;
+  const when = c.fc_7d_date ? ` (${fmtMD(c.fc_7d_date)})` : '';
+  return `<span class="sep"></span>` +
+    `<span class="l fc" title="AI 예측 — 오늘 가격에서 1주 뒤${when} 예상">1주 뒤 예상</span>` +
+    `<span class="v fc">${won(c.fc_7d)}</span><span class="p ${tone}">${txt}</span>`;
+}
+
+// 카드 한 장 — '지금 사기 좋아요' · '지금은 비싸요' 가 같이 쓴다.
+// 품종 · 등급 줄은 두지 않는다 (단위는 가격 옆 'OO 기준' 에 있고, 품종은 누르면 상세에서 보인다).
+// 높이를 줄이려고 이름 · 배지를 한 줄에 두고, 작은 그래프는 뺐다 (아래 비교 줄이 같은 이야기를 숫자로 한다)
+const briefCard = c => `<button type="button" class="bcard" ${keyAttrs(c)}>
+    <span class="top"><span class="nm">${esc(c.item_name)}</span>${shortPill(c)}</span>
+    <span class="pr">${won(c.price)}<small>${esc(c.unit)} 기준</small></span>
+    ${priceCompareRows(c)}</button>`;
+
+// 옆으로 넘기는 줄 (id = good · dear). 넘칠 때만 ‹ › 단추가 보이고, 처음 · 끝에서는 그쪽 단추를 끈다.
+// 컴퓨터는 마우스로 끌어서도 넘긴다. 조금이라도 끌었으면 그때의 클릭(상세 열기)은 무시한다.
+const CAROUSELS = ['good', 'dear'];
+function updateNav(id){
+  const el = document.getElementById(id), nav = document.getElementById(id + '-nav');
+  const over = !el.hidden && el.scrollWidth > el.clientWidth + 4;
+  nav.hidden = !over;
+  if(!over) return;
+  nav.querySelector('[data-dir="-1"]').disabled = el.scrollLeft <= 2;
+  nav.querySelector('[data-dir="1"]').disabled = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+}
+CAROUSELS.forEach(id => {
+  const el = document.getElementById(id);
+  document.getElementById(id + '-nav').addEventListener('click', e => {
+    const b = e.target.closest('button[data-dir]');
+    if(b) el.scrollBy({left: +b.dataset.dir * el.clientWidth * 0.9, behavior: 'smooth'});
+  });
+  el.addEventListener('scroll', () => updateNav(id), {passive: true});
+
+  // 마우스로 끌기 (손가락 · 펜은 브라우저가 알아서 민다)
+  let drag = null;
+  el.addEventListener('pointerdown', e => {
+    if(e.pointerType !== 'mouse' || e.button !== 0) return;
+    drag = {x: e.clientX, left: el.scrollLeft, moved: false};
+  });
+  el.addEventListener('pointermove', e => {
+    if(!drag) return;
+    const dx = e.clientX - drag.x;
+    if(!drag.moved && Math.abs(dx) < 6) return;        // 살짝 떨린 클릭은 끌기가 아니다
+    if(!drag.moved){
+      drag.moved = true;
+      el.setPointerCapture(e.pointerId);
+      el.classList.add('dragging');                      // 끄는 동안은 칸 맞춤 · 부드러운 이동을 끈다
+    }
+    el.scrollLeft = drag.left - dx;
+  });
+  const end = () => {
+    if(!drag) return;
+    if(drag.moved){
+      el.classList.remove('dragging');
+      el.dataset.dragged = '1';                          // 바로 뒤 click 을 한 번 막는다
+      setTimeout(() => delete el.dataset.dragged, 0);
+    }
+    drag = null;
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  el.addEventListener('click', e => {
+    if(el.dataset.dragged){ e.stopImmediatePropagation(); e.preventDefault(); }
+  }, true);
+});
+window.addEventListener('resize', () => CAROUSELS.forEach(updateNav));
+
 function renderBrief(){
   const withN = BRIEF.filter(c => c.normal);
   const good = withN.filter(c => vsNormal(c) <= -VERDICT_PCT)
-    .sort((a, b) => vsNormal(a) - vsNormal(b)).slice(0, GOOD_CARDS);
+    .sort((a, b) => vsNormal(a) - vsNormal(b));
   const dear = withN.filter(c => vsNormal(c) >= VERDICT_PCT)
-    .sort((a, b) => vsNormal(b) - vsNormal(a)).slice(0, DEAR_CHIPS);
+    .sort((a, b) => vsNormal(b) - vsNormal(a));
 
+  document.getElementById('good-count').textContent = good.length ? `${good.length}개` : '';
   document.getElementById('good').innerHTML = good.length
-    ? good.map(c => `<button type="button" class="bcard" ${keyAttrs(c)}>
-        <span class="nm">${esc(c.item_name)}</span>
-        <span class="kd">${esc(c.kind_name)} · ${esc(c.rank_name)}</span>
-        <span class="pr">${won(c.price)}<small>${esc(c.unit)} 기준</small></span>
-        ${pill(c)}${spark(c, 160, 30, vsNormal(c))}</button>`).join('')
+    ? good.map(briefCard).join('')
     : `<div class="bnone">오늘은 평년보다 크게 싼 품목이 없어요. 아래 목록에서 평년 수준인 품목을 확인해 보세요.</div>`;
 
-  document.getElementById('dear').innerHTML = dear.length
-    ? `<b>지금은 비싸요</b>` + dear.map(c =>
-        `<button type="button" ${keyAttrs(c)}>${esc(c.item_name)} ${pill(c)}</button>`).join('')
-    : '';
+  // 비싼 품목이 없으면 그 줄은 통째로 숨긴다
+  const dearEl = document.getElementById('dear');
+  document.getElementById('dear-head').hidden = dearEl.hidden = !dear.length;
+  document.getElementById('dear-count').textContent = dear.length ? `${dear.length}개` : '';
+  dearEl.innerHTML = dear.map(briefCard).join('');
+  CAROUSELS.forEach(id => { document.getElementById(id).scrollLeft = 0; updateNav(id); });
 
   renderCats();
   renderList();
@@ -1136,7 +1309,6 @@ function rowHtml(c){
       <span class="nm">${esc(c.item_name)}<small>${esc(c.kind_name)} · ${esc(c.rank_name)}</small></span></button>
     <span class="pr">${won(c.price)}<small>${esc(c.unit)}</small></span>
     ${numCell('day', c)}${numCell('week', c)}${numCell('normal', c)}
-    ${spark(c, 84, 22, sortVal(c))}
     ${cartCtlHtml(c)}</div>`;
 }
 
@@ -1569,7 +1741,7 @@ function renderBoard(f){
       `<i class="f" style="flex:${f.flat_count}"></i></div>` : '') +
     `<div class="blab"><span class="u">▲ 오름 <b>${f.up_count}</b></span>` +
     `<span class="d">▼ 내림 <b>${f.down_count}</b></span>` +
-    `<span class="f">― 보합 <b>${f.flat_count}</b></span>` +
+    `<span class="f">― 그대로 <b>${f.flat_count}</b></span>` +
     (day ? `<span class="f">${day}</span>` : '') + `</div>`;
 
   const t = document.getElementById('ticker');

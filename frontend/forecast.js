@@ -90,12 +90,16 @@
         ${pct}</div>`;
     }).join('');
     const base = fc.base_price != null
-      ? `${fc.base_date ? md(fc.base_date) + ' ' : ''}${won(fc.base_price)}원 기준` : '';
+      ? `${fc.base_date ? md(fc.base_date) + ' ' : ''}<b>${won(fc.base_price)}원</b>에서 출발` : '';
+    // 어떤 방법으로 냈는지 — 사용자용 쉬운 말 (API 의 model_name 은 운영 화면용으로 그대로 둔다)
+    const how = fc.model === 'lgbm'
+      ? `AI 모델${fc.trained_on ? ` · ${md(fc.trained_on)} 학습` : ''}`
+      : '예년 같은 철 가격 흐름으로 계산';
     return `<section class="fc" aria-label="다음 1·2·4주 예상 가격">
       <div class="fc-head"><h3>다음 1 · 2 · 4주 예상 가격</h3><span class="fc-tag">예상</span></div>
       <div class="fc-row">${cells}</div>
-      <p class="fc-note">지난 시세로 계산한 <b>예상값</b>이에요. 날씨 · 작황 · 수입량에 따라 실제 가격은 달라질 수 있어요.</p>
-      <p class="fc-meta">${base ? `<span>${base}</span>` : ''}<span>${esc(fc.model_name || fc.model || '—')}${fc.trained_on ? ` · ${md(fc.trained_on)} 학습` : ''}</span></p>
+      <p class="fc-note">지난 시세로 낸 <b>예상값</b> · 날씨·작황에 따라 달라져요</p>
+      <p class="fc-meta">${base ? `<span>${base}</span>` : ''}<span>${how}</span></p>
     </section>`;
   }
 

@@ -86,6 +86,22 @@ def test_briefing_and_api_routes(client, pg_db):
     _series(pg_db)
     b = client.get("/api/briefing").json()
     assert b["count"] == 1 and b["items"][0]["change_pct"] == pytest.approx(0.7, abs=0.1)
+    it = b["items"][0]
+    # 어제 · 1주 · 1달 전 가격과 날짜 ('지금 사기 좋아요' 카드의 비교 칸)
+    assert it["prev_price"] > 0 and it["week_price"] > 0 and it["month_price"] > 0
+    assert it["prev_date"] > it["week_date"] > it["month_date"]
+    assert it["change_30d"] == pytest.approx((it["price"] / it["month_price"] - 1) * 100, abs=0.1)
+    assert it["fc_7d"] is None                       # 아직 예측이 없다
+
+    # 1주 뒤 예상 — 가장 최근 기준일의 7일 예측 (예전 예측 · 다른 기간은 고르지 않는다)
+    last = date.fromisoformat(it["date"])
+    for base, h, price in [(last - timedelta(days=7), 7, 1111), (last, 7, 2222), (last, 28, 3333)]:
+        pg_db.execute("""INSERT INTO TBL_PRICE_FORECAST (BASE_DATE, MARKET_TYPE, ITEM_CODE, KIND_CODE, RANK_NAME, H,
+                            TARGET_DATE, BASE_PRICE, PRICE, MODEL, MODEL_VERSION)
+                         VALUES (%s, '소매', '211', '01', '상품', %s, %s, 1000, %s, 'lgbm', 'lgbm-retail-x')""",
+                      (base, h, base + timedelta(days=h), price))
+    it = client.get("/api/briefing").json()["items"][0]
+    assert it["fc_7d"] == 2222 and it["fc_7d_date"] == (last + timedelta(days=7)).isoformat()
     for path in ["/api/meta", "/api/products", "/api/detail?item=211", "/api/movers", "/api/fortune"]:
         assert client.get(path).status_code == 200, path
 
