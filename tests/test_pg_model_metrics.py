@@ -22,10 +22,10 @@ def client(pg_db, tmp_path, monkeypatch):
     model_metrics.clear_cache()
 
 
-def _value(text, name, **labels):
+def _value(text, metric, **labels):
     """지표 한 줄의 값. 라벨 순서와 상관없이 찾는다."""
     for line in text.splitlines():
-        if not line.startswith(name + "{"):
+        if not line.startswith(metric + "{"):
             continue
         got = dict(re.findall(r'(\w+)="([^"]*)"', line[line.index("{"):line.index("}")]))
         if all(got.get(k) == v for k, v in labels.items()):
@@ -42,7 +42,8 @@ def test_metrics_show_serving_model_gate_and_freshness(client):
                     VALUES ('lgbm-retail-x', '소매', 'lgbm', '2026-11-22 07:43+09', '2026-11-21', 700000,
                             '2026-08-25', '2026-10-19', 1.0864, 1.1183, 0, TRUE, '통과', TRUE)""")
     t = c.get("/metrics").text
-    assert _value(t, "nongsdak_model_info", market="소매", model="blend", version="blend-1") == 1
+    assert _value(t, "nongsdak_model_info", market="소매", model="blend", version="blend-1",
+                  name="기준선 blend (학습 없음)") == 1
     assert _value(t, "nongsdak_forecast_rows", market="소매", model="blend") == 3
     assert _value(t, "nongsdak_model_gate_score", market="소매", model="lgbm") == pytest.approx(1.0864)
     assert _value(t, "nongsdak_model_gate_score", market="소매", model="blend") == pytest.approx(1.1183)

@@ -6,7 +6,8 @@
   GET /api/forecast?item=211&kind=03&rank=상품&market=retail
   {
     "item_code": "211", "kind_code": "03", "rank": "상품", "unit": "1포기",
-    "base_date": "2026-11-20", "base_price": 2390, "model": "blend",
+    "base_date": "2026-11-20", "base_price": 2390, "model": "lgbm", "model_version": "lgbm-retail-20261123-1500",
+    "model_name": "AI 예측 (LightGBM · 매주 학습)", "trained_on": "2026-11-23",
     "points": [{"h": 7, "target_date": "2026-11-27", "price": 2310, "change_pct": -3.3}, ...]
   }
   · rank 를 생략하면 대표 등급(화면과 같은 규칙)
@@ -18,6 +19,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query
 
 import db
+import model_names
 
 router = APIRouter(prefix="/api", tags=["forecast"])
 
@@ -50,7 +52,8 @@ def latest_forecast(item, kind, rank, market):
 def shape(item, kind, rank, unit, rows):
     if not rows:
         return {"item_code": item, "kind_code": kind, "rank": rank, "unit": unit,
-                "base_date": None, "base_price": None, "model": None, "points": []}
+                "base_date": None, "base_price": None, "model": None, "model_name": None, "trained_on": None,
+                "points": []}
     base_price = rows[0]["base_price"]
     return {
         "item_code": item, "kind_code": kind, "rank": rank, "unit": unit,
@@ -58,6 +61,8 @@ def shape(item, kind, rank, unit, rows):
         "base_price": round(base_price),
         "model": rows[0]["model"],
         "model_version": rows[0]["model_version"],
+        # 사람이 읽는 이름 · 학습 날짜 (버전 ID 에서 만든다 — backend/model_names.py)
+        **{k: v for k, v in model_names.describe(rows[0]["model"], rows[0]["model_version"]).items() if k != "label"},
         "points": [{
             "h": int(r["h"]),
             "target_date": r["target_date"].isoformat(),

@@ -105,7 +105,7 @@ prometheus 자체 화면(9090)은 바깥에 열지 않는다. 필요하면 내 P
 | `http_request_duration_seconds` | `handler` · `method` | 경로별 지연 (버킷 0.1 · 0.5 · 1초로 성기다) |
 | `http_request_size_bytes` · `http_response_size_bytes` | `handler` | 요청 · 응답 크기 |
 | `process_*` · `python_gc_*` | | web 프로세스 CPU · 메모리 · GC |
-| `nongsdak_model_info` · `_gate_score` · `_gate_passed` · `_trained_timestamp_seconds` · `_runs` | `market` (· `model` · `version` · `result`) | 예측 모델 상태 — `backend/model_metrics.py` |
+| `nongsdak_model_info` · `_gate_score` · `_gate_passed` · `_trained_timestamp_seconds` · `_runs` | `market` (· `model` · `version` · `name` · `result`) — `name` 은 사람이 읽는 이름 (`LightGBM · 11월 23일 학습`, `backend/model_names.py`) | 예측 모델 상태 — `backend/model_metrics.py` |
 | `nongsdak_forecast_rows` · `_base_date_timestamp_seconds` · `nongsdak_price_latest_timestamp_seconds` | `market` | 예측 · 가격 신선도 |
 | `nongsdak_forecast_eval_ape` · `_direction` · `_count` | `market` · `h` | 예측 vs 실제 (최근 28일, `V_FORECAST_EVAL`) |
 

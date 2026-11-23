@@ -51,7 +51,7 @@
 | 모델 파일 | Docker 볼륨 `models` → `/app/models/<retail\|wholesale>/<버전>/model.txt · meta.json`, `current.json` |
 | 사본 | 버킷 `s3://<BACKUP_BUCKET>/models/` (볼륨이 지워져도 되살린다) |
 | 이력 | `TBL_MODEL_RUN` — 학습마다 한 줄 (게이트 점수 · blend 점수 · 챔피언 버전 · 점수 · parity · 통과 · 이유) |
-| 예측의 출처 | `TBL_PRICE_FORECAST.MODEL` · `MODEL_VERSION` (예: `lgbm` · `lgbm-retail-20261122-0300`) |
+| 예측의 출처 | `TBL_PRICE_FORECAST.MODEL` · `MODEL_VERSION` (예: `lgbm` · `lgbm-retail-20261122-0300`). 화면 · API · Grafana 에는 버전에서 만든 이름을 같이 보여 준다 — `AI 예측 (LightGBM · 매주 학습) · 11/23 학습` (`backend/model_names.py`) |
 
 ### 게이트 — 챔피언 / 도전자
 

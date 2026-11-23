@@ -1219,7 +1219,7 @@
             "uid": "prometheus"
           },
           "expr": "nongsdak_model_info",
-          "legendFormat": "{{market}} · {{version}}",
+          "legendFormat": "{{market}} · {{name}}",
           "range": false,
           "instant": true
         }
@@ -1228,7 +1228,7 @@
         "defaults": {},
         "overrides": []
       },
-      "description": "가장 최근 예측을 낸 모델 (lgbm = 매주 재학습한 LightGBM, blend = 기준선 — 모델이 없거나 실패했을 때)",
+      "description": "가장 최근 예측을 낸 모델. LightGBM = 매주 재학습한 모델(학습 날짜), 기준선 blend = 모델이 없거나 실패했을 때. 버전 ID(lgbm-retail-…)는 Explore 에서 nongsdak_model_info 로 본다",
       "options": {
         "reduceOptions": {
           "calcs": [

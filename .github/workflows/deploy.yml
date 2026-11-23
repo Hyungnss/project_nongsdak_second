@@ -148,6 +148,10 @@ jobs:
           # Caddyfile 은 파일로 붙여 둔 것이라 바뀌어도 compose 가 caddy 를 다시 띄우지 않는다 → 설정만 다시 읽힌다 (끊김 없음).
           # (v2.5.0 배포 때 /metrics 막기가 이것 때문에 안 먹었다)
           docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+          # monitoring/ 은 위 '배포 파일 복사' 에서 통째로 갈아 끼운다. 떠 있던 prometheus · grafana 는 지워진 옛 폴더를
+          # 붙잡고 있어 새 대시보드 · 설정을 못 본다 (v2.6.1 때 '예측 모델' 칸이 안 보였다) → 다시 띄워 새 폴더를 붙인다.
+          # 데이터는 볼륨에 있어 그대로다. 몇 초 동안 지표 수집 · 대시보드만 멈춘다 (서비스와 무관).
+          docker compose restart prometheus grafana
 
       # 바깥 문(caddy)을 거쳐 https 로도 되는지 본다. 인증서까지 검사한다 (-k 를 쓰지 않는다).
       # --resolve 로 도메인을 이 서버(127.0.0.1)로 바로 보낸다. 첫 배포에는 인증서 발급에 몇 초 걸린다.

@@ -95,7 +95,7 @@
       <div class="fc-head"><h3>다음 1 · 2 · 4주 예상 가격</h3><span class="fc-tag">예상</span></div>
       <div class="fc-row">${cells}</div>
       <p class="fc-note">지난 시세로 계산한 <b>예상값</b>이에요. 날씨 · 작황 · 수입량에 따라 실제 가격은 달라질 수 있어요.</p>
-      <p class="fc-meta">${base ? `<span>${base}</span>` : ''}<span>예측 모델 <code>${esc(fc.model || '—')}</code></span></p>
+      <p class="fc-meta">${base ? `<span>${base}</span>` : ''}<span>${esc(fc.model_name || fc.model || '—')}${fc.trained_on ? ` · ${md(fc.trained_on)} 학습` : ''}</span></p>
     </section>`;
   }
 
