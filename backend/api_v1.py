@@ -454,6 +454,7 @@ def forecast(
     """한 품종 · 등급의 가장 최근 예측. 기준일(base_date)은 그 품종의 마지막 조사일이다.
 
     예측은 매일 17:30 가격 수집 뒤에 새로 만든다. meta.model · model_version 은 어떤 모델이 예측했는지다
+    (model_name 은 사람이 읽는 이름, trained_on 은 그 모델의 학습 날짜 — 기준선이면 null).
     (모델이 바뀌어도 응답 모양은 그대로). 예측이 없는 품종(철 지남 · 자료 부족)은 data 가 빈 목록이다.
     """
     try:
@@ -462,4 +463,5 @@ def forecast(
         raise ApiError(e.status_code, "not_found", str(e.detail)) from None
     return _envelope(f["points"], market, item_code=f["item_code"], kind_code=f["kind_code"], rank=f["rank"],
                      unit=f["unit"], base_date=f["base_date"], base_price=f["base_price"],
-                     model=f["model"], model_version=f.get("model_version"))
+                     model=f["model"], model_version=f.get("model_version"), model_name=f.get("model_name"),
+                     trained_on=f.get("trained_on"))

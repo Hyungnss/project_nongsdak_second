@@ -83,12 +83,24 @@ def serving_samples(series, horizons=HORIZONS):
     return pd.DataFrame(rows)
 
 
-def forecast_lgbm(series, market, booster, version, horizons=HORIZONS):
-    """LightGBM — 학습과 같은 특성(features.build)으로 마지막 조사일의 1 · 2 · 4주 뒤."""
+def load_wholesale():
+    """도매 대표 등급 시계열 — 소매 모델의 도매 특성용 (학습 collector.train 과 같은 dataset.load_series)."""
+    from ml import dataset  # noqa: PLC0415
+
+    return dataset.load_series("도매")
+
+
+def forecast_lgbm(series, market, booster, version, horizons=HORIZONS, wholesale=None):
+    """LightGBM — 학습과 같은 특성(features.build)으로 마지막 조사일의 1 · 2 · 4주 뒤.
+
+    도매 특성으로 학습된 모델(소매)이면 wholesale 를 주지 않아도 여기서 읽는다.
+    """
     from ml import model  # noqa: PLC0415
 
+    if model.uses_wholesale(booster) and wholesale is None:
+        wholesale = load_wholesale()          # 비어 있으면 도매 특성이 전부 NaN — 모델이 다룬다 (예측은 낸다)
     smp = serving_samples(series, horizons)
-    price = model.predict_prices(booster, {s.sid: s for s in series}, smp)
+    price = model.predict_prices(booster, {s.sid: s for s in series}, smp, wholesale)
     if not np.isfinite(price).all():
         raise ValueError(f"LightGBM 예측에 NaN · 무한대 {int((~np.isfinite(price)).sum())}개")
     by = {s.sid: s for s in series}

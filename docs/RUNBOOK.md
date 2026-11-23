@@ -104,6 +104,7 @@ docker compose exec collector python -m collector.train                       # 
 | **예보가 빠짐** | `SELECT TM_FC, COUNT(*) FROM TBL_FCST_RAW GROUP BY 1 ORDER BY 1 DESC LIMIT 5` | 기상청은 **최근 24시간분만** 준다 — 24시간 안이면 `--once forecast_am` 으로 메운다. 지나면 되살릴 수 없다 |
 | 백업 실패 (Actions 빨간불) | backup 작업 로그 | 버킷 연결(Lightsail 리소스 액세스) · 디스크 · `aws s3 ls s3://hyungnss-nongsdak` |
 | 모델 학습 실패 · 배포 안 됨 (train 빨간불) | train 작업 로그 · `SELECT model_version, passed, reason FROM tbl_model_run ORDER BY trained_at DESC LIMIT 4` | 게이트에서 떨어졌으면 지금 모델이 그대로 쓰인다 (서비스 영향 없음). 이유가 'blend 보다 나쁨' 이면 최근 가격 이상 여부(`collector.quality`). 메모리 부족(Killed)이면 `free -h` |
+| 새 모델이 '챔피언보다 나쁨' 으로 배포 안 됨 | `SELECT model_version, score, blend_score, champion_version, champion_score, reason FROM tbl_model_run ORDER BY trained_at DESC LIMIT 4` | 지금 모델이 그대로 쓰인다 (서비스 영향 없음). 같은 방법이면 점수가 같아 걸리지 않으므로, 설정 · 입력(도매 특성 등)을 바꾼 배포라는 뜻 — 바꾼 방법이 최근 8주에서 지금보다 나빴다. 바꾼 쪽을 다시 검토하거나 그대로 둔다. 일부러 바꿔야 하면 rollback 처럼 `current.json` 을 손으로 옮긴다 (`collector.train rollback --to <버전>`) |
 | 예측이 blend 로 나옴 | `logs collector` 의 'LightGBM 예측 실패' · `collector.train status` | 모델 파일 문제면 rollback 또는 Actions > train 재학습. 볼륨이 지워졌으면 버킷 `models/` 에서 되살리거나 재학습 |
 | 메모리 부족 | `free -h` · `docker stats --no-stream` | 스왑 2GB 가 있다. 계속 모자라면 인스턴스 요금제를 올린다 |
 

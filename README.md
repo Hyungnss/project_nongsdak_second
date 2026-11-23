@@ -147,7 +147,7 @@ v1 이 살아 있는 동안 응답은 필드를 **더하기만** 한다.
 | `GET /api/v1/prices/latest` | 품종 · 등급마다 최신 가격 (최근 30일 안에 조사된 것) |
 | `GET /api/v1/prices/history` | 한 품종의 일별 가격 (`item`, `kind`, `rank`, `start`, `end` · 최대 366일) |
 | `GET /api/v1/changes` | 품목별 등락률 (`period=1d\|1w\|2w\|1m`) |
-| `GET /api/v1/forecast` | 한 품종의 **1 · 2 · 4주 뒤 예상 가격** (`item`, `kind`, `rank`). `meta.model` 은 예측한 모델 |
+| `GET /api/v1/forecast` | 한 품종의 **1 · 2 · 4주 뒤 예상 가격** (`item`, `kind`, `rank`). `meta.model` · `model_version` 은 예측한 모델 (ID), `model_name` · `trained_on` 은 사람이 읽는 이름 · 학습 날짜 |
 
 ```bash
 curl -H "X-API-Key: nsk_..." "https://hyungnss.eta.pyhub.kr/api/v1/prices/latest?item=211"

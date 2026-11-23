@@ -73,6 +73,7 @@ def test_forecast_api_contract(conn):
     r = c.get("/api/forecast?item=211&kind=03&market=retail").json()
     assert set(r) >= {"item_code", "kind_code", "rank", "unit", "base_date", "base_price", "model", "points"}
     assert r["rank"] == "상품" and r["unit"] == "1포기" and r["base_date"] == "2026-11-18" and r["model"] == "blend"
+    assert r["model_name"] == "기준선 예측 (예년 계절 흐름)" and r["trained_on"] is None      # 사람이 읽는 이름
     assert [p["h"] for p in r["points"]] == [7, 14, 28]
     p = r["points"][0]
     assert p["target_date"] == "2026-11-25" and isinstance(p["price"], int)
@@ -80,7 +81,7 @@ def test_forecast_api_contract(conn):
 
     # 예측이 없는 등급 → 404 가 아니라 빈 points (화면이 예측 칸만 숨긴다)
     empty = c.get("/api/forecast?item=211&kind=03&rank=중품&market=retail").json()
-    assert empty["points"] == [] and empty["rank"] == "중품"
+    assert empty["points"] == [] and empty["rank"] == "중품" and empty["model_name"] is None
     assert c.get("/api/forecast?item=999&kind=01&market=retail").status_code == 404
 
 
@@ -93,6 +94,7 @@ def test_v1_forecast_needs_key_and_wraps(conn):
     key = c.post("/api/keys", json={"name": "k"}).json()["key"]
     r = c.get("/api/v1/forecast?item=211&kind=03", headers={"X-API-Key": key}).json()
     assert r["meta"]["model"] == "blend" and r["meta"]["base_date"] == "2026-11-18"
+    assert r["meta"]["model_name"] == "기준선 예측 (예년 계절 흐름)" and r["meta"]["trained_on"] is None
     assert [p["h"] for p in r["data"]] == [7, 14, 28]
 
 

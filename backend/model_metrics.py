@@ -5,8 +5,10 @@ Prometheus 가 30초마다 긁지만 DB 는 CACHE_SECONDS 에 한 번만 읽는�
 /metrics 자체는 그대로 나온다 (요청 지표까지 끊기지 않게).
 
 지표 (market = 소매 · 도매)
-  nongsdak_model_info{market,model,version}              1 — 지금 서비스 예측을 낸 모델 (가장 최근 예측의 모델)
+  nongsdak_model_info{market,model,version,name}         1 — 지금 서비스 예측을 낸 모델 (가장 최근 예측의 모델)
+                                                          name = 사람이 읽는 이름 (예: LightGBM · 11월 23일 학습)
   nongsdak_model_gate_score{market,model}                 마지막 학습의 게이트 점수 (model=lgbm) · 같은 기간 blend (model=blend)
+                                                          · 같은 기간 챔피언 (model=champion — 비교했을 때만)
   nongsdak_model_gate_passed{market}                      마지막 학습이 게이트를 넘었나 (1/0)
   nongsdak_model_trained_timestamp_seconds{market}        마지막 학습 시각 (unix) — Grafana 에서 '몇 시간 전'
   nongsdak_model_runs{market,result}                      학습 횟수 (passed · failed)
@@ -26,6 +28,7 @@ from prometheus_client.registry import REGISTRY
 
 import config
 import db
+import model_names
 
 CACHE_SECONDS = 60
 EVAL_DAYS = 28
@@ -40,7 +43,7 @@ def _ts(d):
 
 def _families():
     q = db._query
-    info = GaugeMetricFamily("nongsdak_model_info", "지금 서비스 예측을 낸 모델", labels=["market", "model", "version"])
+    info = GaugeMetricFamily("nongsdak_model_info", "지금 서비스 예측을 낸 모델", labels=["market", "model", "version", "name"])
     rows = GaugeMetricFamily("nongsdak_forecast_rows", "가장 최근 기준일의 예측 행 수", labels=["market", "model"])
     base = GaugeMetricFamily("nongsdak_forecast_base_date_timestamp_seconds", "가장 최근 예측의 기준일", labels=["market"])
     for r in q("""
@@ -51,7 +54,7 @@ def _families():
                ON m.MARKET_TYPE = f.MARKET_TYPE AND m.d = f.BASE_DATE
         GROUP  BY 1, 2, 3, 4
     """):
-        info.add_metric([r["market"], r["model"], r["version"]], 1)
+        info.add_metric([r["market"], r["model"], r["version"], model_names.describe(r["model"], r["version"])["label"]], 1)
         rows.add_metric([r["market"], r["model"]], r["n"])
         base.add_metric([r["market"]], _ts(r["base_date"]))
 
@@ -60,11 +63,13 @@ def _families():
     trained = GaugeMetricFamily("nongsdak_model_trained_timestamp_seconds", "마지막 학습 시각", labels=["market"])
     for r in q("""
         SELECT DISTINCT ON (MARKET_TYPE) MARKET_TYPE AS market, SCORE::float8 AS score, BLEND_SCORE::float8 AS blend,
-               PASSED AS passed, TRAINED_AT AS trained_at
+               CHAMPION_SCORE::float8 AS champion, PASSED AS passed, TRAINED_AT AS trained_at
         FROM   TBL_MODEL_RUN ORDER BY MARKET_TYPE, TRAINED_AT DESC
     """):
         score.add_metric([r["market"], "lgbm"], r["score"])
         score.add_metric([r["market"], "blend"], r["blend"])
+        if r["champion"] is not None:       # 배포된 모델이 없었거나 비교를 건너뛴 학습은 내보내지 않는다
+            score.add_metric([r["market"], "champion"], r["champion"])
         passed.add_metric([r["market"]], 1 if r["passed"] else 0)
         trained.add_metric([r["market"]], r["trained_at"].timestamp())
     runs = GaugeMetricFamily("nongsdak_model_runs", "학습 횟수", labels=["market", "result"])
