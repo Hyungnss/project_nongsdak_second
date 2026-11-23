@@ -38,6 +38,9 @@ def calls(monkeypatch):
          if item == "211" else None)
     # 로그인 쿠키가 없으면 DB 를 안 보지만, 혹시 보더라도 접속하지 않게 막아 둔다
     monkeypatch.setattr(db, "_init_pool", lambda: pytest.fail("시험 중에 실제 DB 에 접속하려 했다"))
+    # /metrics 의 예측 모델 지표는 DB 를 읽는다 — 여기서는 끄고, 따로 test_pg_model_metrics 가 실제 DB 로 본다
+    monkeypatch.setattr(app_module.model_metrics, "_families", lambda: [])
+    app_module.model_metrics.clear_cache()
     return log
 
 
