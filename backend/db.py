@@ -598,8 +598,21 @@ def get_briefing(max_stale=3, market=RETAIL):
     """
     rows = _recent_by_product(market=market)
     day = _compare_all(1, max_stale, market, rows=rows)
-    week = {(c["item_code"], c["kind_code"], c["rank_name"]): c["change_pct"]
-            for c in _compare_all(7, max_stale, market, rows=rows)}
+
+    def by_key(offset):
+        return {(c["item_code"], c["kind_code"], c["rank_name"]): c
+                for c in _compare_all(offset, max_stale, market, rows=rows)}
+
+    # 1주 · 1달 전 — 그날에 가장 가까운 조사일 (±4 · ±8일). 없으면 None (화면은 '—')
+    week, month = by_key(7), by_key(30)
+    # 1주 뒤 예상 — 품종 · 등급마다 가장 최근 예측 (collector/predict.py 가 매일 만든다). 없으면 None
+    fc7 = {(r["item_code"], r["kind_code"], r["rank_name"]): r for r in _query("""
+        SELECT DISTINCT ON (ITEM_CODE, KIND_CODE, RANK_NAME)
+               ITEM_CODE, KIND_CODE, RANK_NAME, PRICE::float8 AS price, TARGET_DATE, MODEL
+        FROM   TBL_PRICE_FORECAST
+        WHERE  MARKET_TYPE = %(m)s AND H = 7
+        ORDER  BY ITEM_CODE, KIND_CODE, RANK_NAME, BASE_DATE DESC, CREATED_AT DESC
+    """, {"m": market})}
 
     series = {}
     for r in rows:
@@ -613,9 +626,20 @@ def get_briefing(max_stale=3, market=RETAIL):
         key = (c["item_code"], c["kind_code"], c["rank_name"])
         s = sorted(series[key], key=lambda r: r["survey_date"])
         last = s[-1]
+        w, m, f = week.get(key), month.get(key), fc7.get(key)
         items.append({
             **c,
-            "change_7d": week.get(key),
+            # 어제(직전 조사일)는 c 의 prev_price · prev_date. 1주 · 1달 전도 가격과 날짜를 같이 준다
+            # ('지금 사기 좋아요' 카드가 오늘 가격을 그때 가격과 나란히 보여 준다).
+            "change_7d": w["change_pct"] if w else None,
+            "week_price": w["prev_price"] if w else None,
+            "week_date": w["prev_date"] if w else None,
+            "change_30d": m["change_pct"] if m else None,
+            "month_price": m["prev_price"] if m else None,
+            "month_date": m["prev_date"] if m else None,
+            "fc_7d": round(f["price"]) if f else None,
+            "fc_7d_date": f["target_date"].isoformat() if f else None,
+            "fc_model": f["model"] if f else None,
             "normal": num(last["price_normal"]),
             "year_ago": num(last["price_1y"]),
             # 최근 조사 최대 40번의 가격 (오래된 것부터). 목록의 작은 추이선용이다.
