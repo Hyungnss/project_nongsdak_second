@@ -7,6 +7,7 @@ Prometheus 가 30초마다 긁지만 DB 는 CACHE_SECONDS 에 한 번만 읽는�
 지표 (market = 소매 · 도매)
   nongsdak_model_info{market,model,version}              1 — 지금 서비스 예측을 낸 모델 (가장 최근 예측의 모델)
   nongsdak_model_gate_score{market,model}                 마지막 학습의 게이트 점수 (model=lgbm) · 같은 기간 blend (model=blend)
+                                                          · 같은 기간 챔피언 (model=champion — 비교했을 때만)
   nongsdak_model_gate_passed{market}                      마지막 학습이 게이트를 넘었나 (1/0)
   nongsdak_model_trained_timestamp_seconds{market}        마지막 학습 시각 (unix) — Grafana 에서 '몇 시간 전'
   nongsdak_model_runs{market,result}                      학습 횟수 (passed · failed)
@@ -60,11 +61,13 @@ def _families():
     trained = GaugeMetricFamily("nongsdak_model_trained_timestamp_seconds", "마지막 학습 시각", labels=["market"])
     for r in q("""
         SELECT DISTINCT ON (MARKET_TYPE) MARKET_TYPE AS market, SCORE::float8 AS score, BLEND_SCORE::float8 AS blend,
-               PASSED AS passed, TRAINED_AT AS trained_at
+               CHAMPION_SCORE::float8 AS champion, PASSED AS passed, TRAINED_AT AS trained_at
         FROM   TBL_MODEL_RUN ORDER BY MARKET_TYPE, TRAINED_AT DESC
     """):
         score.add_metric([r["market"], "lgbm"], r["score"])
         score.add_metric([r["market"], "blend"], r["blend"])
+        if r["champion"] is not None:       # 배포된 모델이 없었거나 비교를 건너뛴 학습은 내보내지 않는다
+            score.add_metric([r["market"], "champion"], r["champion"])
         passed.add_metric([r["market"]], 1 if r["passed"] else 0)
         trained.add_metric([r["market"]], r["trained_at"].timestamp())
     runs = GaugeMetricFamily("nongsdak_model_runs", "학습 횟수", labels=["market", "result"])

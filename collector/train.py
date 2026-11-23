@@ -29,9 +29,11 @@ MARKETS = {"소매": ["소매"], "도매": ["도매"], "all": ["소매", "도매
 
 RECORD = """
     INSERT INTO TBL_MODEL_RUN (MODEL_VERSION, MARKET_TYPE, MODEL, TRAINED_AT, DATA_END, TRAIN_ROWS, HOLDOUT_START,
-                               HOLDOUT_END, SCORE, BLEND_SCORE, PARITY_DIFF, PASSED, REASON, DEPLOYED, META)
+                               HOLDOUT_END, SCORE, BLEND_SCORE, CHAMPION_VERSION, CHAMPION_SCORE, PARITY_DIFF,
+                               PASSED, REASON, DEPLOYED, META)
     VALUES (%(version)s, %(market)s, %(model)s, %(trained_at)s, %(data_end)s, %(train_rows)s, %(hs)s, %(he)s,
-            %(score)s, %(blend)s, %(parity)s, %(passed)s, %(reason)s, %(passed)s, %(meta)s)
+            %(score)s, %(blend)s, %(ch_version)s, %(ch_score)s, %(parity)s, %(passed)s, %(reason)s, %(passed)s,
+            %(meta)s)
     ON CONFLICT (MODEL_VERSION) DO NOTHING
 """
 
@@ -43,7 +45,11 @@ def record(conn, meta):
             "version": meta["version"], "market": meta["market"], "model": meta["model"],
             "trained_at": meta["trained_at"], "data_end": meta["data_end"], "train_rows": meta["train_rows"],
             "hs": g["holdout_start"], "he": g["holdout_end"], "score": round(g["score"], 4),
-            "blend": round(g["blend_score"], 4), "parity": g["parity_max_diff"], "passed": g["passed"],
+            "blend": round(g["blend_score"], 4),
+            # 챔피언 — 배포된 모델이 없었거나 비교를 건너뛰었으면 NULL
+            "ch_version": g.get("champion_version"),
+            "ch_score": None if g.get("champion_score") is None else round(g["champion_score"], 4),
+            "parity": g["parity_max_diff"], "passed": g["passed"],
             "reason": g["reason"][:200], "meta": json.dumps(meta, ensure_ascii=False),
         })
 
@@ -66,9 +72,10 @@ def train(markets, n_jobs):
                 gc.collect()
                 record(conn, meta)
                 g = meta["gate"]
+                vs = (f" vs 챔피언 {g['champion_score']:.3f}" if g.get("champion_score") is not None else "")
                 ingest.log(conn, SOURCE, f"{m} {meta['version']}", "OK", meta["train_rows"],
                            1 if g["passed"] else 0,
-                           f"LightGBM {g['score']:.3f} vs blend {g['blend_score']:.3f} · {g['reason']}")
+                           f"LightGBM {g['score']:.3f} vs blend {g['blend_score']:.3f}{vs} · {g['reason']}")
             except Exception as ex:
                 failed += 1
                 ingest.log(conn, SOURCE, f"{m} {model.MODEL_NAME}", "ERROR", message=f"{type(ex).__name__}: {ex}")

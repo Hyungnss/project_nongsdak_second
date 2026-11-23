@@ -3,8 +3,12 @@
 서버에서 매주 돈다 (.github/workflows/train.yml → python -m collector.train). 시장(소매 · 도매)마다 모델 하나.
 
   1. 게이트 모델: 최근 8주(HOLDOUT_DAYS)를 떼어 두고 그 전까지만으로 학습 → 떼어 둔 8주를 예측해 채점
-  2. 게이트:
+  2. 게이트 (챔피언 / 도전자):
        · 성능 — 같은 8주에서 기준선 blend 보다 나아야 한다 (점수 = 1 · 2 · 4주 MASE 중앙값 평균, 튜닝과 같다)
+       · 챔피언 — 지금 배포된 모델의 '방법'(meta.json 의 params · inputs)으로도 같은 떼어 두기 전 자료로 다시 학습해
+                  같은 8주를 채점한다. 도전자(이번 방법)가 그보다 나쁘면 안 된다 (같은 방법이면 같은 점수라 통과).
+                  지금 모델 파일을 그대로 쓰지 않는 이유: 그 모델은 이 8주의 정답을 이미 보고 학습했다 (불공평).
+                  배포된 모델이 없으면(처음) 건너뛴다.
        · parity — 파일로 저장했다 다시 읽은 모델이 메모리의 모델과 똑같이 예측해야 한다
        · 정상 — 예측이 모두 유한한 값이어야 한다
   3. 최종 모델: 정답이 나온 전체 자료(2016~)로 다시 학습해 저장한다
@@ -89,44 +93,125 @@ def holdout_range(series):
     return end - np.timedelta64(HOLDOUT_DAYS - 1, "D"), end
 
 
-def gate(series_list, params, log=print, wholesale=None):
-    """게이트 모델을 학습해 떼어 둔 8주에서 blend 와 겨룬다. 돌려주는 것: 점수 · 통과 여부 · 이유 dict."""
-    by = {s.sid: s for s in series_list}
+def _holdout(series_list):
+    """게이트 기간 · 그 기간의 채점 표본 (blend 예측까지) · MASE 분모."""
     start, end = holdout_range(series_list)
     # 떼어 둔 기간: 기준선 blend 예측까지 같이 (튜닝 · 백테스트와 같은 함수)
     hold = backtest.run(series_list, start, end, ["blend"], log=lambda *_: None)
+    return start, end, hold, backtest.scales(series_list, start)
+
+
+def _fit_before(series_list, params, start, wholesale=None):
+    """떼어 둔 기간의 정답을 못 보게 — 목표일이 start 전인 표본으로만 학습. 돌려주는 것: (booster, 학습 행 수)."""
+    by = {s.sid: s for s in series_list}
     train = make_samples(series_list)
-    train = train[train.target_date.to_numpy() < start].reset_index(drop=True)   # 떼어 둔 기간의 정답은 못 본다
+    train = train[train.target_date.to_numpy() < start].reset_index(drop=True)
     booster = fit(by, train, params, wholesale)
     rows = len(train)
     del train
     gc.collect()
+    return booster, rows
 
+
+def _score(hold, scale, name):
+    table = backtest.metrics(hold, scale, ["blend", name])
+    return table, {m: float(table[table.model == m].MASE_median.mean()) for m in ("blend", name)}
+
+
+def challenger_check(series_list, params, wholesale=None):
+    """도전자(이번 방법) — 떼어 두기 전 자료로 학습 → 8주 채점 · blend 점수 · parity · 유한. 결과는 작은 dict."""
+    by = {s.sid: s for s in series_list}
+    start, end, hold, scale = _holdout(series_list)
+    booster, rows = _fit_before(series_list, params, start, wholesale)
     pred = predict_prices(booster, by, hold, wholesale)
     hold["pred_lgbm"], hold["fb_lgbm"] = pred, ~np.isfinite(pred)
-    table = backtest.metrics(hold, backtest.scales(series_list, start), ["blend", "lgbm"])
-    score = {m: float(table[table.model == m].MASE_median.mean()) for m in ("blend", "lgbm")}
-
+    table, score = _score(hold, scale, "lgbm")
     # parity — 파일로 저장했다 다시 읽은 모델이 똑같이 예측하는가
     again = predict_prices(load_booster(booster.model_to_string()), by, hold, wholesale)
-    parity = float(np.nanmax(np.abs(again - pred))) if len(pred) else 0.0
-    finite = bool(np.isfinite(pred).all())
-
-    reasons = []
-    if not finite:
-        reasons.append("예측에 NaN · 무한대")
-    if parity > 1e-6:
-        reasons.append(f"parity 불일치 {parity:.2e}")
-    if not score["lgbm"] < score["blend"]:
-        reasons.append(f"blend 보다 나쁨 ({score['lgbm']:.3f} ≥ {score['blend']:.3f})")
-    out = {
+    return {
         "holdout_start": str(start), "holdout_end": str(end), "holdout_samples": len(hold), "gate_train_rows": rows,
         "score": score["lgbm"], "blend_score": score["blend"],
         "by_h": {int(r.h): float(r.MASE_median) for r in table[table.model == "lgbm"].itertuples()},
-        "parity_max_diff": parity, "passed": not reasons, "reason": " · ".join(reasons) or "통과",
+        "parity_max_diff": float(np.nanmax(np.abs(again - pred))) if len(pred) else 0.0,
+        "finite": bool(np.isfinite(pred).all()),
     }
-    log(f"  게이트 {start} ~ {end} · 표본 {len(hold):,} · LightGBM {score['lgbm']:.3f} vs blend {score['blend']:.3f}"
-        f" · parity {parity:.1e} → {out['reason']}")
+
+
+def champion_check(series_list, params, wholesale=None):
+    """챔피언(지금 배포된 모델의 방법) — 도전자와 같은 떼어 두기 전 자료로 다시 학습해 같은 8주를 채점한다."""
+    by = {s.sid: s for s in series_list}
+    start, _, hold, scale = _holdout(series_list)
+    booster, _ = _fit_before(series_list, params, start, wholesale)
+    pred = predict_prices(booster, by, hold, wholesale)
+    hold["pred_champion"], hold["fb_champion"] = pred, ~np.isfinite(pred)
+    table, score = _score(hold, scale, "champion")
+    return {"score": score["champion"],
+            "by_h": {int(r.h): float(r.MASE_median) for r in table[table.model == "champion"].itertuples()}}
+
+
+def champion_method(market, root=None):
+    """지금 배포된 모델의 방법 {version, params, inputs, note}. 배포된 모델이 없으면 None.
+
+    meta.json 이 없거나 params 가 없으면 방법을 되살릴 수 없다 → note 만 채워 돌려준다 (비교는 건너뛴다).
+    inputs 가 없는 예전 모델(v2.6.0)은 가격만이다.
+    """
+    root = root or model_dir()
+    version = (read_current(root).get(MARKET_EN[market]) or {}).get("current")
+    if not version:
+        return None
+    p = root / MARKET_EN[market] / version / "meta.json"
+    meta = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+    if not meta.get("params"):
+        return {"version": version, "params": None, "inputs": None, "note": "meta.json 에 학습 설정이 없음"}
+    return {"version": version, "params": meta["params"], "inputs": meta.get("inputs") or "price", "note": None}
+
+
+def gate(series_list, params, log=print, wholesale=None, champion=None, isolate=False):
+    """도전자를 떼어 둔 8주에서 blend · 챔피언과 겨룬다. 돌려주는 것: 점수 · 통과 여부 · 이유 dict.
+
+    champion: champion_method() 의 결과 (None 이면 챔피언 비교를 건너뛴다 — 배포된 모델이 없을 때).
+    isolate=True 면 도전자 · 챔피언 학습을 각각 잠깐 띄운 자식 프로세스에서 (서버 — 두 학습이 한 프로세스에 쌓이지 않게).
+    """
+    run = _isolated if isolate else (lambda fn, *a: fn(*a))
+    c = run(challenger_check, series_list, params, wholesale)
+    gc.collect()
+
+    ch_score, ch_by_h, ch_note = None, {}, None
+    if champion is not None:
+        if champion.get("params") is None:
+            ch_note = champion.get("note") or "챔피언 방법을 알 수 없음"
+        elif champion["inputs"] == "price+wholesale" and wholesale is None:
+            ch_note = "챔피언은 도매 특성을 쓰는데 도매 자료가 없음"
+        else:
+            # CPU 수만 이번 학습과 같게 (설정 자체는 챔피언 것 그대로)
+            ch_params = {**champion["params"], "n_jobs": params.get("n_jobs", 2)}
+            ch_ws = wholesale if champion["inputs"] == "price+wholesale" else None
+            ch = run(champion_check, series_list, ch_params, ch_ws)
+            gc.collect()
+            ch_score, ch_by_h = ch["score"], ch["by_h"]
+        if ch_note:
+            log(f"  챔피언 {champion['version']} 비교 건너뜀 — {ch_note}")
+
+    reasons = []
+    if not c["finite"]:
+        reasons.append("예측에 NaN · 무한대")
+    if c["parity_max_diff"] > 1e-6:
+        reasons.append(f"parity 불일치 {c['parity_max_diff']:.2e}")
+    if not c["score"] < c["blend_score"]:
+        reasons.append(f"blend 보다 나쁨 ({c['score']:.3f} ≥ {c['blend_score']:.3f})")
+    # 같은 방법이면 같은 점수 — 소수 끝자리 차이로 떨어지지 않게 아주 작은 여유만 둔다
+    if ch_score is not None and not c["score"] <= ch_score + 1e-9:
+        reasons.append(f"챔피언보다 나쁨 ({c['score']:.3f} ≥ {ch_score:.3f})")
+    out = {k: v for k, v in c.items() if k != "finite"}
+    out.update({
+        "champion_version": champion["version"] if champion else None,
+        "champion_score": ch_score, "champion_by_h": ch_by_h, "champion_note": ch_note,
+        "passed": not reasons, "reason": " · ".join(reasons) or "통과",
+    })
+    vs = f" vs 챔피언 {ch_score:.3f} ({champion['version']})" if ch_score is not None else ""
+    log(f"  게이트 {out['holdout_start']} ~ {out['holdout_end']} · 표본 {out['holdout_samples']:,}"
+        f" · LightGBM {c['score']:.3f} vs blend {c['blend_score']:.3f}{vs}"
+        f" · parity {c['parity_max_diff']:.1e} → {out['reason']}")
     return out
 
 
@@ -217,8 +302,8 @@ def _final(series_list, params, meta, root, wholesale=None):
 def _isolated(fn, *args):
     """fn(*args) 를 잠깐 띄운 자식 프로세스에서 돌리고 결과만 받는다.
 
-    학습 한 번에 최대 약 700MB 를 쓰는데, 파이썬은 쓴 메모리를 운영체제에 잘 돌려주지 않는다. 게이트 · 최종 학습을
-    한 프로세스에서 차례로 하면 최대치가 쌓여 960MB 까지 오른다(서버 여유 약 840MB). 자식이 끝나면 메모리가 전부 돌아온다.
+    학습 한 번에 최대 약 700MB 를 쓰는데, 파이썬은 쓴 메모리를 운영체제에 잘 돌려주지 않는다. 도전자 · 챔피언 · 최종
+    학습을 한 프로세스에서 차례로 하면 최대치가 쌓여 960MB 까지 오른다(서버 여유 약 840MB). 자식이 끝나면 메모리가 전부 돌아온다.
     리눅스(서버)는 fork — 부모가 읽어 둔 시계열을 복사 없이 같이 본다. 단 fork 는 부모가 lightgbm(OpenMP)을 한 번도
     돌리지 않았을 때만 안전하다 (GNU OpenMP 는 쓴 뒤 fork 하면 자식이 멈춘다). collector.train 의 부모는 자료만 읽으므로
     괜찮다. 같은 프로세스에서 lightgbm 을 이미 돌린 곳(pytest 등)은 MODEL_MP_CONTEXT=spawn 으로 깨끗한 프로세스를 띄운다.
@@ -233,15 +318,9 @@ def _isolated(fn, *args):
         return ex.submit(fn, *args).result()
 
 
-def _gate_quiet(series_list, params, wholesale=None):
-    lines = []
-    out = gate(series_list, params, log=lines.append, wholesale=wholesale)
-    return out, lines
-
-
 def train_market(market, series_list, n_jobs=2, root=None, now=None, params_override=None, isolate=False,
                  log=print, wholesale=None):
-    """isolate=True 면 게이트 · 최종 학습을 각각 자식 프로세스에서 (서버 — collector.train).
+    """isolate=True 면 도전자 · 챔피언 · 최종 학습을 각각 자식 프로세스에서 (서버 — collector.train).
 
     wholesale: 도매 시계열 목록 — 소매 모델에 도매 특성을 더한다 (collector.train 이 소매일 때 넘긴다).
     """
@@ -253,12 +332,8 @@ def train_market(market, series_list, n_jobs=2, root=None, now=None, params_over
     log(f"\n[{market}] {version} · 품종 {len(series_list)}개 · 자료 끝 {latest}"
         + (f" · 도매 특성 (도매 {len(wholesale)}품종)" if wholesale is not None else ""))
 
-    if isolate:
-        g, lines = _isolated(_gate_quiet, series_list, params, wholesale)
-        for line in lines:
-            log(line)
-    else:
-        g = gate(series_list, params, log, wholesale)
+    # 챔피언 = 지금 배포된 모델의 방법 (이번 학습이 배포되기 전 상태)
+    g = gate(series_list, params, log, wholesale, champion=champion_method(market, root), isolate=isolate)
     gc.collect()
 
     meta = {

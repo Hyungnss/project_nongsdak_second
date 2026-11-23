@@ -192,3 +192,111 @@ def test_serving_wholesale_features_equal_training_features():
     fs = features.build({cut.sid: cut}, serve, [w])
     ft = features.build({r.sid: r}, train, [w])
     np.testing.assert_array_equal(fs[features.WHOLESALE].to_numpy(), ft[features.WHOLESALE].to_numpy())
+
+
+# ── 챔피언 / 도전자 게이트 ───────────────────────────────────────────────────
+def _deploy(root, market="도매", **override):
+    """챔피언 만들기 — 학습해 저장하고 게이트와 상관없이 배포한다."""
+    meta = model.train_market(market, _market(), n_jobs=1, now=NOW, params_override={**FAST, **override},
+                              log=lambda *_: None)
+    model.promote(market, meta["version"])
+    return meta
+
+
+def _fake_checks(monkeypatch, challenger, champion, seen=None):
+    """도전자 · 챔피언 채점을 정해진 점수로 (blend 는 1.10). seen 에 챔피언 학습에 넘어온 설정 · 도매를 남긴다."""
+    def ch(series_list, params, wholesale=None):
+        return {"holdout_start": "2026-08-25", "holdout_end": "2026-10-19", "holdout_samples": 10,
+                "gate_train_rows": 100, "score": challenger, "blend_score": 1.10, "by_h": {7: challenger},
+                "parity_max_diff": 0.0, "finite": True}
+
+    def cp(series_list, params, wholesale=None):
+        if seen is not None:
+            seen.append((params, wholesale))
+        return {"score": champion, "by_h": {7: champion}}
+    monkeypatch.setattr(model, "challenger_check", ch)
+    monkeypatch.setattr(model, "champion_check", cp)
+
+
+def test_gate_blocks_challenger_worse_than_champion(root, monkeypatch):
+    """도전자가 blend 를 이겨도(1.05 < 1.10) 챔피언(1.00)보다 나쁘면 배포하지 않는다."""
+    champ = _deploy(root)
+    seen = []
+    _fake_checks(monkeypatch, challenger=1.05, champion=1.00, seen=seen)
+    later = model.train_market("도매", _market(), n_jobs=1, now=datetime(2026, 11, 29, 3, 0),
+                               params_override=FAST, log=lambda *_: None)
+    g = later["gate"]
+    assert not g["passed"] and g["reason"] == "챔피언보다 나쁨 (1.050 ≥ 1.000)"
+    assert g["champion_version"] == champ["version"] and g["champion_score"] == 1.00
+    assert model.read_current()["wholesale"]["current"] == champ["version"]          # 지금 모델 유지
+    assert (root / "wholesale" / later["version"] / "model.txt").exists()            # 저장은 한다
+    # 챔피언은 '배포된 모델의 방법' 으로 다시 학습한다 — 그 meta.json 의 설정 · 입력(가격만 → 도매 없음)
+    params, ws = seen[0]
+    assert params["num_iterations"] == champ["params"]["num_iterations"] == FAST["n_estimators"] and ws is None
+
+
+def test_gate_passes_challenger_better_than_champion(root, monkeypatch):
+    champ = _deploy(root)
+    _fake_checks(monkeypatch, challenger=0.95, champion=1.00)
+    later = model.train_market("도매", _market(), n_jobs=1, now=datetime(2026, 11, 29, 3, 0),
+                               params_override=FAST, log=lambda *_: None)
+    assert later["gate"]["passed"] and later["gate"]["champion_version"] == champ["version"]
+    assert model.read_current()["wholesale"]["current"] == later["version"]
+
+
+def test_champion_same_method_scores_the_same_and_deploys(root):
+    """같은 방법이면 챔피언도 같은 자료 · 같은 설정으로 다시 학습하니 점수가 같다 → 챔피언 조건은 통과."""
+    champ = _deploy(root)
+    later = model.train_market("도매", _market(), n_jobs=1, now=datetime(2026, 11, 29, 3, 0),
+                               params_override=FAST, log=lambda *_: None)
+    g = later["gate"]
+    assert g["champion_version"] == champ["version"] and g["champion_score"] == g["score"]
+    assert g["champion_by_h"] == g["by_h"] and "챔피언" not in g["reason"]
+    assert g["passed"] == (g["score"] < g["blend_score"])                     # 남은 조건은 blend 뿐
+    assert (model.read_current()["wholesale"]["current"] == later["version"]) == g["passed"]
+
+
+def test_gate_without_deployed_model_compares_blend_only(root, monkeypatch):
+    called = []
+    monkeypatch.setattr(model, "champion_check", lambda *a, **k: called.append(1))
+    meta = model.train_market("도매", _market(), n_jobs=1, now=NOW, params_override=FAST, log=lambda *_: None)
+    g = meta["gate"]
+    assert not called and g["champion_version"] is None and g["champion_score"] is None
+    assert "챔피언" not in g["reason"]
+
+
+def test_champion_with_wholesale_inputs_gets_wholesale(root, monkeypatch):
+    """챔피언이 도매 특성 모델이면 챔피언 학습에도 도매를 넘긴다. 도매 자료가 없으면 비교를 건너뛴다(기록에 남김)."""
+    r, w = _pair()
+    retail = [r, *_market()[1:]]
+    champ = model.train_market("소매", retail, n_jobs=1, now=NOW, params_override=FAST, log=lambda *_: None,
+                               wholesale=[w])
+    model.promote("소매", champ["version"])
+    seen = []
+    _fake_checks(monkeypatch, challenger=1.00, champion=1.00, seen=seen)
+    model.train_market("소매", retail, n_jobs=1, now=datetime(2026, 11, 29, 3, 0), params_override=FAST,
+                       log=lambda *_: None, wholesale=[w])
+    assert seen[0][1] == [w]
+
+    logs = []
+    skipped = model.train_market("소매", retail, n_jobs=1, now=datetime(2026, 12, 6, 3, 0), params_override=FAST,
+                                 log=logs.append)                                   # 도매 없이
+    g = skipped["gate"]
+    assert len(seen) == 1 and g["champion_score"] is None and "도매 자료가 없음" in g["champion_note"]
+    assert any("비교 건너뜀" in line for line in logs)
+
+
+def test_champion_method_reads_deployed_meta(root):
+    assert model.champion_method("도매") is None                                    # 배포된 모델 없음
+    champ = _deploy(root)
+    m = model.champion_method("도매")
+    assert m["version"] == champ["version"] and m["inputs"] == "price" and m["params"] == champ["params"]
+    # v2.6.0 처럼 inputs 가 없는 meta 는 가격만 · params 가 없으면 비교할 수 없다 (note)
+    p = root / "wholesale" / champ["version"] / "meta.json"
+    meta = json.loads(p.read_text(encoding="utf-8"))
+    del meta["inputs"]
+    p.write_text(json.dumps(meta), encoding="utf-8")
+    assert model.champion_method("도매")["inputs"] == "price"
+    del meta["params"]
+    p.write_text(json.dumps(meta), encoding="utf-8")
+    assert model.champion_method("도매")["params"] is None and model.champion_method("도매")["note"]
