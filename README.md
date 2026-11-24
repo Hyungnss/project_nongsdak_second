@@ -6,6 +6,40 @@ KAMIS 일별 **소매·도매** 시세를 PostgreSQL 에 적재해 두고, 오�
 팀 **다채롭조**의 일별(daily) 파트로 시작한 프로젝트다. 팀 결과물은 원래 저장소에 v1 으로 남겨 두었고,
 이 저장소는 그 뒤를 이어 개인 프로젝트로 보완 · 배포한다.
 
+**서비스: https://hyungnss.eta.pyhub.kr** · 공개 API `/api/v1` · 상태 확인 `/api/health`
+
+---
+
+## 한눈에 보기
+
+PC 에서만 돌던 서비스를 **컨테이너화 → CI/CD → 운영 → MLOps** 순서로 바꿔, 지금은 서버 한 대에서 스스로 돈다.
+매일 가격을 모아 **품종별 1 · 2 · 4주 뒤 가격을 예측**하고, 매주 모델을 다시 학습해 **게이트를 넘은 모델만** 배포한다.
+
+![전체 구조](docs/architecture.png)
+
+| 단계 | 하는 일 | 파일 |
+|---|---|---|
+| 컨테이너 | 이미지 하나를 웹(`web`) · 수집기(`collector`)가 같이 쓴다. 서버에는 web · collector · db(PostgreSQL) · caddy(https) · prometheus · grafana · node-exporter **7개** | `Dockerfile` · `docker-compose*.yml` |
+| CI | PR · main push 마다 린트 · 시험(실제 PostgreSQL 포함) · compose 로 띄워 헬스체크 | `.github/workflows/ci.yml` |
+| CD | `v*` 태그 → 이미지를 GHCR 에 올림 → **서버 안의 self-hosted runner** 가 받아 DB 마이그레이션 → 배포 → `/api/health` 의 버전이 태그와 같은지 확인 | `deploy.yml` · `database/migrate.sh` |
+| 수집 · 예측 | 매일 17:30 KAMIS 소매 · 도매 시세 수집 → 바로 예측을 만들어 DB 에 저장 | `collector/` |
+| 재학습 · 게이트 | 매주 일요일 03:00 재학습. 최근 8주로 채점해 **기준선(blend)보다 나은지 · 지금 모델보다 나쁘지 않은지 · 저장 후 다시 읽어도 같은지** 를 통과해야 교체 | `train.yml` · `ml/model.py` |
+| 되돌리기 | 모델(`train` → rollback) · 앱(`deploy` → 이전 버전) · DB(버킷 백업에서 복원) 를 각각 따로 | [RUNBOOK](docs/RUNBOOK.md) |
+| 백업 | 매일 04:00 `pg_dump` → Lightsail 버킷(30일) · 일요일마다 복원 시험. 모델 사본도 버킷에 | `backup.yml` |
+| 모니터링 | Grafana — 웹 요청 · 오류 · 서버 자원 + **모델 버전 · 게이트 점수 · 예측이 몇 시간 전에 나왔는지** | [MONITORING](docs/MONITORING.md) |
+
+**예측 성능** — 2016년부터의 KAMIS 가격 약 77만 행, 미래를 보지 않는 시간 순서 백테스트(walk-forward)로 평가.
+시험 기간(2024-10 ~ 2026-10) 동안 기준선 blend 보다 **도매 5~8% · 소매 6~11%** 덜 틀렸다 (MASE 중앙값).
+날씨 · 물가는 효과가 없었고, 소매에 **같은 품종의 도매 가격**을 넣은 것이 효과가 있었다. 자세히는 [docs/ML.md](docs/ML.md).
+
+| 문서 | 내용 |
+|---|---|
+| [docs/ML.md](docs/ML.md) | 예측 모델 결과 요약 → 데이터 · 기준선 · 튜닝 · 실험 · 서빙 문서로 이어짐 |
+| [docs/RUNBOOK.md](docs/RUNBOOK.md) | 배포 · 되돌리기 · 장애 대응 절차 |
+| [docs/MONITORING.md](docs/MONITORING.md) | Prometheus · Grafana 구성 |
+| [docs/WORKLOG.md](docs/WORKLOG.md) | 날짜별 작업 기록과 결정 근거 |
+| [SETUP.md](SETUP.md) | 처음 세팅하는 순서 |
+
 ---
 
 ## 실행
@@ -22,7 +56,7 @@ docker compose up -d --build                 # 또는 컨테이너로 db + web �
 검사는 push 하기 전에 로컬에서도 같은 것을 돌릴 수 있다. GitHub 에서는 main push · PR 마다
 `.github/workflows/ci.yml` 이 자동으로 돌린다 — ① 린트 · 시험(실제 PostgreSQL 포함) ② 이미지를 만들어
 docker compose 로 띄우고 헬스체크 · 화면 · API 확인. `v*` 태그를 올리면 둘 다 통과한 뒤 이미지를
-GHCR(`ghcr.io/<계정>/nongsdak:<버전>`)에 올리고 Release 를 만든다.
+GHCR(`ghcr.io/<계정>/nongsdak:<버전>`)에 올리고 Release 를 만든 다음, 서버에 배포한다 (`deploy.yml`).
 
 ```
 uv run ruff check .     # 린트 — 정의 안 된 이름 · 안 쓰는 import · 문법 오류
@@ -324,13 +358,15 @@ PostgreSQL 18.7 · Docker 이미지는 `python:3.11.18-slim-bookworm` 기반 · 
 ## 가격 예측 모델
 
 품종별 1 · 2 · 4주 뒤 가격을 예측한다. 기준선(`blend`)과 LightGBM 을 시간 순서 백테스트로 비교 · 튜닝했고,
-운영은 **LightGBM A(가격만)** — 서버가 매주 재학습하고 게이트를 넘은 모델만 배포한다 (`ml/model.py`).
+운영은 도매 **LightGBM A(가격만)**, 소매 **LightGBM A + 같은 품종의 도매 가격** — 서버가 매주 재학습하고
+게이트를 넘은 모델만 배포한다 (`ml/model.py`). 모델이 없거나 실패하면 기준선 blend 로 대신 예측한다.
 결과 요약은 [docs/ML.md](docs/ML.md), 전처리 · 평가 방식 · 실험 · 튜닝은 거기서 이어지는 `docs/ML_*.md`.
 
-## 앞으로
+## 지금까지와 앞으로
 
-**KAMIS OpenAPI 자동 수집 전환은 2026-09-02 에 끝났다** — 사람이 CSV 를 받아 옮기는 과정은
-없어졌고, 매일 17:30 에 저절로 갱신된다. 날짜별 기록과 결정 근거는 [WORKLOG.md](docs/WORKLOG.md) 에 있다.
+- 2026-09 — KAMIS OpenAPI 자동 수집 (사람이 CSV 를 옮기던 과정이 없어짐)
+- 2026-11 — Oracle XE → PostgreSQL (v2) · 컨테이너화 · CI/CD · AWS Lightsail 배포 · 백업과 복원 시험 · 모니터링
+- 2026-11 — 예측 모델 서빙 · 매주 재학습 · 챔피언/도전자 게이트 · 롤백 (v2.4.0 ~ v2.8.0)
 
-2026-11 에 Oracle XE 11g 에서 PostgreSQL 로 옮겼다 (v2). 남은 것은 **배포**다 —
-웹 · 수집기 · DB 를 docker compose 로 묶고, `v*` 태그가 올라오면 AWS Lightsail 서버에 배포한다.
+다음 단계는 **더 긴 예측(몇 달)** 과 **품목별 모델**, 운영 쪽으로는 **보안 로그 · 로그인 시도 제한**이다.
+날짜별 기록과 결정 근거는 [WORKLOG.md](docs/WORKLOG.md) 에 있다.
