@@ -22,3 +22,6 @@ ml_runs/
 # 운영 모델 (서버 Docker 볼륨 · 로컬에서 collector.train 을 돌렸을 때)
 /models/
 mlruns/
+
+# 발표 자료 (제출용 · 실명 포함 — 공개 저장소에 올리지 않는다)
+docs/presentation/
